@@ -3,7 +3,6 @@
 use serde_json::{Value, json};
 
 use super::{Command, Failure, Output};
-use crate::library;
 use crate::sources::{self, Entry, MAIN, Sources};
 
 /// Add, list, update and remove the libraries this machine knows.
@@ -101,67 +100,8 @@ fn line(s: &Value) -> String {
 }
 
 fn add(name: &str, url: &str) -> Result<Output, Failure> {
-    if !library::valid_name(name) {
-        return Err(Failure::new(format!(
-            "{name} is not a valid source name: lowercase letters, digits and single hyphens, 2-{} characters",
-            library::MAX_NAME
-        )));
-    }
     let mut record = Sources::load()?;
-    if let Some(existing) = record.source.get(name) {
-        return Err(Failure::new(format!(
-            "a source named {name} is already recorded ({}); remove it first or pick another name",
-            existing.url
-        )));
-    }
-    let clone = sources::clone_dir(name)?;
-    if clone.exists() {
-        return Err(Failure::new(format!(
-            "{} already exists but no source {name} is recorded; move it away first",
-            clone.display()
-        )));
-    }
-    let parent = sources::clones_dir()?;
-    std::fs::create_dir_all(&parent)
-        .map_err(|e| Failure::new(format!("cannot create {}: {e}", parent.display())))?;
-
-    // Clone beside its final place and move it there only once it is a library; dropping the
-    // staging directory cleans up whatever failed on the way.
-    let staging = tempfile::Builder::new()
-        .prefix(&format!(".{name}.adding"))
-        .tempdir_in(&parent)
-        .map_err(|e| Failure::new(format!("cannot stage in {}: {e}", parent.display())))?;
-    let into = staging.path().join(name);
-    sources::git(
-        None,
-        &[
-            "clone".as_ref(),
-            "--quiet".as_ref(),
-            "--branch".as_ref(),
-            MAIN.as_ref(),
-            "--".as_ref(),
-            url.as_ref(),
-            into.as_os_str(),
-        ],
-    )?;
-    if !into.join("library.toml").is_file() {
-        return Err(Failure::new(format!(
-            "{url} is not a library: its {MAIN} has no library.toml"
-        )));
-    }
-    std::fs::rename(&into, &clone)
-        .map_err(|e| Failure::new(format!("cannot move the clone to {}: {e}", clone.display())))?;
-
-    record.source.insert(
-        name.to_owned(),
-        Entry {
-            url: url.to_owned(),
-        },
-    );
-    if let Err(e) = record.save() {
-        let _ = std::fs::remove_dir_all(&clone);
-        return Err(e);
-    }
+    sources::add(&mut record, name, url)?;
     let added = describe(name, &record.source[name])?;
     Ok(Output {
         human: format!("added {}", line(&added)),

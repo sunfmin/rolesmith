@@ -143,7 +143,8 @@ into = ["claude-code"]                           # the targets it is installed i
 This file is the one home of which roles a project uses, at which revision, into which agents.
 Everything rolesmith writes into a project besides it is **generated** from it: listed in
 `.rolesmith/manifest.json`, ignored by git (rolesmith adds the lines to `.gitignore`), rewritten
-identically by `rolesmith sync`. rolesmith deletes only files its manifest lists.
+identically by `rolesmith sync`. rolesmith deletes only files its manifest lists, and refuses to
+overwrite a file its manifest does not list.
 
 rolesmith never edits a project's `CLAUDE.md`, `AGENTS.md`, code, build files or settings.
 
@@ -153,12 +154,14 @@ rolesmith never edits a project's `CLAUDE.md`, `AGENTS.md`, code, build files or
 
 For each target, a role becomes skills in the directory that agent reads:
 
-- one skill per skill of the role, named `rolesmith-<role>-<skill>`, its files copied as they are;
+- one skill per skill of the role, named `rolesmith-<role>-<skill>`, its files copied as they are
+  (its `SKILL.md`'s front matter `name` set to that name);
 - one **core skill**, `rolesmith-<role>`, whose `SKILL.md` is `core.md` followed by the
   prohibitions, with the description "Always in force in this project: <role description>".
 
-Every generated `SKILL.md` carries a first-line comment naming the source, role and rev it came from
-and saying it is generated.
+Every generated `SKILL.md` carries a comment on the first line of its front matter naming the source,
+role and rev it came from and saying it is generated. (On the file's first line it would hide the
+front matter: agents read front matter only from a first line `---`.)
 
 ### 5.2 Targets
 
@@ -267,7 +270,7 @@ one JSON document, generated from the same definitions the parser uses.
 | `list [--source <name>]` | roles: address, description |
 | `show <role> [--rev <sha>]` | role.toml, core, prohibitions, skills with descriptions, programs, services |
 | `check [<role>] [--library <dir>]` | validate a library working copy (default: the current directory) or one role (§2, §3, §7.2); prints every problem, not the first, each with its file, line where there is one, and rule; exits 1 if there is any, and with `--json` lists them as `error.problems` |
-| `use <role>... --into <target>... [--project <dir> \| --global] [--rev <sha>]` | install (§5); record in `rolesmith.toml` or `global.toml`; idempotent |
+| `use <role>... --into <target>... [--project <dir> \| --global] [--rev <sha>]` | install (§5); record in `rolesmith.toml` or `global.toml`; idempotent: a role already recorded keeps its rev unless `--rev` is given (`update` moves it) |
 | `use --auto --into <target>... [--project <dir>]` | install what `suggest` lists |
 | `sync [--project <dir> \| --global]` | make the generated files equal what the record says; add missing sources from `url` |
 | `status [--project <dir> \| --global]` | §5.4 |

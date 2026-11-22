@@ -11,6 +11,7 @@ pub mod github;
 pub mod library;
 pub mod machine;
 pub mod problem;
+pub mod project;
 pub mod secrets;
 pub mod sources;
 pub mod version;

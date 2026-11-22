@@ -16,7 +16,9 @@ pub mod new;
 pub mod prompt;
 pub mod show;
 pub mod source;
+pub mod sync;
 pub mod tool;
+pub mod use_;
 
 /// What a successful command produced, in both of its forms.
 pub struct Output {
@@ -111,5 +113,7 @@ registry! {
     Prompt => prompt,
     Show => show,
     Source => source,
+    Sync => sync,
+    Use => use_,
     Tool => tool,
 }
