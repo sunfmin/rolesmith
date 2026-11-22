@@ -22,6 +22,10 @@ impl Command for Args {
 
     fn output_shape() -> Value {
         let strings = json!({ "type": "array", "items": { "type": "string" } });
+        let named = json!({ "type": "array", "items": {
+            "type": "object", "required": ["name", "description"],
+            "properties": { "name": { "type": "string" }, "description": { "type": "string" } }
+        } });
         json!({
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "type": "object",
@@ -38,14 +42,8 @@ impl Command for Args {
                     "type": "object", "required": ["rule", "why"],
                     "properties": { "rule": { "type": "string" }, "why": { "type": "string" } }
                 } },
-                "skills": { "type": "array", "items": {
-                    "type": "object", "required": ["name", "description"],
-                    "properties": { "name": { "type": "string" }, "description": { "type": "string" } }
-                } },
-                "programs": { "type": "array", "items": {
-                    "type": "object", "required": ["name", "description"],
-                    "properties": { "name": { "type": "string" }, "description": { "type": "string" } }
-                } },
+                "skills": named.clone(),
+                "programs": named,
                 "services": strings
             }
         })
@@ -76,33 +74,39 @@ impl Command for Args {
             role_toml.trim_end()
         );
         h.push_str(&format!("\n## Core\n\n{}\n", role.core.trim_end()));
-        h.push_str("\n## Prohibitions\n\n");
-        if role.prohibitions.is_empty() {
-            h.push_str("(none)\n");
-        }
-        for p in &role.prohibitions {
-            h.push_str(&format!("- {} ({})\n", p.rule, p.why));
-        }
-        h.push_str("\n## Skills\n\n");
-        if role.skills.is_empty() {
-            h.push_str("(none)\n");
-        }
-        for s in &role.skills {
-            h.push_str(&format!("- {}: {}\n", s.name, s.description));
-        }
-        h.push_str("\n## Programs\n\n");
-        if role.toml.programs.is_empty() {
-            h.push_str("(none)\n");
-        }
-        for p in &role.toml.programs {
-            h.push_str(&format!("- {p}: {}\n", program_description(p)));
-        }
-        h.push_str("\n## Services\n\n");
-        if role.toml.services.is_empty() {
-            h.push_str("(none)\n");
-        }
-        for s in &role.toml.services {
-            h.push_str(&format!("- {s}\n"));
+        let sections: [(&str, Vec<String>); 4] = [
+            (
+                "Prohibitions",
+                role.prohibitions
+                    .iter()
+                    .map(|p| format!("{} ({})", p.rule, p.why))
+                    .collect(),
+            ),
+            (
+                "Skills",
+                role.skills
+                    .iter()
+                    .map(|s| format!("{}: {}", s.name, s.description))
+                    .collect(),
+            ),
+            (
+                "Programs",
+                role.toml
+                    .programs
+                    .iter()
+                    .map(|p| format!("{p}: {}", program_description(p)))
+                    .collect(),
+            ),
+            ("Services", role.toml.services.clone()),
+        ];
+        for (title, items) in sections {
+            h.push_str(&format!("\n## {title}\n\n"));
+            if items.is_empty() {
+                h.push_str("(none)\n");
+            }
+            for item in items {
+                h.push_str(&format!("- {item}\n"));
+            }
         }
 
         let json = json!({

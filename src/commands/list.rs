@@ -67,6 +67,7 @@ impl Command for Args {
         }
 
         let mut listed = Vec::new();
+        let mut human = String::new();
         for (source, roles) in by_source {
             if self.source.as_ref().is_some_and(|only| *only != source) {
                 continue;
@@ -77,25 +78,18 @@ impl Command for Args {
                 } else {
                     format!("{source}/{role}")
                 };
+                human.push_str(&format!(
+                    "{address}\t{}\n",
+                    description.as_deref().unwrap_or("(no description)")
+                ));
                 listed.push(json!({
                     "address": address, "source": source, "role": role, "description": description,
                 }));
             }
         }
-        let human = if listed.is_empty() {
-            "no roles\n".to_owned()
-        } else {
-            listed
-                .iter()
-                .map(|r| {
-                    format!(
-                        "{}\t{}\n",
-                        r["address"].as_str().unwrap(),
-                        r["description"].as_str().unwrap_or("(no description)")
-                    )
-                })
-                .collect()
-        };
+        if listed.is_empty() {
+            human.push_str("no roles\n");
+        }
         Ok(Output {
             json: json!({ "roles": listed }),
             human,

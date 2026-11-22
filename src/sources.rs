@@ -27,7 +27,7 @@ pub struct Sources {
 }
 
 /// One source's record.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Entry {
     pub url: String,
@@ -178,7 +178,7 @@ pub fn file_at(clone: &Path, sha: &str, path: &str) -> Option<String> {
 }
 
 /// A role found in a source at a commit.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Found {
     pub source: String,
     pub role: String,

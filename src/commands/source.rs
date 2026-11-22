@@ -125,10 +125,14 @@ fn add(name: &str, url: &str) -> Result<Output, Failure> {
     std::fs::create_dir_all(&parent)
         .map_err(|e| Failure::new(format!("cannot create {}: {e}", parent.display())))?;
 
-    // Clone beside its final place and move it there only once it is a library.
-    let staging = parent.join(format!(".{name}.adding"));
-    let _ = std::fs::remove_dir_all(&staging);
-    let cloned = sources::git(
+    // Clone beside its final place and move it there only once it is a library; dropping the
+    // staging directory cleans up whatever failed on the way.
+    let staging = tempfile::Builder::new()
+        .prefix(&format!(".{name}.adding"))
+        .tempdir_in(&parent)
+        .map_err(|e| Failure::new(format!("cannot stage in {}: {e}", parent.display())))?;
+    let into = staging.path().join(name);
+    sources::git(
         None,
         &[
             "clone".as_ref(),
@@ -137,33 +141,28 @@ fn add(name: &str, url: &str) -> Result<Output, Failure> {
             MAIN.as_ref(),
             "--".as_ref(),
             url.as_ref(),
-            staging.as_os_str(),
+            into.as_os_str(),
         ],
-    );
-    if let Err(e) = cloned {
-        let _ = std::fs::remove_dir_all(&staging);
-        return Err(e);
-    }
-    if !staging.join("library.toml").is_file() {
-        let _ = std::fs::remove_dir_all(&staging);
+    )?;
+    if !into.join("library.toml").is_file() {
         return Err(Failure::new(format!(
             "{url} is not a library: its {MAIN} has no library.toml"
         )));
     }
-    std::fs::rename(&staging, &clone).map_err(|e| {
-        let _ = std::fs::remove_dir_all(&staging);
-        Failure::new(format!("cannot move the clone to {}: {e}", clone.display()))
-    })?;
+    std::fs::rename(&into, &clone)
+        .map_err(|e| Failure::new(format!("cannot move the clone to {}: {e}", clone.display())))?;
 
-    let entry = Entry {
-        url: url.to_owned(),
-    };
-    record.source.insert(name.to_owned(), entry.clone());
+    record.source.insert(
+        name.to_owned(),
+        Entry {
+            url: url.to_owned(),
+        },
+    );
     if let Err(e) = record.save() {
         let _ = std::fs::remove_dir_all(&clone);
         return Err(e);
     }
-    let added = describe(name, &entry)?;
+    let added = describe(name, &record.source[name])?;
     Ok(Output {
         human: format!("added {}", line(&added)),
         json: json!({ "added": added }),
