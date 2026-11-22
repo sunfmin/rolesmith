@@ -11,6 +11,7 @@ use crate::problem::Problem;
 
 pub mod agent_context;
 pub mod check;
+pub mod lesson;
 pub mod list;
 pub mod show;
 pub mod source;
@@ -83,6 +84,7 @@ macro_rules! registry {
 registry! {
     AgentContext => agent_context,
     Check => check,
+    Lesson => lesson,
     List => list,
     Show => show,
     Source => source,

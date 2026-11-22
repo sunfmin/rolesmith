@@ -6,6 +6,7 @@
 
 pub mod cli;
 pub mod commands;
+pub mod github;
 pub mod library;
 pub mod problem;
 pub mod secrets;
