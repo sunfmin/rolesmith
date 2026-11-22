@@ -1,145 +1,12 @@
 //! Sources, `list` and `show` (SPEC.md §2, §8) through the built binary, with local bare git
 //! repositories as libraries; nothing reaches the network.
 
+mod common;
+
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::Command;
 
-use serde_json::Value;
-
-/// A machine: its own HOME and XDG directories, and a place for libraries.
-struct Machine {
-    dir: tempfile::TempDir,
-}
-
-impl Machine {
-    fn new() -> Machine {
-        Machine {
-            dir: tempfile::tempdir().unwrap(),
-        }
-    }
-
-    fn path(&self, rel: &str) -> PathBuf {
-        self.dir.path().join(rel)
-    }
-
-    fn env(&self, cmd: &mut Command) {
-        cmd.env("HOME", self.path("home"))
-            .env("XDG_CONFIG_HOME", self.path("config"))
-            .env("XDG_DATA_HOME", self.path("data"))
-            .env("GIT_CONFIG_GLOBAL", "/dev/null")
-            .env("GIT_CONFIG_NOSYSTEM", "1")
-            .env("GIT_AUTHOR_NAME", "t")
-            .env("GIT_AUTHOR_EMAIL", "t@example.com")
-            .env("GIT_COMMITTER_NAME", "t")
-            .env("GIT_COMMITTER_EMAIL", "t@example.com")
-            .env_remove("RUST_BACKTRACE");
-    }
-
-    fn rolesmith(&self, args: &[&str]) -> Output {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_rolesmith"));
-        cmd.args(args);
-        self.env(&mut cmd);
-        cmd.output().expect("the binary runs")
-    }
-
-    /// Run `rolesmith --json <args>`, expect success, answer its document.
-    fn json(&self, args: &[&str]) -> Value {
-        let mut all = vec!["--json"];
-        all.extend_from_slice(args);
-        let o = self.rolesmith(&all);
-        assert_eq!(o.status.code(), Some(0), "{args:?}: {}", stderr(&o));
-        serde_json::from_slice(&o.stdout).unwrap()
-    }
-
-    fn git(&self, dir: &Path, args: &[&str]) -> String {
-        let mut cmd = Command::new("git");
-        cmd.arg("-C").arg(dir).args(args);
-        self.env(&mut cmd);
-        let o = cmd.output().unwrap();
-        assert!(o.status.success(), "git {args:?}: {}", stderr(&o));
-        String::from_utf8(o.stdout).unwrap().trim().to_owned()
-    }
-
-    /// A bare repository `<name>.git` and a working clone `<name>` that pushes to it.
-    fn library(&self, name: &str) -> Library {
-        let bare = self.path(&format!("{name}.git"));
-        let work = self.path(name);
-        std::fs::create_dir_all(&bare).unwrap();
-        self.git(&bare, &["init", "--quiet", "--bare", "-b", "main"]);
-        self.git(
-            self.dir.path(),
-            &["clone", "--quiet", bare.to_str().unwrap(), name],
-        );
-        self.git(&work, &["checkout", "--quiet", "-b", "main"]);
-        Library { bare, work }
-    }
-
-    /// Commit everything in `lib`'s working clone and push it; answer the commit.
-    fn publish(&self, lib: &Library, message: &str) -> String {
-        self.git(&lib.work, &["add", "-A"]);
-        self.git(&lib.work, &["commit", "--quiet", "-m", message]);
-        self.git(&lib.work, &["push", "--quiet", "origin", "main"]);
-        self.git(&lib.work, &["rev-parse", "HEAD"])
-    }
-}
-
-struct Library {
-    bare: PathBuf,
-    work: PathBuf,
-}
-
-impl Library {
-    fn url(&self) -> &str {
-        self.bare.to_str().unwrap()
-    }
-
-    fn write(&self, rel: &str, text: &str) {
-        let path = self.work.join(rel);
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        std::fs::write(path, text).unwrap();
-    }
-
-    fn role(&self, role: &str, description: &str, core: &str) {
-        self.write(
-            &format!("roles/{role}/role.toml"),
-            &format!(
-                "description = \"{description}\"\nprograms = [\"asc\"]\nservices = [\"asc-api-key\"]\n"
-            ),
-        );
-        self.write(&format!("roles/{role}/core.md"), core);
-        self.write(
-            &format!("roles/{role}/prohibitions.toml"),
-            "[[prohibition]]\nrule = \"Never revoke a certificate\"\nwhy = \"It breaks other machines\"\n",
-        );
-        self.write(
-            &format!("roles/{role}/skills/submit-build/SKILL.md"),
-            "---\nname: submit-build\ndescription: Use when a build is ready for review.\n---\n\nSteps.\n",
-        );
-        self.write(
-            "tools/asc/tool.toml",
-            "description = \"App Store Connect CLI\"\ncheck = \"asc --version\"\n[install]\nbrew = \"asc\"\nversion = \"7.0.0\"\n",
-        );
-    }
-}
-
-fn stderr(o: &Output) -> String {
-    String::from_utf8_lossy(&o.stderr).into_owned()
-}
-
-/// A library `name` with `library.toml` and the given roles, published.
-fn published(m: &Machine, name: &str, roles: &[&str]) -> (Library, String) {
-    let lib = m.library(name);
-    lib.write("library.toml", &format!("name = \"{name}\"\n"));
-    for role in roles {
-        lib.role(
-            role,
-            &format!("The {role} of {name}"),
-            "# Core\n\nFirst rule.\n",
-        );
-    }
-    let sha = m.publish(&lib, "first");
-    (lib, sha)
-}
+use common::{Machine, published, stderr};
 
 #[test]
 fn add_list_update_and_remove_a_source() {
@@ -384,6 +251,133 @@ fn a_relative_xdg_directory_falls_back_to_home_and_an_unreadable_record_fails() 
     let o = m.rolesmith(&["source", "list"]);
     assert_eq!(o.status.code(), Some(1), "{}", stderr(&o));
     assert!(stderr(&o).contains("cannot read"), "{}", stderr(&o));
+}
+
+#[test]
+fn new_branches_from_main_scaffolds_the_role_and_prints_the_brief() {
+    let m = Machine::new();
+    let (lib, main) = published(&m, "felix", &["rust-cli"]);
+    m.json(&["source", "add", "felix", lib.url()]);
+    let clone = m.path("data/rolesmith/sources/felix");
+    let need = "Ship iOS apps to the App Store, with \"quotes\" and {{role}}";
+
+    let o = m.rolesmith(&["new", "ios-releaser", "--need", need]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    let brief = String::from_utf8(o.stdout).unwrap();
+    let template = include_str!("../src/briefs/new.md");
+    let (before_need, after_need) = template.split_once("{need}").unwrap();
+    assert!(
+        brief.contains(&format!("## The need\n\n{need}\n")),
+        "{brief}"
+    );
+    assert!(brief.starts_with("# Draft the role `ios-releaser`\n"));
+    assert!(brief.contains("rolesmith check ios-releaser\n    rolesmith propose ios-releaser"));
+    assert!(brief.contains(clone.to_str().unwrap()));
+    assert!(brief.contains("at most 8000 characters"), "{brief}");
+    assert_eq!(
+        brief.lines().count(),
+        before_need.lines().count() + after_need.lines().count(),
+        "the brief is the template, filled in"
+    );
+    assert!(
+        !brief.replace(need, "").contains('{'),
+        "a blank left: {brief}"
+    );
+
+    assert_eq!(
+        m.git(&clone, &["symbolic-ref", "--short", "HEAD"]),
+        "rolesmith/new-ios-releaser"
+    );
+    assert_eq!(m.git(&clone, &["rev-parse", "HEAD"]), main);
+    let role = clone.join("roles/ios-releaser");
+    let role_toml = std::fs::read_to_string(role.join("role.toml")).unwrap();
+    let parsed: toml::Table = toml::from_str(&role_toml).unwrap();
+    assert_eq!(parsed["description"].as_str(), Some(need));
+    assert_eq!(parsed.len(), 1, "{role_toml}");
+    assert_eq!(std::fs::read_to_string(role.join("core.md")).unwrap(), "");
+    assert_eq!(
+        std::fs::read_to_string(role.join("prohibitions.toml")).unwrap(),
+        ""
+    );
+    assert!(!role.join("skills").exists());
+
+    // The scaffold is what `check` accepts as a role, the need standing in as its description.
+    let o = m.rolesmith(&[
+        "check",
+        "ios-releaser",
+        "--library",
+        clone.to_str().unwrap(),
+    ]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+
+    std::fs::remove_dir_all(&role).unwrap();
+    let doc = m.json(&[
+        "new",
+        "web-tester",
+        "--need",
+        "Test web UIs",
+        "--source",
+        "felix",
+    ]);
+    assert_eq!(doc["source"], "felix");
+    assert_eq!(doc["branch"], "rolesmith/new-web-tester");
+    assert!(doc["brief"].as_str().unwrap().contains("Test web UIs"));
+
+    // What --json printed is what agent-context says `new` prints.
+    let context = m.json(&["agent-context"]);
+    let new = context["commands"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "new")
+        .unwrap();
+    let required = new["output"]["required"].as_array().unwrap();
+    for key in required {
+        assert!(doc.get(key.as_str().unwrap()).is_some(), "{key}");
+    }
+    assert_eq!(required.len(), doc.as_object().unwrap().len());
+}
+
+#[test]
+fn new_refuses_a_dirty_working_copy_an_existing_role_and_a_taken_branch() {
+    let m = Machine::new();
+    let refused = |args: &[&str], why: &str| {
+        let o = m.rolesmith(args);
+        assert_eq!(o.status.code(), Some(1), "{args:?}: {}", stderr(&o));
+        assert!(stderr(&o).contains(why), "{args:?}: {}", stderr(&o));
+    };
+    refused(&["new", "web", "--need", "x"], "no sources; add one");
+    let (lib, _) = published(&m, "felix", &["rust-cli"]);
+    m.json(&["source", "add", "felix", lib.url()]);
+    let clone = m.path("data/rolesmith/sources/felix");
+
+    refused(
+        &["new", "rust-cli", "--need", "x"],
+        "already has a role rust-cli",
+    );
+    refused(&["new", "Bad_Name", "--need", "x"], "not a valid role name");
+    refused(
+        &["new", "web", "--need", "x", "--source", "nope"],
+        "no source named nope",
+    );
+
+    std::fs::write(clone.join("stray.txt"), "half done").unwrap();
+    refused(&["new", "web", "--need", "x"], "uncommitted changes");
+    assert_eq!(m.git(&clone, &["symbolic-ref", "--short", "HEAD"]), "main");
+    assert!(!clone.join("roles/web").exists());
+    std::fs::remove_file(clone.join("stray.txt")).unwrap();
+
+    m.json(&["new", "web", "--need", "x"]);
+    m.git(&clone, &["checkout", "--quiet", "-f", "main"]);
+    std::fs::remove_dir_all(clone.join("roles/web")).unwrap();
+    refused(
+        &["new", "web", "--need", "x"],
+        "rolesmith/new-web' already exists",
+    );
+
+    let (other, _) = published(&m, "other", &[]);
+    m.json(&["source", "add", "other", other.url()]);
+    refused(&["new", "api", "--need", "x"], "more than one source");
 }
 
 /// Every file under `dir` with its contents, to see that a command wrote nothing.

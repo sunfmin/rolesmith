@@ -549,13 +549,19 @@ fn name_reason(what: &str) -> String {
 
 /// The YAML between a first line `---` and the next `---`, and the file line it starts on.
 fn front_matter(text: &str) -> Option<(&str, usize)> {
+    split_front_matter(text).map(|(yaml, _)| (yaml, 2))
+}
+
+/// A file that begins with YAML front matter, split into that YAML (without its `---` lines) and
+/// the text after its closing `---` line.
+pub fn split_front_matter(text: &str) -> Option<(&str, &str)> {
     let rest = text
         .strip_prefix("---\n")
         .or_else(|| text.strip_prefix("---\r\n"))?;
     let mut offset = 0;
     for line in rest.split_inclusive('\n') {
         if line.trim_end() == "---" {
-            return Some((&rest[..offset], 2));
+            return Some((&rest[..offset], &rest[offset + line.len()..]));
         }
         offset += line.len();
     }

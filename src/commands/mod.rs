@@ -10,11 +10,15 @@ use serde_json::Value;
 pub mod agent_context;
 pub mod check;
 pub mod doctor;
+pub mod lesson;
 pub mod list;
+pub mod new;
 pub mod prompt;
 pub mod show;
 pub mod source;
+pub mod sync;
 pub mod tool;
+pub mod use_;
 
 /// What a successful command produced, in both of its forms.
 pub struct Output {
@@ -103,9 +107,13 @@ registry! {
     AgentContext => agent_context,
     Check => check,
     Doctor => doctor,
+    Lesson => lesson,
     List => list,
+    New => new,
     Prompt => prompt,
     Show => show,
     Source => source,
+    Sync => sync,
+    Use => use_,
     Tool => tool,
 }

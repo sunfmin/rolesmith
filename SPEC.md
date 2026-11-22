@@ -148,7 +148,8 @@ into = ["claude-code"]                           # the targets it is installed i
 This file is the one home of which roles a project uses, at which revision, into which agents.
 Everything rolesmith writes into a project besides it is **generated** from it: listed in
 `.rolesmith/manifest.json`, ignored by git (rolesmith adds the lines to `.gitignore`), rewritten
-identically by `rolesmith sync`. rolesmith deletes only files its manifest lists.
+identically by `rolesmith sync`. rolesmith deletes only files its manifest lists, and refuses to
+overwrite a file its manifest does not list.
 
 rolesmith never edits a project's `CLAUDE.md`, `AGENTS.md`, code, build files or settings.
 
@@ -158,12 +159,14 @@ rolesmith never edits a project's `CLAUDE.md`, `AGENTS.md`, code, build files or
 
 For each target, a role becomes skills in the directory that agent reads:
 
-- one skill per skill of the role, named `rolesmith-<role>-<skill>`, its files copied as they are;
+- one skill per skill of the role, named `rolesmith-<role>-<skill>`, its files copied as they are
+  (its `SKILL.md`'s front matter `name` set to that name);
 - one **core skill**, `rolesmith-<role>`, whose `SKILL.md` is `core.md` followed by the
   prohibitions, with the description "Always in force in this project: <role description>".
 
-Every generated `SKILL.md` carries a first-line comment naming the source, role and rev it came from
-and saying it is generated.
+Every generated `SKILL.md` carries a comment on the first line of its front matter naming the source,
+role and rev it came from and saying it is generated. (On the file's first line it would hide the
+front matter: agents read front matter only from a first line `---`.)
 
 ### 5.2 Targets
 
@@ -216,6 +219,15 @@ time: what happened, the rule that would have prevented it, and the evidence (a 
   skills or prohibitions in the source's working copy, then `rolesmith check` and
   `rolesmith propose`, whose pull request says `Closes #<n>` for each lesson it absorbed. A lesson
   the agent judges wrong is closed with a comment saying why, by `rolesmith lesson close`.
+- The library's repository is the one its source's URL names on github.com
+  (`https://github.com/<owner>/<repo>`, `git@github.com:…`, `ssh://git@github.com/…`); a source
+  whose URL is not on GitHub is refused, and `lesson list` without a role skips it, saying so.
+- `lesson add` reads the lesson on stdin: its first line is the issue's title, the rest its body,
+  which ends with `Evidence: <url>` and `Handed in by: felix|agent` (`--source`, default `agent`).
+  The labels are created on the repository when it lacks them.
+- `lesson close` takes `<n>` when the machine has one source and `<source>#<n>` otherwise (as
+  `lesson list` prints them); it closes only an open issue labelled `lesson`, with the reason as
+  its comment. The reason is refused like the lesson text when it looks like a secret.
 - There is no other record of absorbed lessons: the closed issue and the merged pull request are it.
 
 A private lesson goes to a private library: a person who wants one keeps a private library as a
@@ -263,7 +275,7 @@ one JSON document, generated from the same definitions the parser uses.
 | `list [--source <name>]` | roles: address, description |
 | `show <role> [--rev <sha>]` | role.toml, core, prohibitions, skills with descriptions, programs, services |
 | `check [<role>] [--library <dir>]` | validate a library working copy (default: the current directory) or one role (§2, §3, §7.2); prints every problem, not the first, each with its file, line where there is one, and rule; exits 1 if there is any, and with `--json` lists them as `error.problems` |
-| `use <role>... --into <target>... [--project <dir> \| --global] [--rev <sha>]` | install (§5); record in `rolesmith.toml` or `global.toml`; idempotent |
+| `use <role>... --into <target>... [--project <dir> \| --global] [--rev <sha>]` | install (§5); record in `rolesmith.toml` or `global.toml`; idempotent: a role already recorded keeps its rev unless `--rev` is given (`update` moves it) |
 | `use --auto --into <target>... [--project <dir>]` | install what `suggest` lists |
 | `sync [--project <dir> \| --global]` | make the generated files equal what the record says; add missing sources from `url` |
 | `status [--project <dir> \| --global]` | §5.4 |
@@ -275,11 +287,11 @@ one JSON document, generated from the same definitions the parser uses.
 | `tool show <tool>` | the tool.toml on its source's `main`, and whether its check passes here; a tool is addressed as a role is (§2) |
 | `tool install <role> \| --tool <tool>` | install each program whose check fails by its pinned method into the user's own prefix (§3.5), in order; the first refusal stops it and names what was installed before it |
 | `env <role> [-- <command>...]` | §7.1 |
-| `new <role> --need "<text>" [--source <name>]` | scaffold `roles/<role>/` in the source's working copy on a new branch `rolesmith/new-<role>`, and print the drafting brief |
+| `new <role> --need "<text>" [--source <name>]` | scaffold `roles/<role>/` (`role.toml` with the need as its draft description, empty `core.md` and `prohibitions.toml`, no skills) in the source's working copy on a new branch `rolesmith/new-<role>` from `main`, and print the drafting brief; `--source` may be left out when there is one source; refuse a working copy with uncommitted changes, a role `main` has, and a branch that exists |
 | `propose [<role>] [--source <name>] [--closes <n>...]` | run `check`, commit the working copy's changes on its branch, push it, open a pull request through `gh`; print its URL |
 | `lesson add <role> --evidence <url> [--source felix\|agent]` | §6; the lesson text on stdin |
 | `lesson list [<role>]` | open lessons: number, role, title, age |
-| `lesson close <n> --why "<text>"` | close a lesson that will not be absorbed |
+| `lesson close [<source>#]<n> --why "<text>"` | close a lesson that will not be absorbed |
 | `distill <role>` | print the distilling brief and the role's open lessons, and put the working copy on branch `rolesmith/distill-<role>` |
 | `agent-context` | §8 |
 

@@ -7,10 +7,12 @@
 
 pub mod cli;
 pub mod commands;
+pub mod github;
 pub mod install;
 pub mod library;
 pub mod machine;
 pub mod problem;
+pub mod project;
 pub mod secrets;
 pub mod sources;
 pub mod version;

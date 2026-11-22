@@ -111,6 +111,72 @@ impl Sources {
     }
 }
 
+/// Clone the library at `url` as the source `name` and record it in `record` (saved); refuse a
+/// name in use or a repository whose `main` has no `library.toml`.
+pub fn add(record: &mut Sources, name: &str, url: &str) -> Result<(), Failure> {
+    if !library::valid_name(name) {
+        return Err(Failure::new(format!(
+            "{name} is not a valid source name: lowercase letters, digits and single hyphens, 2-{} characters",
+            library::MAX_NAME
+        )));
+    }
+    if let Some(existing) = record.source.get(name) {
+        return Err(Failure::new(format!(
+            "a source named {name} is already recorded ({}); remove it first or pick another name",
+            existing.url
+        )));
+    }
+    let clone = clone_dir(name)?;
+    if clone.exists() {
+        return Err(Failure::new(format!(
+            "{} already exists but no source {name} is recorded; move it away first",
+            clone.display()
+        )));
+    }
+    let parent = clones_dir()?;
+    std::fs::create_dir_all(&parent)
+        .map_err(|e| Failure::new(format!("cannot create {}: {e}", parent.display())))?;
+
+    // Clone beside its final place and move it there only once it is a library; dropping the
+    // staging directory cleans up whatever failed on the way.
+    let staging = tempfile::Builder::new()
+        .prefix(&format!(".{name}.adding"))
+        .tempdir_in(&parent)
+        .map_err(|e| Failure::new(format!("cannot stage in {}: {e}", parent.display())))?;
+    let into = staging.path().join(name);
+    git(
+        None,
+        &[
+            "clone".as_ref(),
+            "--quiet".as_ref(),
+            "--branch".as_ref(),
+            MAIN.as_ref(),
+            "--".as_ref(),
+            url.as_ref(),
+            into.as_os_str(),
+        ],
+    )?;
+    if !into.join("library.toml").is_file() {
+        return Err(Failure::new(format!(
+            "{url} is not a library: its {MAIN} has no library.toml"
+        )));
+    }
+    std::fs::rename(&into, &clone)
+        .map_err(|e| Failure::new(format!("cannot move the clone to {}: {e}", clone.display())))?;
+
+    record.source.insert(
+        name.to_owned(),
+        Entry {
+            url: url.to_owned(),
+        },
+    );
+    if let Err(e) = record.save() {
+        let _ = std::fs::remove_dir_all(&clone);
+        return Err(e);
+    }
+    Ok(())
+}
+
 /// Run git with `args` (in `dir` when given); its stdout, trimmed, or a failure carrying its stderr.
 pub fn git<S: AsRef<OsStr>>(dir: Option<&Path>, args: &[S]) -> Result<String, Failure> {
     let mut cmd = Command::new("git");
@@ -143,7 +209,7 @@ pub fn main_commit(clone: &Path) -> Option<String> {
 }
 
 /// The full SHA of the commit `rev` names in `clone`, if it names one.
-fn commit(clone: &Path, rev: &str) -> Option<String> {
+pub fn commit(clone: &Path, rev: &str) -> Option<String> {
     git(
         Some(clone),
         &[
