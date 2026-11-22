@@ -152,19 +152,18 @@ fn title(roles: &[&str]) -> String {
 /// The pull request's body: what changed per role, then a `Closes #<n>` line per lesson.
 fn body(changes: &BTreeMap<Option<String>, Vec<String>>, closes: &[u64]) -> String {
     let mut text = String::from("Proposed by `rolesmith propose`.\n");
-    // Roles first (`Some` sorts after `None`), then what lies outside them.
-    let ordered = changes
-        .iter()
-        .filter(|(r, _)| r.is_some())
-        .chain(changes.iter().filter(|(r, _)| r.is_none()));
-    for (role, files) in ordered {
-        match role {
-            Some(role) => text.push_str(&format!("\n## {role}\n\n")),
-            None => text.push_str("\n## Outside any role\n\n"),
-        }
+    let section = |text: &mut String, heading: &str, files: &[String]| {
+        text.push_str(&format!("\n## {heading}\n\n"));
         for file in files {
             text.push_str(&format!("- `{file}`\n"));
         }
+    };
+    // Every `Some` sorts after `None`, so this range is the roles.
+    for (role, files) in changes.range(Some(String::new())..) {
+        section(&mut text, role.as_deref().unwrap_or_default(), files);
+    }
+    if let Some(files) = changes.get(&None) {
+        section(&mut text, "Outside any role", files);
     }
     if !closes.is_empty() {
         text.push('\n');
@@ -193,10 +192,9 @@ fn gh_pr_create(clone: &Path, branch: &str, title: &str, body: &str) -> Result<S
     }
     let stdout = String::from_utf8_lossy(&out.stdout);
     stdout
+        .trim_end()
         .lines()
-        .rev()
-        .map(str::trim)
-        .find(|l| !l.is_empty())
-        .map(str::to_owned)
+        .last()
+        .map(|l| l.trim().to_owned())
         .ok_or_else(|| Failure::new("`gh pr create` printed no pull request URL"))
 }

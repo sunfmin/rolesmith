@@ -37,11 +37,8 @@ impl Machine {
         std::fs::create_dir_all(&bare).unwrap();
         m.git(&bare, &["init", "--quiet", "--bare", "-b", "main"]);
         let work = m.path("work");
-        m.git(
-            m.dir.path(),
-            &["clone", "--quiet", bare.to_str().unwrap(), "work"],
-        );
-        m.git(&work, &["checkout", "--quiet", "-b", "main"]);
+        std::fs::create_dir_all(&work).unwrap();
+        m.git(&work, &["init", "--quiet", "-b", "main"]);
         m.write(&work, "library.toml", "name = \"felix\"\n");
         m.write(
             &work,
@@ -51,7 +48,7 @@ impl Machine {
         m.write(&work, "roles/rust-cli/core.md", "# Core\n\nFirst rule.\n");
         m.git(&work, &["add", "-A"]);
         m.git(&work, &["commit", "--quiet", "-m", "first"]);
-        m.git(&work, &["push", "--quiet", "origin", "main"]);
+        m.git(&work, &["push", "--quiet", bare.to_str().unwrap(), "main"]);
         let o = m.rolesmith(&["source", "add", "felix", bare.to_str().unwrap()]);
         assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
         m
