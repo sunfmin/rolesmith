@@ -247,11 +247,14 @@ second source.
 
 ### 7.1 Reading
 
-`rolesmith env <role>` prints `export NAME='value'` lines for every variable of the credentials of
-the role's `services` and of its programs' `[credential]`, read from mytokens at that moment, for
-`eval "$(rolesmith env <role>)"`. `rolesmith env <role> -- <command> [args]` runs the command with
-them set instead of printing. Neither writes a value anywhere. `rolesmith doctor` reads only whether
-each entry exists (`mytokens list`), never its value.
+`rolesmith env <role>` prints `export NAME='value'` lines (values single-quoted for sh) for every
+variable of its programs' `[credential]` (§3.5), each read from mytokens at that moment
+(`mytokens get <entry> --field <field>`, or `mytokens get <entry>` for `""`), for
+`eval "$(rolesmith env <role>)"`; `--json` gives them as `variables`. A service of the role that no
+program's `[credential]` names has no mapping to variables: `env` refuses the role, listing each such
+service (`error.unmapped`), and reads nothing. `rolesmith env <role> -- <command> [args]` runs the
+command in rolesmith's place with them added to its environment instead of printing. Neither writes
+anything to disk. `rolesmith doctor` reads only whether each entry exists (`mytokens list`), never its value.
 
 ### 7.2 Keeping secrets out
 

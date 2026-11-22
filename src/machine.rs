@@ -41,23 +41,40 @@ pub fn check(command: &str) -> Check {
 /// The names of the mytokens entries on this machine, from `mytokens list` (each line begins
 /// `<entry>/<account>`); never a value.
 pub fn entries() -> Result<BTreeSet<String>, Failure> {
-    let out = Command::new("mytokens")
-        .arg("list")
-        .stdin(Stdio::null())
-        .output()
-        .map_err(|e| Failure::new(format!("cannot run `mytokens list`: {e}")))?;
-    if !out.status.success() {
-        return Err(Failure::new(format!(
-            "`mytokens list` failed: {}",
-            String::from_utf8_lossy(&out.stderr).trim()
-        )));
-    }
-    Ok(String::from_utf8_lossy(&out.stdout)
+    Ok(String::from_utf8_lossy(&mytokens(&["list"])?)
         .lines()
         .filter_map(|line| line.split_whitespace().next())
         .map(|first| first.split_once('/').map_or(first, |(entry, _)| entry))
         .map(str::to_owned)
         .collect())
+}
+
+/// What `mytokens <args>` prints, or why it could not; its stdin is closed.
+fn mytokens(args: &[&str]) -> Result<Vec<u8>, Failure> {
+    let call = format!("mytokens {}", args[..args.len().min(2)].join(" "));
+    let out = Command::new("mytokens")
+        .args(args)
+        .stdin(Stdio::null())
+        .output()
+        .map_err(|e| Failure::new(format!("cannot run `{call}`: {e}")))?;
+    if !out.status.success() {
+        return Err(Failure::new(format!(
+            "`{call}` failed: {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        )));
+    }
+    Ok(out.stdout)
+}
+
+/// The value of `entry`'s `field` (`""`: its single value), read from mytokens now and kept
+/// nowhere. The newline mytokens ends its answer with is not part of the value.
+pub fn value(entry: &str, field: &str) -> Result<String, Failure> {
+    let mut args = vec!["get", entry];
+    if !field.is_empty() {
+        args.extend(["--field", field]);
+    }
+    let out = mytokens(&args)?;
+    Ok(String::from_utf8_lossy(out.strip_suffix(b"\n").unwrap_or(&out)).into_owned())
 }
 
 /// The command that stores the entry `name` with `fields` (none: one bare value).

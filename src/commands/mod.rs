@@ -11,6 +11,7 @@ pub mod agent_context;
 pub mod check;
 pub mod distill;
 pub mod doctor;
+pub mod env;
 pub mod lesson;
 pub mod list;
 pub mod new;
@@ -111,6 +112,7 @@ registry! {
     Check => check,
     Distill => distill,
     Doctor => doctor,
+    Env => env,
     Lesson => lesson,
     List => list,
     New => new,
