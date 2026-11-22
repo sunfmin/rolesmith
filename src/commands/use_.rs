@@ -48,11 +48,17 @@ impl Command for Args {
         for address in &self.roles {
             let name = address.rsplit('/').next().unwrap_or(address);
             let recorded = record.role.iter().position(|r| r.name == name);
-            let rev = self
-                .rev
-                .as_deref()
-                .or_else(|| recorded.map(|i| record.role[i].rev.as_str()));
-            let found = sources::resolve(&known, address, rev)?;
+            // A recorded role keeps its rev; a bare name reaches it in its recorded source.
+            let address = match (recorded, address.contains('/')) {
+                (Some(i), false) => format!("{}/{name}", record.role[i].source),
+                _ => address.clone(),
+            };
+            let rev = self.rev.as_deref().or_else(|| {
+                recorded
+                    .filter(|&i| address == format!("{}/{name}", record.role[i].source))
+                    .map(|i| record.role[i].rev.as_str())
+            });
+            let found = sources::resolve(&known, &address, rev)?;
             let url = known.get(&found.source)?.url.clone();
             let entry = match recorded {
                 Some(i) if record.role[i].source != found.source => {

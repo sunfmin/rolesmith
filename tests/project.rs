@@ -272,3 +272,84 @@ fn a_file_rolesmith_did_not_generate_is_never_overwritten() {
     assert_eq!(o.status.code(), Some(1));
     assert!(stderr(&o).contains("unknown target codex-x (known: claude-code)"));
 }
+
+#[test]
+fn removing_the_last_role_empties_the_manifest_and_keeps_the_skill_directory() {
+    let m = Machine::new();
+    let (lib, _) = published(&m, "felix", &["app-store-releaser"]);
+    m.json(&["source", "add", "felix", lib.url()]);
+    let project = m.path("project");
+    std::fs::create_dir_all(&project).unwrap();
+    let p = project.to_str().unwrap();
+    m.json(&[
+        "use",
+        "app-store-releaser",
+        "--into",
+        "claude-code",
+        "--project",
+        p,
+    ]);
+
+    std::fs::write(project.join("rolesmith.toml"), "").unwrap();
+    let out = m.json(&["sync", "--project", p]);
+    assert_eq!(out["removed"].as_array().unwrap().len(), 2, "{out}");
+    assert_eq!(
+        text(&project, ".rolesmith/manifest.json"),
+        "{\n  \"files\": []\n}\n"
+    );
+    assert_eq!(text(&project, ".gitignore"), "");
+    let skills = project.join(".claude/skills");
+    assert!(skills.is_dir(), "the target's skill directory stays");
+    assert_eq!(std::fs::read_dir(&skills).unwrap().count(), 0);
+}
+
+#[test]
+fn a_record_that_disagrees_with_the_machine_or_itself_is_refused() {
+    let m = Machine::new();
+    let (felix, rev) = published(&m, "felix", &["rust-cli"]);
+    let (team, _) = published(&m, "team", &["rust-cli"]);
+    m.json(&["source", "add", "felix", felix.url()]);
+    m.json(&["source", "add", "team", team.url()]);
+    let project = m.path("project");
+    std::fs::create_dir_all(&project).unwrap();
+    let p = project.to_str().unwrap();
+    let refused = |args: &[&str], why: &str| {
+        let o = m.rolesmith(args);
+        assert_eq!(o.status.code(), Some(1), "{args:?}");
+        assert!(stderr(&o).contains(why), "{args:?}: {}", stderr(&o));
+    };
+
+    m.json(&[
+        "use",
+        "felix/rust-cli",
+        "--into",
+        "claude-code",
+        "--project",
+        p,
+    ]);
+    refused(
+        &[
+            "use",
+            "team/rust-cli",
+            "--into",
+            "claude-code",
+            "--project",
+            p,
+        ],
+        "already records rust-cli from source felix",
+    );
+
+    let record = |url: &str, rev: &str| {
+        std::fs::write(
+            project.join("rolesmith.toml"),
+            format!(
+                "[[role]]\nname = \"rust-cli\"\nsource = \"felix\"\nurl = \"{url}\"\nrev = \"{rev}\"\ninto = [\"claude-code\"]\n"
+            ),
+        )
+        .unwrap();
+    };
+    record(team.url(), &rev);
+    refused(&["sync", "--project", p], "but this machine has it as");
+    record(felix.url(), &rev[..8]);
+    refused(&["sync", "--project", p], "is not a full commit SHA");
+}
