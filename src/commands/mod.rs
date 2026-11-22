@@ -14,6 +14,7 @@ pub mod lesson;
 pub mod list;
 pub mod new;
 pub mod prompt;
+pub mod propose;
 pub mod show;
 pub mod source;
 pub mod sync;
@@ -111,6 +112,7 @@ registry! {
     List => list,
     New => new,
     Prompt => prompt,
+    Propose => propose,
     Show => show,
     Source => source,
     Sync => sync,
