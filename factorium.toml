@@ -1,0 +1,8 @@
+# How factorium gates rolesmith (factorium SPEC.md §5). No [cut] yet: the release script and the
+# Homebrew formula come with their own issue, which adds [cut] here.
+
+[gate]
+fast = "./gate.sh"
+fast_limit = 900
+slow = "./gate.sh"
+slow_limit = 900

@@ -1,0 +1,9 @@
+[package]
+description = "Roles for any coding agent"
+license = "MIT"
+repository = "https://github.com/sunfmin/rolesmith"
+name = "rolesmith"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]

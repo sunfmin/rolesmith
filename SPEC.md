@@ -1,0 +1,277 @@
+# rolesmith
+
+rolesmith is a command-line tool that keeps **roles** for coding agents in git, installs them into
+any agent (Claude Code, Codex, an Orca bot, or anything that reads skills or a prompt), and keeps
+the loop by which roles get better: **lessons** recorded as they happen, **distilled** into the role
+when a person says so.
+
+A role does one kind of work: ship an app to the App Store, write a Rust CLI, test an iOS UI. It
+carries what an agent needs for that work: its core memory, its skills, the programs it runs and the
+services it may reach.
+
+This spec is the contract. The words are defined in [GLOSSARY.md](GLOSSARY.md); the decisions, with
+why, are in [docs/adr/](docs/adr/).
+
+## 1. What rolesmith is and is not
+
+1. **It never calls a model.** Everything rolesmith does is deterministic: store, install, check,
+   record, propose. Work that needs judgment (drafting a role, distilling lessons into it) is done by
+   the agent that runs rolesmith; rolesmith hands that agent a **brief** and checks what it wrote.
+   This is what lets any agent use it.
+2. **People schedule the work.** No daemon, no timer, no queue. A role is drafted when someone runs
+   `rolesmith new`; lessons are distilled when someone runs `rolesmith distill`. Every change to a
+   library lands as a pull request a person merges.
+3. **It never holds a secret.** A role names the credentials it needs by their **mytokens** entry;
+   rolesmith reads a value only to hand it to a process (`rolesmith env`), and never writes one to
+   disk, to a library, to a project or to its own output files.
+4. **It does not run agents, place work on machines or count quotas.** That is Guild's (sunfmin/guild),
+   which becomes one consumer of rolesmith (§9).
+
+## 2. Libraries and sources
+
+A **library** is a git repository of roles. It may be public or private. A machine knows libraries
+as **sources**: a local name for a library's URL.
+
+```
+<library>/
+  library.toml                 # name = "felix", description, rolesmith = "<min version>"
+  roles/<role>/
+    role.toml                  # §3
+    core.md                    # the role's core memory: always in force while the role is in use
+    prohibitions.toml          # what the role must never do (§3.3)
+    skills/<skill>/SKILL.md    # loaded on demand (§3.4)
+  tools/<tool>/tool.toml       # how a program a role runs is installed and checked (§3.5)
+```
+
+Nothing else belongs in a library. In particular, **lessons are not files** (§6): a lesson waiting
+to be distilled is an issue on the library's GitHub repository, and a distilled lesson is the text it
+became in `core.md` or a skill, its origin the distilling pull request.
+
+Sources live in `$XDG_CONFIG_HOME/rolesmith/sources.toml` (default `~/.config/rolesmith/`); each
+source's clone lives in `$XDG_DATA_HOME/rolesmith/sources/<name>/` (default
+`~/.local/share/rolesmith/`). A role is addressed as `<role>` when one source has it and as
+`<source>/<role>` otherwise; an ambiguous bare name is refused and the refusal lists the choices.
+
+A role name is lowercase ASCII letters, digits and single hyphens, 2–48 characters, unique within its
+library.
+
+## 3. A role
+
+### 3.1 role.toml
+
+```toml
+description = "Ships iOS and macOS apps to the App Store"   # required, one line, <= 200 chars
+programs = ["asc", "xcodegen"]          # tools of tools/ in the same library, by name
+services = ["asc-api-key"]              # mytokens entries the role's work reads (§7)
+
+[match]                                 # optional: what makes a project one this role fits (§5.5)
+files = ["*.xcodeproj", "App/project.yml"]    # globs, relative to the project root
+contains = [{ file = "Package.swift", text = ".iOS(" }]
+
+[guild]                                 # optional: Guild's own keys; rolesmith keeps and ignores them
+engine = { preferred = "claude-code", fallback = ["codex"] }
+```
+
+Unknown top-level keys are refused by `rolesmith check`, except tables named by another consumer
+(`[guild]`), which rolesmith carries untouched. The list of such consumer tables is in rolesmith's
+code, one place.
+
+### 3.2 core.md
+
+Markdown, at most 8,000 characters. It is the role's standing memory: rules that hold for every task
+of the role. Anything that applies only to some tasks belongs in a skill.
+
+### 3.3 prohibitions.toml
+
+```toml
+[[prohibition]]
+rule = "Never revoke a signing certificate"
+why = "Revoking it breaks every other machine that signs with it"
+```
+
+Installed with the core (§5), rendered as a list under the core memory.
+
+### 3.4 Skills
+
+`skills/<skill>/SKILL.md` with YAML front matter `name` (equal to the directory name) and
+`description` (required, at most 1,024 characters, saying when to use it). Other files beside
+`SKILL.md` (scripts, references) are copied with it. A skill name follows the role name's rule.
+
+### 3.5 tools/<tool>/tool.toml
+
+```toml
+description = "App Store Connect CLI"
+check = "asc --version"                       # exits 0 when the tool is usable
+[install]
+brew = "asc"                                  # a Homebrew formula, installed into the user's prefix
+version = "7.0.0"                             # pinned; `rolesmith tool install` refuses unpinned
+[credential]                                  # optional: what the tool needs to run
+mytokens = "asc-api-key"                      # the entry
+env = { ASC_KEY_ID = "Key ID", ASC_ISSUER_ID = "Issuer ID", ASC_PRIVATE_KEY_B64 = "Key (base64 .p8)" }
+```
+
+An install method other than `brew` (`cargo`, `uv tool`, `npm -g`, a release tarball) is added by
+an ADR when a tool needs it. `env` maps each environment variable to the field of the mytokens entry
+it is filled from; a variable mapped to `""` is filled from the entry's single value.
+
+## 4. Projects
+
+A project that uses roles says so in **`rolesmith.toml`** at its root, committed:
+
+```toml
+[[role]]
+name = "app-store-releaser"
+source = "felix"
+url = "https://github.com/sunfminforge/lore"     # so a fresh clone can add the source
+rev = "3f2c9e1d..."                              # the library commit, always a full SHA
+into = ["claude-code"]                           # the targets it is installed into (§5.2)
+```
+
+This file is the one home of which roles a project uses, at which revision, into which agents.
+Everything rolesmith writes into a project besides it is **generated** from it: listed in
+`.rolesmith/manifest.json`, ignored by git (rolesmith adds the lines to `.gitignore`), rewritten
+identically by `rolesmith sync`. rolesmith deletes only files its manifest lists.
+
+rolesmith never edits a project's `CLAUDE.md`, `AGENTS.md`, code, build files or settings.
+
+## 5. Using a role
+
+### 5.1 What an install writes
+
+For each target, a role becomes skills in the directory that agent reads:
+
+- one skill per skill of the role, named `rolesmith-<role>-<skill>`, its files copied as they are;
+- one **core skill**, `rolesmith-<role>`, whose `SKILL.md` is `core.md` followed by the
+  prohibitions, with the description "Always in force in this project: <role description>".
+
+Every generated `SKILL.md` carries a first-line comment naming the source, role and rev it came from
+and saying it is generated.
+
+### 5.2 Targets
+
+| `--into` | project install | `--global` install |
+| --- | --- | --- |
+| `claude-code` | `.claude/skills/` | `~/.claude/skills/` |
+| `codex` | the project skill directory Codex reads | Codex's user skill directory |
+| `agents` | `.agents/skills/` | `~/.agents/skills/` (what `npx skills` and Orca's agents read) |
+
+The directory each target reads is checked against that agent's documentation when the target is
+built and recorded in one table in the code. An unknown target is refused.
+
+A `--global` install writes nothing into any project; it is recorded in
+`$XDG_DATA_HOME/rolesmith/global.toml` with the same fields as `rolesmith.toml`, and its manifest
+beside it.
+
+### 5.3 Prompt
+
+`rolesmith prompt <role>` prints the role as one Markdown document (core, prohibitions, then each
+skill's description and path) for an agent that takes instructions but reads no skills, such as a
+bot's standing instructions. It writes nothing.
+
+### 5.4 Updates
+
+`rolesmith update [<role>]` moves a project's role to its source's current `main`, rewrites
+`rolesmith.toml`'s `rev`, and syncs. `rolesmith status` says, per role, the pinned rev, the source's
+`main`, and whether the generated files match the manifest.
+
+### 5.5 Suggestions
+
+`rolesmith suggest [--dir <dir>]` lists roles of every source whose `[match]` the project meets,
+with which rule matched. `rolesmith use --auto` installs exactly what `suggest` lists, into the
+targets given. Nothing is installed by matching alone.
+
+## 6. Lessons and distilling
+
+A **lesson** is what an agent or a person learned doing a role's work that the role should know next
+time: what happened, the rule that would have prevented it, and the evidence (a link).
+
+- **A lesson is an issue** on the library's GitHub repository, labelled `lesson` and `role:<role>`.
+  `rolesmith lesson add` opens it through `gh`. Anyone who can open an issue on the library can
+  hand it a lesson, without push rights.
+- Before opening it, rolesmith refuses text that looks like a secret (§7.2) and prints a reminder
+  to write project details (customer names, private URLs other than the evidence link) in general
+  terms when the library is public.
+- **Distilling** is a person asking an agent to fold a role's open lessons into the role.
+  `rolesmith distill <role>` prints the brief and the open lessons. The agent edits `core.md`,
+  skills or prohibitions in the source's working copy, then `rolesmith check` and
+  `rolesmith propose`, whose pull request says `Closes #<n>` for each lesson it absorbed. A lesson
+  the agent judges wrong is closed with a comment saying why, by `rolesmith lesson close`.
+- There is no other record of absorbed lessons: the closed issue and the merged pull request are it.
+
+A private lesson goes to a private library: a person who wants one keeps a private library as a
+second source.
+
+## 7. Credentials
+
+### 7.1 Reading
+
+`rolesmith env <role>` prints `export NAME='value'` lines for every variable of the credentials of
+the role's `services` and of its programs' `[credential]`, read from mytokens at that moment, for
+`eval "$(rolesmith env <role>)"`. `rolesmith env <role> -- <command> [args]` runs the command with
+them set instead of printing. Neither writes a value anywhere. `rolesmith doctor` reads only whether
+each entry exists (`mytokens list`), never its value.
+
+### 7.2 Keeping secrets out
+
+`rolesmith check` and `rolesmith lesson add` refuse text matching any of the patterns in one table in
+the code (private key blocks, `ghp_`/`github_pat_`, `sk-`, AWS access keys, JWTs, long base64 or hex
+runs after `key`/`token`/`secret`/`password`), naming the file, line and pattern, never echoing the
+match.
+
+## 8. Commands
+
+Every command is non-interactive, takes `--json` (one JSON document on stdout; human text
+otherwise), writes diagnostics to stderr, and exits 0 on success, 1 when it refused or something
+failed, 2 on a usage error. `rolesmith agent-context` prints every command, flag and JSON shape as
+one JSON document, generated from the same definitions the parser uses.
+
+| Command | What it does |
+| --- | --- |
+| `source add <name> <git-url>` | clone the library, record it; refuse a name in use or a repo without `library.toml` |
+| `source list` | each source: name, URL, local `main` commit, roles count |
+| `source update [<name>]` | fetch and fast-forward each source's clone; never force |
+| `source remove <name>` | forget it and delete its clone; refuse while a project or global install records it, listing them |
+| `list [--source <name>]` | roles: address, description |
+| `show <role> [--rev <sha>]` | role.toml, core, prohibitions, skills with descriptions, programs, services |
+| `check [<role>] [--library <dir>]` | validate a library working copy or one role (§3, §7.2); prints every problem, not the first |
+| `use <role>... --into <target>... [--project <dir> \| --global] [--rev <sha>]` | install (§5); record in `rolesmith.toml` or `global.toml`; idempotent |
+| `use --auto --into <target>... [--project <dir>]` | install what `suggest` lists |
+| `sync [--project <dir> \| --global]` | make the generated files equal what the record says; add missing sources from `url` |
+| `status [--project <dir> \| --global]` | §5.4 |
+| `update [<role>] [--project <dir> \| --global]` | §5.4 |
+| `remove <role> [--project <dir> \| --global]` | drop it from the record, delete its generated files |
+| `prompt <role> [--rev <sha>]` | §5.3 |
+| `suggest [--dir <dir>]` | §5.5 |
+| `doctor <role>` | for each program: tool.toml present, `check` passes; for each service and credential: mytokens entry present. Exit 1 if anything is missing, each with the command that fixes it |
+| `tool show <tool>` | the tool.toml, and whether its check passes here |
+| `tool install <role> \| --tool <tool>` | install each missing program by its pinned method into the user's own prefix |
+| `env <role> [-- <command>...]` | §7.1 |
+| `new <role> --need "<text>" [--source <name>]` | scaffold `roles/<role>/` in the source's working copy on a new branch `rolesmith/new-<role>`, and print the drafting brief |
+| `propose [<role>] [--source <name>] [--closes <n>...]` | run `check`, commit the working copy's changes on its branch, push it, open a pull request through `gh`; print its URL |
+| `lesson add <role> --evidence <url> [--source felix\|agent]` | §6; the lesson text on stdin |
+| `lesson list [<role>]` | open lessons: number, role, title, age |
+| `lesson close <n> --why "<text>"` | close a lesson that will not be absorbed |
+| `distill <role>` | print the distilling brief and the role's open lessons, and put the working copy on branch `rolesmith/distill-<role>` |
+| `agent-context` | §8 |
+
+### 8.1 Briefs
+
+`new` and `distill` print a **brief**: what the agent is to do, the files it may change, the limits
+`check` enforces, the role's current text where it exists, and the last step (`rolesmith check`, then
+`rolesmith propose`). Briefs are Markdown kept as files in rolesmith's source and compiled in, one
+per kind, so they are reviewed like code.
+
+## 9. Guild
+
+Guild keeps what is Guild's: machines, admission, quotas, the scheduler and its instances. It reads
+roles through rolesmith: an instance's start runs `rolesmith use <role> --into <engine> --project
+<instance directory> --rev <sha>`. Guild's role keys move under
+`[guild]`. Guild's trainer crew and its scheduled distilling retire: drafting and distilling are
+started by people (ADR 0001). These are Guild's changes, made in Guild after rolesmith is released.
+
+## 10. Build and release
+
+Rust, one binary, no runtime dependency besides `git`, `gh` (for `propose` and lessons) and
+`mytokens` (for `env` and `doctor`). Tests run the real binary against temporary git repositories
+and stand-ins for `gh` and `mytokens` on `PATH`. Released by factorium's cut to the Homebrew tap
+`sunfmin/tap/rolesmith`.
