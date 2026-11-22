@@ -636,10 +636,11 @@ fn env_runs_a_command_after_the_double_dash_with_the_variables_set() {
     let o = m.rolesmith(&["env", "releaser", "--", "env"]);
     assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
     let child = String::from_utf8(o.stdout).unwrap();
-    assert!(child.contains("\nGH_TOKEN=gh-value\n"), "{child}");
-    assert!(child.contains("\nASC_ISSUER_ID=issuer\n"), "{child}");
+    let has = |want: &str| child.lines().any(|l| l == want);
+    assert!(has("GH_TOKEN=gh-value"), "{child}");
+    assert!(has("ASC_ISSUER_ID=issuer"), "{child}");
     assert!(
-        child.contains("\nHOME="),
+        child.lines().any(|l| l.starts_with("HOME=")),
         "the child keeps the environment: {child}"
     );
 
