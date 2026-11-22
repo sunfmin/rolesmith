@@ -1,0 +1,10 @@
+{
+  "tree": "d3e3d5429764a89c86fa8d2b6e79d6396a504b06+d1fba762150c532c",
+  "lines": 532,
+  "serves": "rolesmith#4",
+  "considered": "sources::add (moved out of commands/source.rs and reused for sync's missing source), sources::resolve and read_role (reused to read the role at its rev), library::front_matter (split so the installed SKILL.md reuses it), tests/sources.rs' Machine and Library helpers (moved to tests/common and shared, not copied)",
+  "reviewer": "codex:01a20299-1f6c-77b1-ad35-bfe80568cfcc:default",
+  "author": "claude-code:3b2cc3ce-8a69-5089-8ffa-41c837152a09:opus",
+  "cut": "In src/project.rs, have sync take the loaded Record so src/commands/sync.rs reads it once and src/commands/use_.rs reuses the record it just saved. In src/commands/use_.rs, update targets through the entry selected or inserted by the match and delete the second role lookup. In src/commands/sync.rs, return Output directly from the infallible formatter. In src/project.rs, collect foreign paths as string slices for the error message, and simplify update_gitignore by borrowing the unchanged slices, joining the sorted ignore entries, and dropping the empty-file check already covered by the equality guard.",
+  "answer": "Made every cut as named (commit after 'the growth reviewer's cuts'); the rest is the issue's own surface: the record, the generator, the manifest, the .gitignore block and two commands"
+}
