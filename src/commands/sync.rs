@@ -25,8 +25,9 @@ impl Command for Args {
 
     fn run(self) -> Result<Output, Failure> {
         let dir = project_dir(self.project)?;
-        let synced = project::sync(&dir)?;
-        output(&dir, &Record::load(&dir)?, &synced)
+        let record = Record::load(&dir)?;
+        let synced = project::sync(&dir, &record)?;
+        Ok(output(&dir, &record, &synced))
     }
 }
 
@@ -74,7 +75,7 @@ pub fn project_dir(project: Option<PathBuf>) -> Result<PathBuf, Failure> {
 }
 
 /// The output of `use` and `sync`.
-pub fn output(dir: &std::path::Path, record: &Record, synced: &Synced) -> Result<Output, Failure> {
+pub fn output(dir: &std::path::Path, record: &Record, synced: &Synced) -> Output {
     let mut human = String::new();
     for r in &record.role {
         human.push_str(&format!(
@@ -97,7 +98,7 @@ pub fn output(dir: &std::path::Path, record: &Record, synced: &Synced) -> Result
     if synced.written.is_empty() && synced.removed.is_empty() {
         human.push_str("up to date\n");
     }
-    Ok(Output {
+    Output {
         json: json!({
             "project": dir.display().to_string(),
             "roles": record.role,
@@ -105,5 +106,5 @@ pub fn output(dir: &std::path::Path, record: &Record, synced: &Synced) -> Result
             "removed": synced.removed,
         }),
         human,
-    })
+    }
 }

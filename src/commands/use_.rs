@@ -54,7 +54,7 @@ impl Command for Args {
                 .or_else(|| recorded.map(|i| record.role[i].rev.as_str()));
             let found = sources::resolve(&known, address, rev)?;
             let url = known.get(&found.source)?.url.clone();
-            match recorded {
+            let entry = match recorded {
                 Some(i) if record.role[i].source != found.source => {
                     return Err(Failure::new(format!(
                         "{} already records {name} from source {}; a role name is installed once",
@@ -66,20 +66,19 @@ impl Command for Args {
                     let entry = &mut record.role[i];
                     entry.rev = found.rev;
                     entry.url = url;
+                    entry
                 }
-                None => record.role.push(RoleEntry {
-                    name: found.role,
-                    source: found.source,
-                    url,
-                    rev: found.rev,
-                    into: Vec::new(),
-                }),
-            }
-            let entry = record
-                .role
-                .iter_mut()
-                .find(|r| r.name == name)
-                .expect("recorded");
+                None => {
+                    record.role.push(RoleEntry {
+                        name: found.role,
+                        source: found.source,
+                        url,
+                        rev: found.rev,
+                        into: Vec::new(),
+                    });
+                    record.role.last_mut().expect("just pushed")
+                }
+            };
             for target in &self.into {
                 if !entry.into.contains(target) {
                     entry.into.push(target.clone());
@@ -90,12 +89,12 @@ impl Command for Args {
         let file = dir.join(project::RECORD);
         let before = std::fs::read(&file).ok();
         record.save(&dir)?;
-        let synced = project::sync(&dir).inspect_err(|_| {
+        let synced = project::sync(&dir, &record).inspect_err(|_| {
             let _ = match &before {
                 Some(bytes) => std::fs::write(&file, bytes),
                 None => std::fs::remove_file(&file),
             };
         })?;
-        sync::output(&dir, &record, &synced)
+        Ok(sync::output(&dir, &record, &synced))
     }
 }

@@ -116,31 +116,26 @@ pub struct Synced {
 /// A generated file: its bytes, and whether it is executable.
 type Generated = BTreeMap<String, (Vec<u8>, bool)>;
 
-/// Make the files generated into the project at `dir` equal what its record says, adding a source
+/// Make the files generated into the project at `dir` equal what its `record` says, adding a source
 /// the machine lacks from the record's `url`.
-pub fn sync(dir: &Path) -> Result<Synced, Failure> {
-    let record = Record::load(dir)?;
+pub fn sync(dir: &Path, record: &Record) -> Result<Synced, Failure> {
     let mut generated = Generated::new();
     for entry in &record.role {
         generate(entry, &mut generated)?;
     }
     let old: BTreeSet<String> = read_manifest(dir)?;
 
-    let foreign: Vec<&String> = generated
+    let foreign: Vec<&str> = generated
         .iter()
         .filter(|(rel, (bytes, _))| {
             !old.contains(*rel) && std::fs::read(dir.join(rel)).is_ok_and(|have| have != *bytes)
         })
-        .map(|(rel, _)| rel)
+        .map(|(rel, _)| rel.as_str())
         .collect();
     if !foreign.is_empty() {
         return Err(Failure::new(format!(
             "rolesmith did not generate these files and will not overwrite them; move them away first: {}",
-            foreign
-                .iter()
-                .map(|s| s.as_str())
-                .collect::<Vec<_>>()
-                .join(", ")
+            foreign.join(", ")
         )));
     }
 
@@ -387,9 +382,9 @@ fn update_gitignore(dir: &Path, generated: &Generated) -> Result<bool, Failure> 
         (Some(b), Some(e)) if b < e => {
             let end = e + GITIGNORE_END.len();
             let end = end + usize::from(text[end..].starts_with('\n'));
-            (text[..b].to_owned(), text[end..].to_owned())
+            (&text[..b], &text[end..])
         }
-        _ => (text.clone(), String::new()),
+        _ => (text.as_str(), ""),
     };
     let mut block = String::new();
     if !generated.is_empty() {
@@ -398,24 +393,22 @@ fn update_gitignore(dir: &Path, generated: &Generated) -> Result<bool, Failure> 
             .filter_map(|rel| {
                 let base = TARGETS.iter().find(|(_, b)| rel.starts_with(b))?.1;
                 let skill = rel[base.len() + 1..].split('/').next()?;
-                Some(format!("/{base}/{skill}/"))
+                Some(format!("/{base}/{skill}/\n"))
             })
             .collect();
         let manifest_dir = MANIFEST.split('/').next().expect("a path");
-        block = format!("{GITIGNORE_BEGIN}\n/{manifest_dir}/\n");
-        for skill in skills {
-            block.push_str(&skill);
-            block.push('\n');
-        }
-        block.push_str(GITIGNORE_END);
-        block.push('\n');
+        let lead = if before.is_empty() || before.ends_with('\n') {
+            ""
+        } else {
+            "\n"
+        };
+        block = format!(
+            "{lead}{GITIGNORE_BEGIN}\n/{manifest_dir}/\n{}{GITIGNORE_END}\n",
+            skills.into_iter().collect::<String>()
+        );
     }
-    let mut before = before;
-    if !block.is_empty() && !before.is_empty() && !before.ends_with('\n') {
-        before.push('\n');
-    }
-    let new = before + &block + &after;
-    if new == text || (new.is_empty() && !path.exists()) {
+    let new = format!("{before}{block}{after}");
+    if new == text {
         return Ok(false);
     }
     write_if_changed(&path, new.as_bytes(), false)
