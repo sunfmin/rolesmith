@@ -1,0 +1,10 @@
+{
+  "tree": "c80dd12e6b4e577e304bf5e8ac5a0d4279bb1a39+d1fba762150c532c",
+  "lines": 75,
+  "serves": "rolesmith#6",
+  "considered": "a separate global module beside project.rs (rejected: it would copy sync, drift and the manifest handling); a second TARGETS column for the user directory (cut: claude-code reads the same relative path under HOME); per-command --global flags (one flattened Where instead)",
+  "reviewer": "codex:01a202f0-ae20-7a12-be9e-e2ea403a6dd7:default",
+  "author": "claude-code:40a0980e-ebea-5dea-baf5-1ba1f7a97e64:opus",
+  "cut": "In src/project.rs, keep the existing TARGETS table and target_dir lookup: Claude Code uses the same relative skill directory under both roots, so remove Target, target_of, and Place::target_dir, and reuse the table for generation and cleanup. In src/commands/use_.rs, reuse target_dir for validation. In src/project.rs and src/commands/{sync,source,status}.rs, share one Place::project_name() returning Option<String> for both JSON output and source-removal listings, and chain the global place onto the project iterator in source.rs instead of collecting and pushing. In tests/{global.rs,common/mod.rs}, extend Machine's existing command helpers to take a working directory and reuse one global-install argument list.",
+  "answer": "Made every cut: one (name, dir) TARGETS table and target_dir again; Place::project_name serves sync, status and source remove; the global place is chained onto the projects; Machine::rolesmith_in/json_in take a cwd and tests share one USE argument list (c80dd12). Net growth 91 -> 75 lines."
+}

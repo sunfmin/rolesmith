@@ -64,8 +64,16 @@ impl Machine {
 
     /// Run `rolesmith <args>` with `input` on stdin.
     pub fn rolesmith_input(&self, args: &[&str], input: &str) -> Output {
+        self.rolesmith_in(None, args, input)
+    }
+
+    /// Run `rolesmith <args>` in `cwd` (default: the test's own) with `input` on stdin.
+    pub fn rolesmith_in(&self, cwd: Option<&Path>, args: &[&str], input: &str) -> Output {
         use std::io::Write;
         let mut cmd = Command::new(env!("CARGO_BIN_EXE_rolesmith"));
+        if let Some(cwd) = cwd {
+            cmd.current_dir(cwd);
+        }
         cmd.args(args)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
@@ -107,9 +115,14 @@ impl Machine {
 
     /// Run `rolesmith --json <args>`, expect success, answer its document.
     pub fn json(&self, args: &[&str]) -> Value {
+        self.json_in(None, args)
+    }
+
+    /// [`Machine::json`] in `cwd`.
+    pub fn json_in(&self, cwd: Option<&Path>, args: &[&str]) -> Value {
         let mut all = vec!["--json"];
         all.extend_from_slice(args);
-        let o = self.rolesmith(&all);
+        let o = self.rolesmith_in(cwd, &all, "");
         assert_eq!(o.status.code(), Some(0), "{args:?}: {}", stderr(&o));
         serde_json::from_slice(&o.stdout).unwrap()
     }

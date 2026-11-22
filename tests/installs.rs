@@ -198,7 +198,7 @@ fn source_remove_is_refused_while_a_project_records_it() {
     assert_eq!(o.status.code(), Some(1));
     assert!(
         stderr(&o).contains(&format!(
-            "source felix is recorded by 1 project(s); `rolesmith remove` its roles there first:\n  {}: app-store-releaser",
+            "source felix is recorded by 1 record(s); `rolesmith remove` its roles there first:\n  {}: app-store-releaser",
             canonical.display()
         )),
         "{}",

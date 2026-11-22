@@ -1,8 +1,6 @@
-//! `rolesmith use <role>... --into <target>... [--project <dir>] [--rev <sha>]`: record roles in
-//! a project's `rolesmith.toml` and install them (SPEC.md §4, §5.1, §8); `use --auto` installs what
-//! `suggest` lists (§5.5).
-
-use std::path::PathBuf;
+//! `rolesmith use <role>... --into <target>... [--project <dir> | --global] [--rev <sha>]`: record
+//! roles in a project's `rolesmith.toml` (or the user's `global.toml`) and install them (SPEC.md §4,
+//! §5.1, §5.2, §8); `use --auto` installs what `suggest` lists for a project (§5.5).
 
 use serde_json::Value;
 
@@ -11,7 +9,7 @@ use crate::project::{self, Record, RoleEntry};
 use crate::sources::{self, Sources};
 use crate::suggestions;
 
-/// Install roles into a project's agents and record them in its rolesmith.toml; idempotent.
+/// Install roles into a project's agents (or the user's, with --global) and record them; idempotent.
 #[derive(clap::Args)]
 pub struct Args {
     /// Each role: <role> when one source has it, <source>/<role> otherwise.
@@ -19,16 +17,15 @@ pub struct Args {
     pub roles: Vec<String>,
 
     /// Install exactly the roles `suggest` lists for the project.
-    #[arg(long, conflicts_with = "rev")]
+    #[arg(long, conflicts_with_all = ["rev", "global"])]
     pub auto: bool,
 
     /// Each agent to install into (claude-code).
     #[arg(long, value_name = "TARGET", required = true)]
     pub into: Vec<String>,
 
-    /// The project's root (default: the current directory).
-    #[arg(long, value_name = "DIR")]
-    pub project: Option<PathBuf>,
+    #[command(flatten)]
+    pub place: sync::Where,
 
     /// Install the roles at this commit of their source (default: a role already recorded keeps
     /// its rev; a new one takes its source's local main).
@@ -47,15 +44,15 @@ impl Command for Args {
         for target in &self.into {
             project::target_dir(target)?;
         }
-        let dir = sync::project_dir(self.project)?;
-        let mut record = Record::load(&dir)?;
+        let place = self.place.place()?;
+        let mut record = Record::load(&place)?;
         let known = Sources::load()?;
         let roles = if self.auto {
-            let found = suggestions::suggest(&dir)?;
+            let found = suggestions::suggest(&place.root)?;
             if found.is_empty() {
                 return Err(Failure::new(format!(
                     "no role matches {} (`rolesmith suggest`); nothing installed",
-                    dir.display()
+                    place.root.display()
                 )));
             }
             found.iter().map(|s| s.qualified()).collect()
@@ -82,7 +79,7 @@ impl Command for Args {
                 Some(i) if record.role[i].source != found.source => {
                     return Err(Failure::new(format!(
                         "{} already records {name} from source {}; a role name is installed once",
-                        project::RECORD,
+                        place.record_name(),
                         record.role[i].source
                     )));
                 }
@@ -109,6 +106,6 @@ impl Command for Args {
                 }
             }
         }
-        sync::install(&dir, &record)
+        sync::install(&place, &record)
     }
 }

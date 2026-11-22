@@ -1,19 +1,43 @@
-//! `rolesmith sync [--project <dir>]`: make a project's generated files equal what its
-//! `rolesmith.toml` says, adding a missing source from its `url` (SPEC.md §4, §8).
+//! `rolesmith sync [--project <dir> | --global]`: make the generated files equal what the record
+//! (`rolesmith.toml` or `global.toml`) says, adding a missing source from its `url` (SPEC.md §4,
+//! §5.2, §8).
 
 use std::path::PathBuf;
 
 use serde_json::{Value, json};
 
 use super::{Command, Failure, Output};
-use crate::project::{self, Record, Synced};
+use crate::project::{self, Place, Record, Synced};
 
 /// Make the generated files equal what rolesmith.toml says; add missing sources from their url.
 #[derive(clap::Args)]
 pub struct Args {
+    #[command(flatten)]
+    pub place: Where,
+}
+
+/// Where `use`, `sync`, `status`, `update` and `remove` work: a project, or the user's global
+/// installs.
+#[derive(clap::Args)]
+pub struct Where {
     /// The project's root (default: the current directory).
-    #[arg(long, value_name = "DIR")]
+    #[arg(long, value_name = "DIR", conflicts_with = "global")]
     pub project: Option<PathBuf>,
+
+    /// The user's own installs, recorded in global.toml; nothing is written into a project.
+    #[arg(long)]
+    pub global: bool,
+}
+
+impl Where {
+    /// The place these flags name.
+    pub fn place(self) -> Result<Place, Failure> {
+        if self.global {
+            Place::global()
+        } else {
+            project_dir(self.project).map(Place::project)
+        }
+    }
 }
 
 impl Command for Args {
@@ -24,10 +48,10 @@ impl Command for Args {
     }
 
     fn run(self) -> Result<Output, Failure> {
-        let dir = project_dir(self.project)?;
-        let record = Record::load(&dir)?;
-        let synced = project::sync(&dir, &record)?;
-        Ok(output(&dir, &record, &synced))
+        let place = self.place.place()?;
+        let record = Record::load(&place)?;
+        let synced = project::sync(&place, &record)?;
+        Ok(output(&place, &record, &synced))
     }
 }
 
@@ -39,7 +63,7 @@ pub fn shape() -> Value {
         "type": "object",
         "required": ["project", "roles", "written", "removed"],
         "properties": {
-            "project": { "type": "string", "description": "the project's root" },
+            "project": { "type": ["string", "null"], "description": "the project's root; null for --global" },
             "roles": { "type": "array", "items": {
                 "type": "object", "required": ["name", "source", "url", "rev", "into"],
                 "properties": {
@@ -51,9 +75,9 @@ pub fn shape() -> Value {
                 }
             } },
             "written": { "type": "array", "items": { "type": "string" },
-                         "description": "files written because they differed, relative to the project" },
+                         "description": "files written because they differed, relative to the project (to HOME for --global)" },
             "removed": { "type": "array", "items": { "type": "string" },
-                         "description": "generated files deleted, relative to the project" }
+                         "description": "generated files deleted, relative to the project (to HOME for --global)" }
         }
     })
 }
@@ -74,14 +98,14 @@ pub fn project_dir(project: Option<PathBuf>) -> Result<PathBuf, Failure> {
     Ok(dir)
 }
 
-/// Save `record` to the project at `dir`, sync it, and say what changed (`use`, `update`, `remove`).
-pub fn install(dir: &std::path::Path, record: &Record) -> Result<Output, Failure> {
-    let synced = project::install(dir, record)?;
-    Ok(output(dir, record, &synced))
+/// Save `record` at `place`, sync it, and say what changed (`use`, `update`, `remove`).
+pub fn install(place: &Place, record: &Record) -> Result<Output, Failure> {
+    let synced = project::install(place, record)?;
+    Ok(output(place, record, &synced))
 }
 
 /// The output of `use` and `sync`.
-pub fn output(dir: &std::path::Path, record: &Record, synced: &Synced) -> Output {
+pub fn output(place: &Place, record: &Record, synced: &Synced) -> Output {
     let mut human = String::new();
     for r in &record.role {
         human.push_str(&format!(
@@ -93,7 +117,7 @@ pub fn output(dir: &std::path::Path, record: &Record, synced: &Synced) -> Output
         ));
     }
     if record.role.is_empty() {
-        human.push_str("no roles in rolesmith.toml\n");
+        human.push_str(&format!("no roles in {}\n", place.record_name()));
     }
     for rel in &synced.written {
         human.push_str(&format!("wrote {rel}\n"));
@@ -106,7 +130,7 @@ pub fn output(dir: &std::path::Path, record: &Record, synced: &Synced) -> Output
     }
     Output {
         json: json!({
-            "project": dir.display().to_string(),
+            "project": place.project_name(),
             "roles": record.role,
             "written": synced.written,
             "removed": synced.removed,
