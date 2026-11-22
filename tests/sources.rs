@@ -451,19 +451,34 @@ fn new_branches_from_main_scaffolds_the_role_and_prints_the_brief() {
     assert_eq!(doc["source"], "felix");
     assert_eq!(doc["branch"], "rolesmith/new-web-tester");
     assert!(doc["brief"].as_str().unwrap().contains("Test web UIs"));
+
+    // What --json printed is what agent-context says `new` prints.
+    let context = m.json(&["agent-context"]);
+    let new = context["commands"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "new")
+        .unwrap();
+    let required = new["output"]["required"].as_array().unwrap();
+    for key in required {
+        assert!(doc.get(key.as_str().unwrap()).is_some(), "{key}");
+    }
+    assert_eq!(required.len(), doc.as_object().unwrap().len());
 }
 
 #[test]
 fn new_refuses_a_dirty_working_copy_an_existing_role_and_a_taken_branch() {
     let m = Machine::new();
-    let (lib, _) = published(&m, "felix", &["rust-cli"]);
-    m.json(&["source", "add", "felix", lib.url()]);
-    let clone = m.path("data/rolesmith/sources/felix");
     let refused = |args: &[&str], why: &str| {
         let o = m.rolesmith(args);
         assert_eq!(o.status.code(), Some(1), "{args:?}: {}", stderr(&o));
         assert!(stderr(&o).contains(why), "{args:?}: {}", stderr(&o));
     };
+    refused(&["new", "web", "--need", "x"], "no sources; add one");
+    let (lib, _) = published(&m, "felix", &["rust-cli"]);
+    m.json(&["source", "add", "felix", lib.url()]);
+    let clone = m.path("data/rolesmith/sources/felix");
 
     refused(
         &["new", "rust-cli", "--need", "x"],
