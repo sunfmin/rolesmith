@@ -1,7 +1,6 @@
-//! `rolesmith update [<role>] [--project <dir>]`: move a project's roles to their source's `main`,
-//! rewrite their `rev` in `rolesmith.toml`, and sync (SPEC.md §5.4).
-
-use std::path::PathBuf;
+//! `rolesmith update [<role>] [--project <dir> | --global]`: move a project's (or the global
+//! installs') roles to their source's `main`, rewrite their `rev` in the record, and sync
+//! (SPEC.md §5.4).
 
 use serde_json::Value;
 
@@ -15,9 +14,8 @@ pub struct Args {
     /// Only this role, by its name in rolesmith.toml.
     pub role: Option<String>,
 
-    /// The project's root (default: the current directory).
-    #[arg(long, value_name = "DIR")]
-    pub project: Option<PathBuf>,
+    #[command(flatten)]
+    pub place: sync::Where,
 }
 
 impl Command for Args {
@@ -28,12 +26,12 @@ impl Command for Args {
     }
 
     fn run(self) -> Result<Output, Failure> {
-        let dir = sync::project_dir(self.project)?;
-        let mut record = Record::load(&dir)?;
+        let place = self.place.place()?;
+        let mut record = Record::load(&place)?;
         let only = self
             .role
             .as_deref()
-            .map(|r| record.position(r))
+            .map(|r| record.position(&place, r))
             .transpose()?;
         for (i, entry) in record.role.iter_mut().enumerate() {
             if only.is_some_and(|o| o != i) {
@@ -47,6 +45,6 @@ impl Command for Args {
                 ))
             })?;
         }
-        sync::install(&dir, &record)
+        sync::install(&place, &record)
     }
 }

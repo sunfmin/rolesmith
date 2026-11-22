@@ -29,7 +29,7 @@ pub enum Action {
         /// Only this source.
         name: Option<String>,
     },
-    /// Forget a source and delete its clone.
+    /// Forget a source and delete its clone; refuse while a project or global install records it.
     Remove {
         /// The source to remove.
         name: String,
@@ -216,27 +216,32 @@ fn update_one(name: &str) -> Result<Value, Failure> {
     Ok(json!({ "name": name, "from": from, "to": to }))
 }
 
-/// A project whose `rolesmith.toml` records roles of a source.
+/// A project whose `rolesmith.toml`, or the global installs whose `global.toml` (`project: None`),
+/// records roles of a source.
 struct User {
-    project: String,
+    project: Option<String>,
     roles: Vec<String>,
 }
 
 impl std::fmt::Display for User {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {}", self.project, self.roles.join(", "))
+        let place = self.project.as_deref().unwrap_or("--global");
+        write!(f, "{place}: {}", self.roles.join(", "))
     }
 }
 
-/// The projects rolesmith has installed into whose record still names the source `name`; a
-/// project that is gone, or no longer records it, is not one.
+/// The projects rolesmith has installed into whose record still names the source `name`, then the
+/// global installs when they do; a project that is gone, or no longer records it, is not one.
 fn recorded_by(name: &str) -> Result<Vec<User>, Failure> {
+    let mut places: Vec<project::Place> = project::known_projects()?
+        .into_iter()
+        .filter(|dir| dir.is_dir())
+        .map(project::Place::project)
+        .collect();
+    places.push(project::Place::global()?);
     let mut users = Vec::new();
-    for dir in project::known_projects()? {
-        if !dir.is_dir() {
-            continue;
-        }
-        let roles: Vec<String> = project::Record::load(&dir)?
+    for place in places {
+        let roles: Vec<String> = project::Record::load(&place)?
             .role
             .into_iter()
             .filter(|r| r.source == name)
@@ -244,7 +249,7 @@ fn recorded_by(name: &str) -> Result<Vec<User>, Failure> {
             .collect();
         if !roles.is_empty() {
             users.push(User {
-                project: dir.display().to_string(),
+                project: (!place.global).then(|| place.root.display().to_string()),
                 roles,
             });
         }
@@ -259,7 +264,7 @@ fn remove(name: &str) -> Result<Output, Failure> {
     if !users.is_empty() {
         return Err(Failure::listing(
             format!(
-                "source {name} is recorded by {} project(s); `rolesmith remove` its roles there first:",
+                "source {name} is recorded by {} record(s); `rolesmith remove` its roles there first:",
                 users.len()
             ),
             "projects",

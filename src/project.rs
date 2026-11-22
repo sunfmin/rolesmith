@@ -1,6 +1,8 @@
-//! A project that uses roles (SPEC.md §4, §5.1): its record `rolesmith.toml`, the files generated
-//! from it into each target's skill directory, their manifest `.rolesmith/manifest.json`, and the
-//! `.gitignore` lines that ignore them.
+//! Where roles are installed (SPEC.md §4, §5.1, §5.2): a project, with its record `rolesmith.toml`,
+//! the files generated from it into each target's skill directory, their manifest
+//! `.rolesmith/manifest.json`, and the `.gitignore` lines that ignore them; or the user (`--global`),
+//! with its record `global.toml` and manifest beside it in rolesmith's data directory, and the files
+//! in each target's user skill directory under `HOME`.
 //!
 //! [`sync`] is the one way generated files are written: it computes every file the record asks
 //! for, refuses before writing anything if one would overwrite a file rolesmith did not generate,
@@ -21,10 +23,83 @@ pub const RECORD: &str = "rolesmith.toml";
 /// The list of every file generated into the project.
 pub const MANIFEST: &str = ".rolesmith/manifest.json";
 
-/// Each target (§5.2) and the project directory its agent reads skills from; the one table of them.
-/// claude-code: project skills are `.claude/skills/<name>/SKILL.md`
-/// (https://code.claude.com/docs/en/skills, checked 2026-11-22).
-pub const TARGETS: &[(&str, &str)] = &[("claude-code", ".claude/skills")];
+/// The record of the user's global installs, in rolesmith's data directory.
+pub const GLOBAL_RECORD: &str = "global.toml";
+/// The manifest of the user's global installs, beside [`GLOBAL_RECORD`].
+pub const GLOBAL_MANIFEST: &str = "global.manifest.json";
+
+/// Each target (§5.2), the directory under a project its agent reads skills from, and the one
+/// under `HOME` it reads the user's skills from; the one table of them.
+/// claude-code: project skills are `.claude/skills/<name>/SKILL.md`, the user's
+/// `~/.claude/skills/<name>/SKILL.md` (https://code.claude.com/docs/en/skills, checked 2026-11-22).
+pub const TARGETS: &[Target] = &[Target {
+    name: "claude-code",
+    project: ".claude/skills",
+    global: ".claude/skills",
+}];
+
+/// A row of [`TARGETS`].
+pub struct Target {
+    pub name: &'static str,
+    /// Relative to the project's root.
+    pub project: &'static str,
+    /// Relative to `HOME`.
+    pub global: &'static str,
+}
+
+/// Where an install lives: the directory its generated paths are relative to, its record and its
+/// manifest.
+#[derive(Debug, Clone)]
+pub struct Place {
+    /// The project's root, or `HOME` for the user's global installs.
+    pub root: PathBuf,
+    record: PathBuf,
+    manifest: PathBuf,
+    /// A global install writes nothing into a project: no `.gitignore` lines, no `projects.toml`.
+    pub global: bool,
+}
+
+impl Place {
+    /// The project at `dir`.
+    pub fn project(dir: PathBuf) -> Place {
+        Place {
+            record: dir.join(RECORD),
+            manifest: dir.join(MANIFEST),
+            root: dir,
+            global: false,
+        }
+    }
+
+    /// The user's global installs.
+    pub fn global() -> Result<Place, Failure> {
+        let home = match std::env::var_os("HOME") {
+            Some(home) if Path::new(&home).is_absolute() => PathBuf::from(home),
+            _ => {
+                return Err(Failure::new(
+                    "HOME is not set; a --global install goes under it",
+                ));
+            }
+        };
+        let data = sources::data_dir()?;
+        Ok(Place {
+            root: home,
+            record: data.join(GLOBAL_RECORD),
+            manifest: data.join(GLOBAL_MANIFEST),
+            global: true,
+        })
+    }
+
+    /// The record's file name, as messages name it.
+    pub fn record_name(&self) -> &'static str {
+        if self.global { GLOBAL_RECORD } else { RECORD }
+    }
+
+    /// The skill directory of `target` here, relative to [`Place::root`].
+    fn target_dir(&self, target: &str) -> Result<&'static str, Failure> {
+        let t = target_of(target)?;
+        Ok(if self.global { t.global } else { t.project })
+    }
+}
 
 const GITIGNORE: &str = ".gitignore";
 const GITIGNORE_BEGIN: &str =
@@ -52,25 +127,21 @@ pub struct RoleEntry {
     pub into: Vec<String>,
 }
 
-/// The skill directory `target` installs into, or a refusal naming the known targets.
-pub fn target_dir(target: &str) -> Result<&'static str, Failure> {
-    TARGETS
-        .iter()
-        .find(|(name, _)| *name == target)
-        .map(|(_, dir)| *dir)
-        .ok_or_else(|| {
-            let known: Vec<&str> = TARGETS.iter().map(|(name, _)| *name).collect();
-            Failure::new(format!(
-                "unknown target {target} (known: {})",
-                known.join(", ")
-            ))
-        })
+/// The target named `target`, or a refusal naming the known targets.
+pub fn target_of(target: &str) -> Result<&'static Target, Failure> {
+    TARGETS.iter().find(|t| t.name == target).ok_or_else(|| {
+        let known: Vec<&str> = TARGETS.iter().map(|t| t.name).collect();
+        Failure::new(format!(
+            "unknown target {target} (known: {})",
+            known.join(", ")
+        ))
+    })
 }
 
 impl Record {
-    /// The record of the project at `dir`; empty when it has none.
-    pub fn load(dir: &Path) -> Result<Record, Failure> {
-        let file = dir.join(RECORD);
+    /// The record at `place`; empty when it has none.
+    pub fn load(place: &Place) -> Result<Record, Failure> {
+        let file = &place.record;
         let text = match std::fs::read_to_string(&file) {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Record::default()),
             Err(e) => return Err(Failure::new(format!("cannot read {}: {e}", file.display()))),
@@ -93,31 +164,32 @@ impl Record {
                 )));
             }
             for target in &entry.into {
-                target_dir(target)?;
+                target_of(target)?;
             }
         }
         Ok(record)
     }
 
-    /// Write the record to the project at `dir`, unless it already says exactly this; a record of
-    /// no roles is no file.
-    pub fn save(&self, dir: &Path) -> Result<(), Failure> {
+    /// Write the record at `place`, unless it already says exactly this; a record of no roles is
+    /// no file.
+    pub fn save(&self, place: &Place) -> Result<(), Failure> {
         if self.role.is_empty() {
-            return remove_if_present(&dir.join(RECORD));
+            return remove_if_present(&place.record);
         }
         let text = toml::to_string(self).expect("the record serializes");
-        write_if_changed(&dir.join(RECORD), text.as_bytes(), false).map(|_| ())
+        write_if_changed(&place.record, text.as_bytes(), false).map(|_| ())
     }
 
-    /// The index of the role `name` in the record, or a refusal naming the roles it has.
-    pub fn position(&self, name: &str) -> Result<usize, Failure> {
+    /// The index of the role `name` in the record at `place`, or a refusal naming the roles it has.
+    pub fn position(&self, place: &Place, name: &str) -> Result<usize, Failure> {
         self.role
             .iter()
             .position(|r| r.name == name)
             .ok_or_else(|| {
                 let names: Vec<&str> = self.role.iter().map(|r| r.name.as_str()).collect();
                 Failure::new(format!(
-                    "{RECORD} records no role {name} (it records: {})",
+                    "{} records no role {name} (it records: {})",
+                    place.record_name(),
                     if names.is_empty() {
                         "none".to_owned()
                     } else {
@@ -128,25 +200,26 @@ impl Record {
     }
 }
 
-/// Save `record` to the project at `dir` and sync it; when the sync fails, the record file is put
-/// back as it was.
-pub fn install(dir: &Path, record: &Record) -> Result<Synced, Failure> {
-    let file = dir.join(RECORD);
-    let before = std::fs::read(&file).ok();
-    record.save(dir)?;
-    sync(dir, record).inspect_err(|_| {
+/// Save `record` at `place` and sync it; when the sync fails, the record file is put back as it
+/// was.
+pub fn install(place: &Place, record: &Record) -> Result<Synced, Failure> {
+    let file = &place.record;
+    let before = std::fs::read(file).ok();
+    record.save(place)?;
+    sync(place, record).inspect_err(|_| {
         let _ = match &before {
-            Some(bytes) => std::fs::write(&file, bytes),
-            None => std::fs::remove_file(&file),
+            Some(bytes) => std::fs::write(file, bytes),
+            None => std::fs::remove_file(file),
         };
     })
 }
 
 /// The generated files of `entry` that differ from what it generates (a hand edit) or are
-/// missing, relative to the project at `dir`.
-pub fn drift(dir: &Path, entry: &RoleEntry) -> Result<Vec<String>, Failure> {
+/// missing, relative to `place`'s root.
+pub fn drift(place: &Place, entry: &RoleEntry) -> Result<Vec<String>, Failure> {
+    let dir = &place.root;
     let mut generated = Generated::new();
-    generate(entry, &mut generated)?;
+    generate(place, entry, &mut generated)?;
     Ok(generated
         .into_iter()
         .filter(|(rel, (bytes, exec))| {
@@ -211,7 +284,8 @@ fn remove_if_present(path: &Path) -> Result<(), Failure> {
     }
 }
 
-/// What [`sync`] changed in the project, as paths relative to its root.
+/// What [`sync`] changed, as paths relative to the place's root (the manifest of a global install
+/// by its file name).
 #[derive(Debug, Default)]
 pub struct Synced {
     pub written: Vec<String>,
@@ -221,14 +295,15 @@ pub struct Synced {
 /// A generated file: its bytes, and whether it is executable.
 type Generated = BTreeMap<String, (Vec<u8>, bool)>;
 
-/// Make the files generated into the project at `dir` equal what its `record` says, adding a source
-/// the machine lacks from the record's `url`.
-pub fn sync(dir: &Path, record: &Record) -> Result<Synced, Failure> {
+/// Make the files generated at `place` equal what its `record` says, adding a source the machine
+/// lacks from the record's `url`.
+pub fn sync(place: &Place, record: &Record) -> Result<Synced, Failure> {
+    let dir = &place.root;
     let mut generated = Generated::new();
     for entry in &record.role {
-        generate(entry, &mut generated)?;
+        generate(place, entry, &mut generated)?;
     }
-    let old: BTreeSet<String> = read_manifest(dir)?;
+    let old: BTreeSet<String> = read_manifest(&place.manifest)?;
 
     let foreign: Vec<&str> = generated
         .iter()
@@ -257,7 +332,7 @@ pub fn sync(dir: &Path, record: &Record) -> Result<Synced, Failure> {
                 )));
             }
         }
-        remove_empty_parents(dir, &path);
+        remove_empty_parents(place, &path);
     }
     for (rel, (bytes, executable)) in &generated {
         if write_if_changed(&dir.join(rel), bytes, *executable)? {
@@ -266,19 +341,29 @@ pub fn sync(dir: &Path, record: &Record) -> Result<Synced, Failure> {
     }
 
     let listed: Vec<&String> = generated.keys().collect();
-    let manifest_path = dir.join(MANIFEST);
+    let manifest_path = &place.manifest;
+    let manifest_name = if place.global {
+        GLOBAL_MANIFEST
+    } else {
+        MANIFEST
+    };
     if !listed.is_empty() {
         let manifest = serde_json::to_string_pretty(&serde_json::json!({ "files": listed }))
             .expect("the manifest serializes")
             + "\n";
-        if write_if_changed(&manifest_path, manifest.as_bytes(), false)? {
-            synced.written.push(MANIFEST.to_owned());
+        if write_if_changed(manifest_path, manifest.as_bytes(), false)? {
+            synced.written.push(manifest_name.to_owned());
         }
     } else if manifest_path.exists() {
-        // Nothing generated: the project is left as it was before rolesmith wrote into it.
-        remove_if_present(&manifest_path)?;
-        let _ = std::fs::remove_dir(manifest_path.parent().expect("a file has a directory"));
-        synced.removed.push(MANIFEST.to_owned());
+        // Nothing generated: the place is left as it was before rolesmith wrote into it.
+        remove_if_present(manifest_path)?;
+        if !place.global {
+            let _ = std::fs::remove_dir(manifest_path.parent().expect("a file has a directory"));
+        }
+        synced.removed.push(manifest_name.to_owned());
+    }
+    if place.global {
+        return Ok(synced);
     }
     if update_gitignore(dir, &generated)? {
         let changed = if dir.join(GITIGNORE).exists() {
@@ -294,9 +379,10 @@ pub fn sync(dir: &Path, record: &Record) -> Result<Synced, Failure> {
     Ok(synced)
 }
 
-/// Every file `entry` installs, added to `into`; a path two roles would both write is refused.
-fn generate(entry: &RoleEntry, into: &mut Generated) -> Result<(), Failure> {
-    let found = locate(entry)?;
+/// Every file `entry` installs at `place`, added to `into`; a path two roles would both write is
+/// refused.
+fn generate(place: &Place, entry: &RoleEntry, into: &mut Generated) -> Result<(), Failure> {
+    let found = locate(place, entry)?;
     let (lib, _tree) = sources::read_role(&found)?;
     let role = &lib.roles[0];
     let comment = format!(
@@ -345,12 +431,13 @@ fn generate(entry: &RoleEntry, into: &mut Generated) -> Result<(), Failure> {
     }
 
     for target in &entry.into {
-        let base = target_dir(target)?;
+        let base = place.target_dir(target)?;
         for (rel, bytes, exec) in &files {
             let path = format!("{base}/{rel}");
             if into.insert(path.clone(), (bytes.clone(), *exec)).is_some() {
                 return Err(Failure::new(format!(
-                    "two roles would both write {path}; remove one of them from {RECORD}"
+                    "two roles would both write {path}; remove one of them from {}",
+                    place.record_name()
                 )));
             }
         }
@@ -360,14 +447,17 @@ fn generate(entry: &RoleEntry, into: &mut Generated) -> Result<(), Failure> {
 
 /// The role of `entry` in its source at its rev, adding the source from `url` when the machine
 /// has none of that name, and fetching it when it lacks the rev.
-fn locate(entry: &RoleEntry) -> Result<Found, Failure> {
+fn locate(place: &Place, entry: &RoleEntry) -> Result<Found, Failure> {
     let mut record = Sources::load()?;
     match record.source.get(&entry.source) {
         None => sources::add(&mut record, &entry.source, &entry.url)?,
         Some(known) if known.url != entry.url => {
             return Err(Failure::new(format!(
-                "{RECORD} says source {} is {}, but this machine has it as {}",
-                entry.source, entry.url, known.url
+                "{} says source {} is {}, but this machine has it as {}",
+                place.record_name(),
+                entry.source,
+                entry.url,
+                known.url
             )));
         }
         Some(_) => {}
@@ -456,14 +546,13 @@ fn write_if_changed(path: &Path, bytes: &[u8], exec: bool) -> Result<bool, Failu
     Ok(true)
 }
 
-/// The files the project's manifest lists; none when it has no manifest.
-fn read_manifest(dir: &Path) -> Result<BTreeSet<String>, Failure> {
+/// The files the manifest at `file` lists; none when there is no manifest.
+fn read_manifest(file: &Path) -> Result<BTreeSet<String>, Failure> {
     #[derive(Deserialize)]
     struct Manifest {
         files: BTreeSet<String>,
     }
-    let file = dir.join(MANIFEST);
-    match std::fs::read(&file) {
+    match std::fs::read(file) {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(BTreeSet::new()),
         Err(e) => Err(Failure::new(format!("cannot read {}: {e}", file.display()))),
         Ok(bytes) => serde_json::from_slice::<Manifest>(&bytes)
@@ -474,8 +563,12 @@ fn read_manifest(dir: &Path) -> Result<BTreeSet<String>, Failure> {
 
 /// Remove the directories above a deleted file that it left empty, up to its target's skill
 /// directory.
-fn remove_empty_parents(dir: &Path, file: &Path) {
-    let bases: Vec<PathBuf> = TARGETS.iter().map(|(_, base)| dir.join(base)).collect();
+fn remove_empty_parents(place: &Place, file: &Path) {
+    let dir = &place.root;
+    let bases: Vec<PathBuf> = TARGETS
+        .iter()
+        .map(|t| dir.join(if place.global { t.global } else { t.project }))
+        .collect();
     let mut at = file.parent();
     while let Some(parent) = at {
         if parent == dir || bases.iter().any(|b| b == parent) {
@@ -510,7 +603,7 @@ fn update_gitignore(dir: &Path, generated: &Generated) -> Result<bool, Failure> 
         let skills: BTreeSet<String> = generated
             .keys()
             .filter_map(|rel| {
-                let base = TARGETS.iter().find(|(_, b)| rel.starts_with(b))?.1;
+                let base = TARGETS.iter().find(|t| rel.starts_with(t.project))?.project;
                 let skill = rel[base.len() + 1..].split('/').next()?;
                 Some(format!("/{base}/{skill}/\n"))
             })

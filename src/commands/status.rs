@@ -1,20 +1,18 @@
-//! `rolesmith status [--project <dir>]`: per role of a project, its pinned rev, its source's
-//! `main`, and whether its generated files are what the record generates (SPEC.md §5.4).
-
-use std::path::PathBuf;
+//! `rolesmith status [--project <dir> | --global]`: per role of a project (or of the global
+//! installs), its pinned rev, its source's `main`, and whether its generated files are what the
+//! record generates (SPEC.md §5.4).
 
 use serde_json::{Value, json};
 
 use super::{Command, Failure, Output, sync};
-use crate::project::{self, Record, RoleEntry};
+use crate::project::{self, Place, Record, RoleEntry};
 use crate::sources;
 
 /// Per role: the pinned rev, the source's main, and whether the generated files match.
 #[derive(clap::Args)]
 pub struct Args {
-    /// The project's root (default: the current directory).
-    #[arg(long, value_name = "DIR")]
-    pub project: Option<PathBuf>,
+    #[command(flatten)]
+    pub place: sync::Where,
 }
 
 impl Command for Args {
@@ -27,7 +25,7 @@ impl Command for Args {
             "type": "object",
             "required": ["project", "roles"],
             "properties": {
-                "project": { "type": "string", "description": "the project's root" },
+                "project": { "type": ["string", "null"], "description": "the project's root; null for --global" },
                 "roles": { "type": "array", "items": {
                     "type": "object",
                     "required": ["name", "source", "rev", "main", "behind", "ahead", "drift"],
@@ -47,31 +45,31 @@ impl Command for Args {
     }
 
     fn run(self) -> Result<Output, Failure> {
-        let dir = sync::project_dir(self.project)?;
-        let record = Record::load(&dir)?;
+        let place = self.place.place()?;
+        let record = Record::load(&place)?;
         let (roles, lines): (Vec<Value>, Vec<String>) = record
             .role
             .iter()
-            .map(|entry| role_status(&dir, entry))
+            .map(|entry| role_status(&place, entry))
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
             .unzip();
         let human = if lines.is_empty() {
-            "no roles in rolesmith.toml\n".to_owned()
+            format!("no roles in {}\n", place.record_name())
         } else {
             lines.concat()
         };
         Ok(Output {
-            json: json!({ "project": dir.display().to_string(), "roles": roles }),
+            json: json!({ "project": sync::project_json(&place), "roles": roles }),
             human,
         })
     }
 }
 
 /// A role's status as JSON, and its line of human text.
-fn role_status(dir: &std::path::Path, entry: &RoleEntry) -> Result<(Value, String), Failure> {
+fn role_status(place: &Place, entry: &RoleEntry) -> Result<(Value, String), Failure> {
     // Reading what the record generates adds a missing source and fetches a missing rev, as sync.
-    let drift = project::drift(dir, entry)?;
+    let drift = project::drift(place, entry)?;
     let clone = sources::clone_dir(&entry.source)?;
     let main = sources::main_commit(&clone);
     let (mut ahead, mut behind) = (None, None);
