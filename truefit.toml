@@ -154,7 +154,7 @@ says = '''`list` and `show` read roles from a commit of the clone (its local `ma
 source = "SPEC.md:61"
 check = ["test"]
 
-# tests/sources.rs update_fast_forwards_main_on_whichever_branch_the_clone_is, update_never_forces_a_main_that_moved_apart, add_list_update_and_remove_a_source
+# tests/sources.rs update_off_main_moves_main_and_leaves_the_branch_checked_out, update_never_forces_a_main_that_moved_apart, add_list_update_and_remove_a_source
 [[promise]]
 name = "source-update-fast-forwards-main-never-forces"
 says = '''`source update` fetches and fast-forwards the local `main` (on whichever branch the working copy is); a `main` that moved apart from the library's is refused, never forced.'''

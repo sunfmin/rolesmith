@@ -438,6 +438,46 @@ fn prompt_prints_the_role_as_one_document_and_writes_nothing() {
 }
 
 #[test]
+fn update_off_main_moves_main_and_leaves_the_branch_checked_out() {
+    let m = Machine::new();
+    let (lib, first) = published(&m, "felix", &["rust-cli"]);
+    m.json(&["source", "add", "felix", lib.url()]);
+    let clone = m.path("data/rolesmith/sources/felix");
+    // As `distill` leaves it: the clone on a branch made from main.
+    m.git(
+        &clone,
+        &["checkout", "--quiet", "-b", "rolesmith/distill-rust-cli"],
+    );
+
+    lib.write("roles/rust-cli/core.md", "# Core\n\nAnother rule.\n");
+    let second = m.publish(&lib, "another rule");
+    let updated = m.json(&["source", "update"]);
+    assert_eq!(updated["updated"][0]["from"], first.as_str());
+    assert_eq!(updated["updated"][0]["to"], second.as_str());
+    assert_eq!(m.git(&clone, &["rev-parse", "main"]), second);
+    assert_eq!(
+        m.git(&clone, &["symbolic-ref", "--short", "HEAD"]),
+        "rolesmith/distill-rust-cli"
+    );
+    assert_eq!(m.git(&clone, &["rev-parse", "HEAD"]), first);
+
+    // Off main too, a main rewritten upstream is refused, never forced.
+    lib.write(
+        "library.toml",
+        "name = \"felix\"\ndescription = \"rewritten\"\n",
+    );
+    m.git(&lib.work, &["add", "-A"]);
+    m.git(
+        &lib.work,
+        &["commit", "--quiet", "--amend", "-m", "rewritten"],
+    );
+    m.git(&lib.work, &["push", "--quiet", "--force", "origin", "main"]);
+    let o = m.rolesmith(&["source", "update"]);
+    assert_eq!(o.status.code(), Some(1), "{}", stderr(&o));
+    assert_eq!(m.git(&clone, &["rev-parse", "main"]), second);
+}
+
+#[test]
 fn list_and_show_never_read_the_working_tree_and_show_refuses_what_check_refuses() {
     let m = Machine::new();
     let (lib, first) = published(&m, "felix", &["rust-cli"]);
@@ -485,47 +525,4 @@ fn list_and_show_never_read_the_working_tree_and_show_refuses_what_check_refuses
         shown["error"]["problems"], checked["error"]["problems"],
         "show at {broken}"
     );
-}
-
-#[test]
-fn update_fast_forwards_main_on_whichever_branch_the_clone_is() {
-    let m = Machine::new();
-    let (lib, first) = published(&m, "felix", &["rust-cli"]);
-    m.json(&["source", "add", "felix", lib.url()]);
-    let clone = m.path("data/rolesmith/sources/felix");
-    m.git(
-        &clone,
-        &["checkout", "--quiet", "-b", "rolesmith/distill-rust-cli"],
-    );
-
-    lib.write("roles/rust-cli/core.md", "# Core\n\nSecond rule.\n");
-    let second = m.publish(&lib, "a second rule");
-    let updated = m.json(&["source", "update"]);
-    assert_eq!(updated["updated"][0]["from"], first.as_str());
-    assert_eq!(updated["updated"][0]["to"], second.as_str());
-    assert_eq!(m.git(&clone, &["rev-parse", "main"]), second);
-    assert_eq!(
-        m.git(&clone, &["symbolic-ref", "--short", "HEAD"]),
-        "rolesmith/distill-rust-cli"
-    );
-    assert_eq!(
-        m.git(&clone, &["rev-parse", "HEAD"]),
-        first,
-        "the branch is left alone"
-    );
-
-    // Upstream rewrites main: refused off main too, and the local main stays.
-    lib.write(
-        "library.toml",
-        "name = \"felix\"\ndescription = \"rewritten\"\n",
-    );
-    m.git(&lib.work, &["add", "-A"]);
-    m.git(
-        &lib.work,
-        &["commit", "--quiet", "--amend", "-m", "rewritten"],
-    );
-    m.git(&lib.work, &["push", "--quiet", "--force", "origin", "main"]);
-    let o = m.rolesmith(&["source", "update"]);
-    assert_eq!(o.status.code(), Some(1), "{}", stderr(&o));
-    assert_eq!(m.git(&clone, &["rev-parse", "main"]), second);
 }
