@@ -10,15 +10,14 @@ slow_limit = 900
 # writes, so it lands as proving's; truefit's models have none yet.
 regenerated = [".slimfit/baseline.json", ".truefit/models/*.json"]
 
-# packaging/release.sh cut builds for Apple Silicon and publishes the archive
-# and the formula sunfmin/tap/rolesmith. Measured on rolesmith#18 (its
-# comment): a cold release build 2.9s, the tap's clone and a release lookup
-# 1s, the archive ~0.5 MB to upload. 600 leaves room for a cold crate download
-# and a slow upload, and still stops a hung `gh` within ten minutes.
+# packaging/release.sh cut builds here (universal), pushes the tag and waits for the tap's
+# release workflow to sign, notarize and publish it (ADR 0002), at most RELEASE_WAIT_LIMIT=2400s
+# from the cut's start. Measured on rolesmith#19: a cold universal build 17s, a warm one 6s.
+# 2700 covers the build and the wait, and still stops a hung `gh`.
 [cut]
 steps = ["packaging/release.sh cut $FACTORIUM_VERSION"]
 formula = "sunfmin/tap/rolesmith"
-limit = 600
+limit = 2700
 
 # slimfit's and truefit's tasks and a sample of 5 landed mutants (`slimfit help sample`), filed as
 # issues while the host is idle (SPEC §1.16). No steps: nothing is too slow for the gate. The
