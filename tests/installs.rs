@@ -68,6 +68,11 @@ fn status_shows_behind_ahead_and_a_hand_edited_file_as_drift() {
         json!([{ "name": "app-store-releaser", "source": "felix", "rev": first, "main": first,
                  "behind": 0, "ahead": 0, "drift": [] }])
     );
+    let human = String::from_utf8(m.rolesmith(&["status", "--project", p]).stdout).unwrap();
+    assert_eq!(
+        human,
+        format!("felix/app-store-releaser at {first}; at main; files match\n")
+    );
 
     lib.write(
         "roles/app-store-releaser/core.md",
@@ -152,14 +157,30 @@ fn update_moves_the_rev_and_the_files() {
 fn remove_leaves_the_project_as_it_was_before_use() {
     let (m, _lib, _, project) = setup();
     let p = project.to_str().unwrap();
+    // No .gitignore of its own: the one rolesmith makes goes too.
+    std::fs::remove_file(project.join(".gitignore")).unwrap();
     let before = snapshot(&project);
     use_role(&m, &project, &[]);
     assert_ne!(snapshot(&project), before);
 
-    let out = m.json(&["remove", "app-store-releaser", "--project", p]);
-    assert_eq!(out["roles"], json!([]));
+    let o = m.rolesmith(&["remove", "app-store-releaser", "--project", p]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    let human = String::from_utf8(o.stdout).unwrap();
+    assert!(
+        human.starts_with("no roles in rolesmith.toml\nremoved ") && !human.contains("up to date"),
+        "{human}"
+    );
     assert_eq!(snapshot(&project), before);
     assert!(!project.join(".rolesmith").exists());
+    let skills: Vec<_> = std::fs::read_dir(project.join(".claude/skills"))
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .collect();
+    assert_eq!(
+        skills,
+        ["my-own"],
+        "the generated skill directories are gone"
+    );
 
     let o = m.rolesmith(&["remove", "app-store-releaser", "--project", p]);
     assert_eq!(o.status.code(), Some(1));
@@ -192,4 +213,29 @@ fn source_remove_is_refused_while_a_project_records_it() {
 
     m.json(&["remove", "app-store-releaser", "--project", p]);
     assert_eq!(m.json(&["source", "remove", "felix"])["removed"], "felix");
+}
+
+#[test]
+fn a_file_rolesmith_cannot_delete_or_read_fails_the_command() {
+    use std::os::unix::fs::PermissionsExt;
+    let (m, _lib, _, project) = setup();
+    let p = project.to_str().unwrap();
+    use_role(&m, &project, &[]);
+
+    // The record cannot be deleted from a project directory that is not writable.
+    let mode = |m| std::fs::set_permissions(&project, std::fs::Permissions::from_mode(m)).unwrap();
+    mode(0o555);
+    let o = m.rolesmith(&["remove", "app-store-releaser", "--project", p]);
+    mode(0o755);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(stderr(&o).contains("cannot delete"), "{}", stderr(&o));
+
+    // A projects record that cannot be read does not let a source go.
+    let projects = m.path("data/rolesmith/projects.toml");
+    std::fs::remove_file(&projects).unwrap();
+    std::fs::create_dir(&projects).unwrap();
+    let o = m.rolesmith(&["source", "remove", "felix"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(stderr(&o).contains("cannot read"), "{}", stderr(&o));
+    assert!(m.path("data/rolesmith/sources/felix").is_dir());
 }
