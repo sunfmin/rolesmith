@@ -3,14 +3,14 @@
 
 use serde_json::{Value, json};
 
-use super::show::RoleAt;
 use super::{Command, Failure, Output};
 
 /// The role as one Markdown document: core, prohibitions, then each skill's description and path.
 #[derive(clap::Args)]
+#[group(skip)]
 pub struct Args {
     #[command(flatten)]
-    pub at: RoleAt,
+    pub at: super::show::Args,
 }
 
 impl Command for Args {

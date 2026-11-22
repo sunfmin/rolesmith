@@ -10,13 +10,6 @@ use crate::sources::{self, Found, Sources};
 /// A role: role.toml, core, prohibitions, skills with descriptions, programs, services.
 #[derive(clap::Args)]
 pub struct Args {
-    #[command(flatten)]
-    pub at: RoleAt,
-}
-
-/// `<role> [--rev <sha>]`: the role a command reads, and at which commit.
-#[derive(clap::Args)]
-pub struct RoleAt {
     /// The role: <role> when one source has it, <source>/<role> otherwise.
     pub role: String,
 
@@ -25,7 +18,7 @@ pub struct RoleAt {
     pub rev: Option<String>,
 }
 
-impl RoleAt {
+impl Args {
     /// Resolve the role and read its library at that commit; the tree lives as long as the answer.
     pub fn read(&self) -> Result<(Found, Library, tempfile::TempDir), Failure> {
         let found = sources::resolve(&Sources::load()?, &self.role, self.rev.as_deref())?;
@@ -67,7 +60,7 @@ impl Command for Args {
     }
 
     fn run(self) -> Result<Output, Failure> {
-        let (found, lib, _tree) = self.at.read()?;
+        let (found, lib, _tree) = self.read()?;
         let role = &lib.roles[0];
         let role_toml =
             std::fs::read_to_string(lib.root.join("roles").join(&role.name).join("role.toml"))

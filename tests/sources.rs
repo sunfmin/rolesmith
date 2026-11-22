@@ -427,16 +427,18 @@ fn prompt_prints_the_role_as_one_document_and_writes_nothing() {
     assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
     assert_eq!(snapshot(m.dir.path()), before, "prompt wrote a file");
 
-    let golden = std::fs::read_to_string(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden/prompt.md"),
-    )
-    .unwrap()
-    .replace("<rev>", &rev);
+    let golden = include_str!("golden/prompt.md").replace("<rev>", &rev);
     assert_eq!(String::from_utf8(o.stdout).unwrap(), golden);
 
     let doc = m.json(&["prompt", "felix/app-store-releaser", "--rev", &rev[..12]]);
     assert_eq!(
         doc,
         serde_json::json!({ "role": "felix/app-store-releaser", "rev": rev, "markdown": golden })
+    );
+    let shapes = rolesmith::commands::output_shapes();
+    let (_, shape) = shapes.iter().find(|(n, _)| *n == "prompt").unwrap();
+    assert_eq!(
+        shape["required"],
+        serde_json::json!(["role", "rev", "markdown"])
     );
 }
