@@ -30,9 +30,21 @@ pub const GLOBAL_MANIFEST: &str = "global.manifest.json";
 
 /// Each target (§5.2) and the directory its agent reads skills from, relative to the project's
 /// root and, for a global install, to `HOME`; the one table of them.
-/// claude-code: project skills are `.claude/skills/<name>/SKILL.md`, the user's
-/// `~/.claude/skills/<name>/SKILL.md` (https://code.claude.com/docs/en/skills, checked 2026-11-22).
-pub const TARGETS: &[(&str, &str)] = &[("claude-code", ".claude/skills")];
+/// - claude-code: project skills are `.claude/skills/<name>/SKILL.md`, the user's
+///   `~/.claude/skills/<name>/SKILL.md` (https://code.claude.com/docs/en/skills, read 2026-11-22).
+/// - codex: Codex scans `.agents/skills` from the working directory up to the repository root, and
+///   the user's `$HOME/.agents/skills` (https://learn.chatgpt.com/docs/build-skills, where
+///   https://developers.openai.com/codex/skills redirects; read 2026-11-22).
+/// - agents: `.agents/skills`, and the user's `~/.agents/skills`: where `npx skills` installs and
+///   what Orca's agents read (SPEC.md §5.2).
+///
+/// Two targets may share a directory (codex and agents do); a role installed into both writes its
+/// files there once.
+pub const TARGETS: &[(&str, &str)] = &[
+    ("claude-code", ".claude/skills"),
+    ("codex", ".agents/skills"),
+    ("agents", ".agents/skills"),
+];
 
 /// Where an install lives: the directory its generated paths are relative to, its record and its
 /// manifest.
@@ -420,8 +432,11 @@ fn generate(place: &Place, entry: &RoleEntry, into: &mut Generated) -> Result<()
         }
     }
 
+    let mut bases = BTreeSet::new();
     for target in &entry.into {
-        let base = target_dir(target)?;
+        bases.insert(target_dir(target)?);
+    }
+    for base in bases {
         for (rel, bytes, exec) in &files {
             let path = format!("{base}/{rel}");
             if into.insert(path.clone(), (bytes.clone(), *exec)).is_some() {
