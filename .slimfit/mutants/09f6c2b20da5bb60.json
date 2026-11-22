@@ -1,0 +1,39 @@
+{
+  "tree": "c80dd12e6b4e577e304bf5e8ac5a0d4279bb1a39+d1fba762150c532c",
+  "picker": "codex:01a202f2-54b7-70c0-bd83-d518b4ce97fa:default",
+  "author": "claude-code:40a0980e-ebea-5dea-baf5-1ba1f7a97e64:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/project.rs:63:27: replace match guard Path::new(&home).is_absolute() with true in Place::global",
+        "why": "The global tests always provide an absolute HOME, so accepting a relative HOME may go unnoticed.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/project.rs:350:12: delete ! in sync",
+        "why": "Inverting the cleanup guard can leave an empty project .rolesmith directory, while the global removal test checks only files.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/project.rs:557:5: replace remove_empty_parents with ()",
+        "why": "The before-and-after HOME snapshot ignores directories, so leftover empty skill directories can pass the removal test.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/commands/status.rs:22:9: replace <impl Command for Args>::output_shape -> Value with Default::default()",
+        "why": "The global status test checks the returned JSON but never asks for the schema that declares project nullable.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/commands/sync.rs:60:5: replace shape -> Value with Default::default()",
+        "why": "The global install tests check actual output paths without exercising the shared schema that documents their meaning.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  }
+}
