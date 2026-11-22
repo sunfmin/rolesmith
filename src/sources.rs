@@ -102,6 +102,26 @@ impl Sources {
         })
     }
 
+    /// The source `--source` names, or the one source there is when it names none; a refusal
+    /// asking for `--source` when there are several.
+    pub fn pick(&self, named: Option<String>) -> Result<String, Failure> {
+        if let Some(name) = named {
+            self.get(&name)?;
+            return Ok(name);
+        }
+        let mut names = self.source.keys();
+        match (names.next(), names.next()) {
+            (Some(name), None) => Ok(name.clone()),
+            (None, _) => Err(Failure::new(
+                "no sources; add one with `rolesmith source add <name> <git-url>`",
+            )),
+            _ => Err(Failure::new(format!(
+                "more than one source; name one with --source ({})",
+                self.source.keys().cloned().collect::<Vec<_>>().join(", ")
+            ))),
+        }
+    }
+
     fn names_or_none(&self) -> String {
         if self.source.is_empty() {
             "none; add one with `rolesmith source add <name> <git-url>`".to_owned()

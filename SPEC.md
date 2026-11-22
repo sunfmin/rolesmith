@@ -271,7 +271,7 @@ one JSON document, generated from the same definitions the parser uses.
 | `tool install <role> \| --tool <tool>` | install each missing program by its pinned method into the user's own prefix |
 | `env <role> [-- <command>...]` | §7.1 |
 | `new <role> --need "<text>" [--source <name>]` | scaffold `roles/<role>/` (`role.toml` with the need as its draft description, empty `core.md` and `prohibitions.toml`, no skills) in the source's working copy on a new branch `rolesmith/new-<role>` from `main`, and print the drafting brief; `--source` may be left out when there is one source; refuse a working copy with uncommitted changes, a role `main` has, and a branch that exists |
-| `propose [<role>] [--source <name>] [--closes <n>...]` | run `check`, commit the working copy's changes on its branch, push it, open a pull request through `gh`; print its URL |
+| `propose [<role>] [--source <name>] [--closes <n>...]` | run `check` (of the role, or the whole working copy) and refuse with its problems if it fails; commit the working copy's changes on its current `rolesmith/*` branch (refuse on `main` or any other branch, and when the branch does not differ from `main`); push that branch to the source's `origin`, never `main`, never forced; open a pull request onto `main` with `gh pr create`, its body listing what changed per role (and outside any role) and a `Closes #<n>` line per `--closes`; print its URL. `--source` may be left out when there is one source |
 | `lesson add <role> --evidence <url> [--source felix\|agent]` | §6; the lesson text on stdin |
 | `lesson list [<role>]` | open lessons: number, role, title, age |
 | `lesson close <n> --why "<text>"` | close a lesson that will not be absorbed |
