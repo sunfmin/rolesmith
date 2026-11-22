@@ -1,0 +1,143 @@
+# rolesmith's promises (`truefit promise`): each sentence of SPEC.md, README.md and docs/adr/
+# that a run could break. Those of commands not built yet are `kept` until the issue that builds
+# the command adds its test and turns `kept` into `check = ["test"]`. Candidates that are rationale,
+# history or advice are marked `not` in .truefit/promises.json.
+
+# Where the stand-ins of the programs rolesmith drives (gh, mytokens) will live: each one put
+# there needs a [[standin]] contract, or `truefit next` asks for it. None exists yet.
+[contract]
+standins = ["tests/fake-*", "tests/fakes"]
+
+[promises]
+sources = ["SPEC.md", "README.md", "docs/adr/*.md"]
+
+[[promise]]
+name = "never-calls-a-model"
+says = '''**It never calls a model.**'''
+source = "SPEC.md:17"
+kept = '''kept by absence: rolesmith has no HTTP client or model SDK among its dependencies (Cargo.toml) and no command that would call one; no test can see a call that is not made'''
+
+[[promise]]
+name = "drafting-and-distilling-only-by-a-command"
+says = '''A role is drafted when someone runs `rolesmith new`; lessons are distilled when someone runs `rolesmith distill`. Every change to a library lands as a pull request a person merges.'''
+source = "SPEC.md:21"
+kept = '''not built yet: rolesmith has only its CLI frame (rolesmith#1); the issues that build `new`, `distill` and the library pull requests add their tests and set check = ["test"]'''
+
+[[promise]]
+name = "never-holds-a-secret"
+says = '''**It never holds a secret.**'''
+source = "SPEC.md:24"
+kept = '''not built yet: no command reads a credential yet (the CLI's frame (rolesmith#1) and `rolesmith check` (rolesmith#2) are all that is built); the issue that builds `env` adds the test that no value reaches disk or output files and sets check = ["test"]'''
+
+[[promise]]
+name = "credential-values-only-to-a-process"
+says = '''A role names the credentials it needs by their **mytokens** entry; rolesmith reads a value only to hand it to a process (`rolesmith env`), and never writes one to disk, to a library, to a project or to its own output files.'''
+source = "SPEC.md:24"
+kept = '''not built yet: `rolesmith env` does not exist yet (the CLI's frame (rolesmith#1) and `rolesmith check` (rolesmith#2) are all that is built); its issue adds the test against the mytokens stand-in and sets check = ["test"]'''
+
+# tests/check.rs a_role_name_follows_the_rule
+[[promise]]
+name = "role-name-format"
+says = '''A role name is lowercase ASCII letters, digits and single hyphens, 2–48 characters, unique within its library.'''
+source = "SPEC.md:55"
+check = ["test"]
+
+# tests/check.rs core_md_is_at_most_8000_characters
+[[promise]]
+name = "core-md-at-most-8000-chars"
+says = '''Markdown, at most 8,000 characters.'''
+source = "SPEC.md:81"
+check = ["test"]
+
+[[promise]]
+name = "skill-front-matter"
+says = '''`skills/<skill>/SKILL.md` with YAML front matter `name` (equal to the directory name) and `description` (required, at most 1,024 characters, saying when to use it). Other files beside `SKILL.md` (scripts, references) are copied with it.'''
+source = "SPEC.md:96"
+kept = '''`rolesmith check` checks the front matter (tests/check.rs a_skill_names_its_directory_and_says_when_to_use_it); the files beside SKILL.md are copied by install, not built yet: its issue adds that test and sets check = ["test"]'''
+
+[[promise]]
+name = "generated-files-listed-ignored-and-only-those-deleted"
+says = '''Everything rolesmith writes into a project besides it is **generated** from it: listed in `.rolesmith/manifest.json`, ignored by git (rolesmith adds the lines to `.gitignore`), rewritten identically by `rolesmith sync`. rolesmith deletes only files its manifest lists.'''
+source = "SPEC.md:131"
+kept = '''not built yet: install and `rolesmith sync` do not exist yet (the CLI's frame (rolesmith#1) and `rolesmith check` (rolesmith#2) are all that is built); their issue adds the test and sets check = ["test"]'''
+
+[[promise]]
+name = "never-edits-project-files"
+says = '''rolesmith never edits a project's `CLAUDE.md`, `AGENTS.md`, code, build files or settings.'''
+source = "SPEC.md:135"
+kept = '''not built yet: nothing writes into a project yet (the CLI's frame (rolesmith#1) and `rolesmith check` (rolesmith#2) are all that is built); the install issue adds the test and sets check = ["test"]'''
+
+[[promise]]
+name = "core-skill-shape"
+says = '''one **core skill**, `rolesmith-<role>`, whose `SKILL.md` is `core.md` followed by the prohibitions, with the description "Always in force in this project: <role description>".'''
+source = "SPEC.md:144"
+kept = '''not built yet: install does not exist yet (the CLI's frame (rolesmith#1) and `rolesmith check` (rolesmith#2) are all that is built); its issue adds the test and sets check = ["test"]'''
+
+[[promise]]
+name = "generated-skill-names-its-source"
+says = '''Every generated `SKILL.md` carries a first-line comment naming the source, role and rev it came from and saying it is generated.'''
+source = "SPEC.md:147"
+kept = '''not built yet: install does not exist yet (the CLI's frame (rolesmith#1) and `rolesmith check` (rolesmith#2) are all that is built); its issue adds the test and sets check = ["test"]'''
+
+[[promise]]
+name = "suggest-lists-every-match"
+says = '''`rolesmith suggest [--dir <dir>]` lists roles of every source whose `[match]` the project meets, with which rule matched.'''
+source = "SPEC.md:179"
+kept = '''not built yet: `rolesmith suggest` does not exist yet (the CLI's frame (rolesmith#1) and `rolesmith check` (rolesmith#2) are all that is built); its issue adds the test and sets check = ["test"]'''
+
+[[promise]]
+name = "env-exports-every-credential-variable"
+says = '''`rolesmith env <role>` prints `export NAME='value'` lines for every variable of the credentials of the role's `services` and of its programs' `[credential]`, read from mytokens at that moment, for `eval "$(rolesmith env <role>)"`. `rolesmith env <role> -- <command> [args]` runs the command with them set instead of printing.'''
+source = "SPEC.md:208"
+kept = '''not built yet: `rolesmith env` does not exist yet (the CLI's frame (rolesmith#1) and `rolesmith check` (rolesmith#2) are all that is built); its issue adds the test and sets check = ["test"]'''
+
+[[promise]]
+name = "doctor-never-reads-a-value"
+says = '''`rolesmith doctor` reads only whether each entry exists (`mytokens list`), never its value.'''
+source = "SPEC.md:211"
+kept = '''not built yet: `rolesmith doctor` does not exist yet (the CLI's frame (rolesmith#1) and `rolesmith check` (rolesmith#2) are all that is built); its issue adds the test and sets check = ["test"]'''
+
+[[promise]]
+name = "secret-patterns-refused-never-echoed"
+says = '''`rolesmith check` and `rolesmith lesson add` refuse text matching any of the patterns in one table in the code (private key blocks, `ghp_`/`github_pat_`, `sk-`, AWS access keys, JWTs, long base64 or hex runs after `key`/`token`/`secret`/`password`), naming the file, line and pattern, never echoing the match.'''
+source = "SPEC.md:216"
+kept = '''`rolesmith check` refuses and never echoes a match (tests/check.rs a_planted_key_is_refused_and_never_echoed); `lesson add` is not built yet: its issue adds that test and sets check = ["test"]'''
+
+# tests/cli.rs version_exits_0_*, an_unknown_flag_is_a_usage_error_exit_2_on_stderr, a_usage_error_with_json_prints_one_error_document, json_output_is_exactly_one_line_document; src/cli.rs a_failure_exits_1_*
+[[promise]]
+name = "non-interactive-json-exit-codes"
+says = '''Every command is non-interactive, takes `--json` (one JSON document on stdout; human text otherwise), writes diagnostics to stderr, and exits 0 on success, 1 when it refused or something failed, 2 on a usage error.'''
+source = "SPEC.md:223"
+check = ["test"]
+
+# tests/cli.rs agent_context_lists_every_registered_command_with_its_flags_and_output_shape, agent_context_lists_the_json_flag_on_each_command; src/cli.rs the_parser_definition_is_consistent
+[[promise]]
+name = "agent-context-from-the-parser"
+says = '''`rolesmith agent-context` prints every command, flag and JSON shape as one JSON document, generated from the same definitions the parser uses.'''
+source = "SPEC.md:225"
+check = ["test"]
+
+[[promise]]
+name = "update-never-forces"
+says = '''fetch and fast-forward each source's clone; never force'''
+source = "SPEC.md:241"
+kept = '''not built yet: `rolesmith update` does not exist yet (the CLI's frame (rolesmith#1) and `rolesmith check` (rolesmith#2) are all that is built); its issue adds the test and sets check = ["test"]'''
+
+# tests/check.rs several_broken_rules_are_all_reported, a_missing_tool_is_reported_even_when_its_role_is_broken_otherwise, one_role_can_be_checked
+[[promise]]
+name = "check-prints-every-problem"
+says = '''validate a library working copy (default: the current directory) or one role (§2, §3, §7.2); prints every problem, not the first, each with its file, line where there is one, and rule; exits 1 if there is any, and with `--json` lists them as `error.problems`'''
+source = "SPEC.md:245"
+check = ["test"]
+
+[[promise]]
+name = "no-timer-starts-drafting"
+says = '''Drafting a role and distilling lessons are started by a person, never by a timer or a scheduler.'''
+source = "docs/adr/0001-roles-leave-guild-and-people-schedule-their-drafting-and-distilling.md:22"
+kept = '''kept by absence: rolesmith is a CLI with no daemon, timer or scheduler; it does only what a person's command asks (SPEC.md §1)'''
+
+[[promise]]
+name = "library-changes-only-as-merged-prs"
+says = '''Every change to a library is a pull request a person merges.'''
+source = "docs/adr/0001-roles-leave-guild-and-people-schedule-their-drafting-and-distilling.md:25"
+kept = '''not built yet: nothing writes to a library yet (the CLI's frame (rolesmith#1) and `rolesmith check` (rolesmith#2) are all that is built); the issue that opens library pull requests adds the test against the gh stand-in and sets check = ["test"]'''

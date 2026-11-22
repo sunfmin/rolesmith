@@ -5,6 +5,10 @@ fast = "./gate.sh"
 fast_limit = 900
 slow = "./gate.sh"
 slow_limit = 900
+# What the ratchets write: a landing whose only conflicts are these takes proving's copy and lands
+# them as its gate left them (factorium SPEC.md §1.12). slimfit's baseline only `slimfit ratchet`
+# writes, so it lands as proving's; truefit's models have none yet.
+regenerated = [".slimfit/baseline.json", ".truefit/models/*.json"]
 
 # packaging/release.sh cut builds for Apple Silicon and publishes the archive
 # and the formula sunfmin/tap/rolesmith. Measured on rolesmith#18 (its
@@ -15,3 +19,18 @@ slow_limit = 900
 steps = ["packaging/release.sh cut $FACTORIUM_VERSION"]
 formula = "sunfmin/tap/rolesmith"
 limit = 600
+
+# slimfit's and truefit's tasks and a sample of 5 landed mutants (`slimfit help sample`), filed as
+# issues while the host is idle (SPEC §1.16). No steps: nothing is too slow for the gate. The
+# version lines come first: factorium reads the answers as one run of JSON from the first `{` line,
+# so a line between them would hide truefit's. Measured on rolesmith#17 (2026-11-22, load 13-28 on
+# 18 cores, a fresh clone as idle work runs in): the tasks line 13.8s twice with a sample that
+# built 10 mutants of the code since the root; 5.2-5.4s three times at 38 tests with nothing to
+# sample yet (`slimfit next --all` alone 5.2-5.9s, `truefit next --all` 0.04s). every: a run
+# costs ~14s, so cost does not bound it; a day's landings are what one sample draws from. limit:
+# ~20x the 13.8s run, for a host at load 40 and a sample that draws from more changes, still far
+# under the gate's 900.
+[idle]
+tasks = "slimfit --version && truefit --version && slimfit next --all --sample 5 && truefit next --all"
+every = 86400
+limit = 300

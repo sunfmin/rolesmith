@@ -1,0 +1,8 @@
+[[suite]]
+name = "rust"
+preset = "rust"
+root = "."
+
+[check]
+coverage_slack = 1
+growth_allowance = 50
