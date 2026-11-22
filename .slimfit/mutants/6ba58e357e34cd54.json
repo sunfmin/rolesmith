@@ -1,0 +1,21 @@
+{
+  "tree": "34d13ff2e8329ceacf7ab90371e8de9b88b77270+d1fba762150c532c",
+  "picker": "codex:01a202aa-695f-7211-b6c3-0ea8eee4a96b:default",
+  "author": "claude-code:ff23b9d8-e3e6-593c-bf6b-262a3c46b2ab:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/sources.rs:278:14: replace match guard sources.source.is_empty() with true in resolve_kind",
+        "why": "The install tests resolve every requested name, so they may miss a configured library being reported as absent when the requested tool is missing.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/sources.rs:278:14: replace match guard sources.source.is_empty() with false in resolve_kind",
+        "why": "Every install fixture registers a source, so the tests may miss losing the setup diagnostic on a machine with no sources.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  }
+}
