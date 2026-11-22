@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use serde_json::{Value, json};
 
 use super::{Command, Failure, Output};
-use crate::sources::{self, Sources};
+use crate::sources::{self, Kind, Sources};
 
 /// Roles of every source (or one): address, description.
 #[derive(clap::Args)]
@@ -99,7 +99,7 @@ impl Command for Args {
 
 /// `role.toml`'s `description` at `sha`, if it parses.
 fn description(clone: &std::path::Path, sha: &str, role: &str) -> Option<String> {
-    let text = sources::file_at(clone, sha, &format!("roles/{role}/role.toml"))?;
+    let text = sources::toml_at(clone, sha, Kind::Role, role)?;
     let table: toml::Table = toml::from_str(&text).ok()?;
     table.get("description")?.as_str().map(str::to_owned)
 }

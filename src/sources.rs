@@ -262,9 +262,14 @@ pub fn roles_at(clone: &Path, sha: &str) -> Vec<String> {
     names
 }
 
-/// The text of `path` at the commit `sha` of `clone`, if it is a file there.
-pub fn file_at(clone: &Path, sha: &str, path: &str) -> Option<String> {
-    git(Some(clone), &["show", &format!("{sha}:{path}")]).ok()
+/// The text of the `role.toml` or `tool.toml` of the `kind` named `name` at the commit `sha` of
+/// `clone`, if it is a file there.
+pub fn toml_at(clone: &Path, sha: &str, kind: Kind, name: &str) -> Option<String> {
+    git(
+        Some(clone),
+        &["show", &format!("{sha}:{}", kind.toml(name))],
+    )
+    .ok()
 }
 
 /// What a library holds that an address names: a role (`roles/<name>`) or a tool (`tools/<name>`).
@@ -280,6 +285,16 @@ impl Kind {
             Kind::Role => "role",
             Kind::Tool => "tool",
         }
+    }
+
+    /// Where the `kind` named `name` lives in a library: `roles/<name>` or `tools/<name>`.
+    fn dir(self, name: &str) -> String {
+        format!("{}s/{name}", self.noun())
+    }
+
+    /// Its `role.toml` or `tool.toml`, as a path in the library.
+    pub fn toml(self, name: &str) -> String {
+        format!("{}/{}.toml", self.dir(name), self.noun())
     }
 }
 
@@ -335,7 +350,7 @@ pub fn resolve_kind(
         let has = library::valid_name(name)
             && git(
                 Some(&clone),
-                &["cat-file", "-t", &format!("{sha}:{}s/{name}", kind.noun())],
+                &["cat-file", "-t", &format!("{sha}:{}", kind.dir(name))],
             )
             .is_ok_and(|t| t == "tree");
         Ok(has.then(|| Found {

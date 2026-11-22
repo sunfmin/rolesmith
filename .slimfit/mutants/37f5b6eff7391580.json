@@ -1,0 +1,33 @@
+{
+  "tree": "dd4e0b2b09f3b2f211ed9e1a686e77f39c32018f+d1fba762150c532c",
+  "picker": "codex:01a202ee-a1ef-7401-abd6-f49392695948:default",
+  "author": "claude-code:0346f5ff-ef56-5a55-b9d6-8c331ced8030:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/commands/list.rs:102:5: replace description -> Option<String> with None",
+        "why": "A listing test that checks only role addresses would miss the loss of every description.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/commands/list.rs:102:5: replace description -> Option<String> with Some(String::new())",
+        "why": "An empty description could pass a presence-only assertion while also masking missing or invalid metadata.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/suggestions.rs:65:5: replace rules_of -> Option<Match> with None",
+        "why": "Tests that only expect no suggestions would pass even if configured match rules were never loaded.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/sources.rs:268:5: replace toml_at -> Option<String> with Some(String::new())",
+        "why": "An empty document still parses as TOML, so tests that only check command success could miss discarded metadata and the changed behavior for missing files.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  }
+}
