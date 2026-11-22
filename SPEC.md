@@ -203,6 +203,16 @@ name, description and the path of its `SKILL.md` in the source at that rev. It w
 with which rule matched. `rolesmith use --auto` installs exactly what `suggest` lists, into the
 targets given. Nothing is installed by matching alone.
 
+- Roles are read from each source's local `main`; a role whose `role.toml` does not parse matches
+  nothing.
+- A role matches when one of its `files` globs matches a file or directory path relative to the
+  project root (`*` does not cross `/`, `**` does), or one of its `contains` files (a path relative
+  to the root) contains its text. The walk skips `.git`, `target`, `node_modules` and what the
+  project's `.gitignore` files ignore, whether or not the project is a git repository.
+- Each role is listed once, as `<source>/<role>`, with the first rule that matched (`files` before
+  `contains`, in role.toml's order) and the path that met it.
+- `use --auto` with nothing to install is refused, and writes nothing.
+
 ## 6. Lessons and distilling
 
 A **lesson** is what an agent or a person learned doing a role's work that the role should know next
