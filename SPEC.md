@@ -181,7 +181,10 @@ built and recorded in one table in the code. An unknown target is refused.
 
 A `--global` install writes nothing into any project; it is recorded in
 `$XDG_DATA_HOME/rolesmith/global.toml` with the same fields as `rolesmith.toml`, and its manifest
-beside it.
+beside it (`global.manifest.json`, its paths relative to `HOME`). It adds no `.gitignore` lines and
+no entry in `projects.toml`. `use`, `sync`, `status`, `update` and `remove` take `--global` in place
+of `--project`, and their `--json` document's `project` is then `null`; `use --auto` matches a
+project, so it does not take `--global`.
 
 ### 5.3 Prompt
 
@@ -208,7 +211,8 @@ was before `use`.
 Each project directory rolesmith syncs a role into is kept in `$XDG_DATA_HOME/rolesmith/projects.toml`
 (`projects = [<absolute path>...]`), since rolesmith cannot otherwise know them; `source remove` reads
 the record of each that still exists and refuses while one names the source, listing the projects
-and their roles (with `--json`, `error.projects: [{"project", "roles"}]`).
+and their roles (with `--json`, `error.projects: [{"project", "roles"}]`); it refuses likewise while
+`global.toml` names the source, listed as `--global` (`"project": null`).
 
 ### 5.5 Suggestions
 

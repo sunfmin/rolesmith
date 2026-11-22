@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use crate::commands::Failure;
 use crate::library::Match;
-use crate::sources::{self, Sources};
+use crate::sources::{self, Kind, Sources};
 
 /// Directories never walked, besides what `.gitignore` ignores.
 const SKIPPED: &[&str] = &[".git", "target", "node_modules"];
@@ -67,7 +67,7 @@ fn rules_of(clone: &Path, sha: &str, role: &str) -> Option<Match> {
         #[serde(rename = "match")]
         rules: Option<Match>,
     }
-    let text = sources::file_at(clone, sha, &format!("roles/{role}/role.toml"))?;
+    let text = sources::toml_at(clone, sha, Kind::Role, role)?;
     toml::from_str::<OnlyMatch>(&text).ok()?.rules
 }
 

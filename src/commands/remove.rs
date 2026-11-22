@@ -1,7 +1,6 @@
-//! `rolesmith remove <role> [--project <dir>]`: drop a role from a project's `rolesmith.toml` and
-//! delete its generated files, only those the manifest lists (SPEC.md §4, §8).
-
-use std::path::PathBuf;
+//! `rolesmith remove <role> [--project <dir> | --global]`: drop a role from the record
+//! (`rolesmith.toml` or `global.toml`) and delete its generated files, only those the manifest
+//! lists (SPEC.md §4, §8).
 
 use serde_json::Value;
 
@@ -14,9 +13,8 @@ pub struct Args {
     /// The role, by its name in rolesmith.toml.
     pub role: String,
 
-    /// The project's root (default: the current directory).
-    #[arg(long, value_name = "DIR")]
-    pub project: Option<PathBuf>,
+    #[command(flatten)]
+    pub place: sync::Where,
 }
 
 impl Command for Args {
@@ -27,10 +25,10 @@ impl Command for Args {
     }
 
     fn run(self) -> Result<Output, Failure> {
-        let dir = sync::project_dir(self.project)?;
-        let mut record = Record::load(&dir)?;
-        let i = record.position(&self.role)?;
+        let place = self.place.place()?;
+        let mut record = Record::load(&place)?;
+        let i = record.position(&place, &self.role)?;
         record.role.remove(i);
-        sync::install(&dir, &record)
+        sync::install(&place, &record)
     }
 }

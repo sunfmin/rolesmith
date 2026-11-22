@@ -41,6 +41,11 @@
     "sentence": "validate a library working copy or one role (§3, §7.2); prints every problem, not the first",
     "source": "SPEC.md:245"
   },
+  "58f389370cd9": {
+    "mark": "promise",
+    "sentence": "A source's clone is of its library's `main`. `list` and `show` read roles from a commit of the clone (its local `main`, or `show --rev`), never from its working tree, so they print what an install at that commit writes; `show` refuses a role that `check` would refuse, with the same problems.",
+    "source": "SPEC.md:61"
+  },
   "60fc922b0b2d": {
     "mark": "promise",
     "sentence": "A role name is lowercase ASCII letters, digits and single hyphens, 2–48 characters, unique within its library.",
@@ -104,6 +109,16 @@
     "sentence": "Drafting a role and distilling lessons are started by a person, never by a timer or a scheduler.",
     "source": "docs/adr/0001-roles-leave-guild-and-people-schedule-their-drafting-and-distilling.md:22"
   },
+  "c600a9964325": {
+    "mark": "promise",
+    "sentence": "It runs only `brew`, as the user, into brew's own prefix: never `sudo`, never a system directory.",
+    "source": "SPEC.md:129"
+  },
+  "c61313fc09ba": {
+    "mark": "promise",
+    "sentence": "`lesson close` takes `<n>` when the machine has one source and `<source>#<n>` otherwise (as `lesson list` prints them); it closes only an open issue labelled `lesson`, with the reason as its comment.",
+    "source": "SPEC.md:251"
+  },
   "c62881a40ed1": {
     "mark": "promise",
     "sentence": "fetch and fast-forward each source's clone; never force",
@@ -144,5 +159,10 @@
     "mark": "promise",
     "sentence": "**It never calls a model.**",
     "source": "SPEC.md:17"
+  },
+  "fbef11346f73": {
+    "mark": "promise",
+    "sentence": "`source update` fetches and fast-forwards the local `main` (on whichever branch the working copy is); a `main` that moved apart from the library's is refused, never forced.",
+    "source": "SPEC.md:64"
   }
 }
