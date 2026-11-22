@@ -1,0 +1,8 @@
+# The toolchain the gate passes (rolesmith#28): every build of rolesmith, here and on the tap's
+# release runner, compiles with it. rustfmt and clippy are the gate's checks, llvm-tools-preview
+# slimfit's coverage; the targets are the universal release build's two slices.
+[toolchain]
+channel = "nightly-2026-10-22"
+components = ["rustfmt", "clippy", "llvm-tools-preview"]
+targets = ["aarch64-apple-darwin", "x86_64-apple-darwin"]
+profile = "minimal"
