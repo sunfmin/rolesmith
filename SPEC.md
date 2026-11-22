@@ -123,8 +123,13 @@ mytokens = "asc-api-key"                      # the entry
 env = { ASC_KEY_ID = "Key ID", ASC_ISSUER_ID = "Issuer ID", ASC_PRIVATE_KEY_B64 = "Key (base64 .p8)" }
 ```
 
-An install method other than `brew` (`cargo`, `uv tool`, `npm -g`, a release tarball) is added by
-an ADR when a tool needs it. `env` maps each environment variable to the field of the mytokens entry
+`rolesmith tool install` leaves a tool whose `check` passes alone. Otherwise it installs
+`<formula>@<version>` where brew offers that formula, else `<formula>` when `brew info` reports the
+pinned version as the formula's stable one, and refuses before installing anything when it reports
+another. After installing, the tool's `check` must pass, or the install is refused. It runs only
+`brew`, as the user, into brew's own prefix: never `sudo`, never a system directory. An install
+method other than `brew` (`cargo`, `uv tool`, `npm -g`, a release tarball) is added by an ADR when a
+tool needs it. `env` maps each environment variable to the field of the mytokens entry
 it is filled from; a variable mapped to `""` is filled from the entry's single value.
 
 ## 4. Projects
@@ -211,6 +216,16 @@ and their roles (with `--json`, `error.projects: [{"project", "roles"}]`).
 with which rule matched. `rolesmith use --auto` installs exactly what `suggest` lists, into the
 targets given. Nothing is installed by matching alone.
 
+- Roles are read from each source's local `main`; a role whose `role.toml` does not parse matches
+  nothing.
+- A role matches when one of its `files` globs matches a file or directory path relative to the
+  project root (`*` does not cross `/`, `**` does), or one of its `contains` files (a path relative
+  to the root) contains its text. The walk skips `.git`, `target`, `node_modules` and what the
+  project's `.gitignore` files ignore, whether or not the project is a git repository.
+- Each role is listed once, as `<source>/<role>`, with the first rule that matched (`files` before
+  `contains`, in role.toml's order) and the path that met it.
+- `use --auto` with nothing to install is refused, and writes nothing.
+
 ## 6. Lessons and distilling
 
 A **lesson** is what an agent or a person learned doing a role's work that the role should know next
@@ -245,11 +260,14 @@ second source.
 
 ### 7.1 Reading
 
-`rolesmith env <role>` prints `export NAME='value'` lines for every variable of the credentials of
-the role's `services` and of its programs' `[credential]`, read from mytokens at that moment, for
-`eval "$(rolesmith env <role>)"`. `rolesmith env <role> -- <command> [args]` runs the command with
-them set instead of printing. Neither writes a value anywhere. `rolesmith doctor` reads only whether
-each entry exists (`mytokens list`), never its value.
+`rolesmith env <role>` prints `export NAME='value'` lines (values single-quoted for sh) for every
+variable of its programs' `[credential]` (§3.5), each read from mytokens at that moment
+(`mytokens get <entry> --field <field>`, or `mytokens get <entry>` for `""`), for
+`eval "$(rolesmith env <role>)"`; `--json` gives them as `variables`. A service of the role that no
+program's `[credential]` names has no mapping to variables: `env` refuses the role, listing each such
+service (`error.unmapped`), and reads nothing. `rolesmith env <role> -- <command> [args]` runs the
+command in rolesmith's place with them added to its environment instead of printing. Neither writes
+anything to disk. `rolesmith doctor` reads only whether each entry exists (`mytokens list`), never its value.
 
 ### 7.2 Keeping secrets out
 
@@ -293,14 +311,14 @@ one JSON document, generated from the same definitions the parser uses.
 | `suggest [--dir <dir>]` | §5.5 |
 | `doctor <role>` | for each program: tool.toml present (a role without one is refused as `show` refuses it), `check` passes (run by `sh -c`, exit 0); for each service and credential: mytokens entry present, read by `mytokens list` alone. Exit 1 if anything is missing, each with the command that fixes it (`rolesmith tool install <source>/<role>`, `mytokens put <entry> [--fields ...]`) |
 | `tool show <tool>` | the tool.toml on its source's `main`, and whether its check passes here; a tool is addressed as a role is (§2) |
-| `tool install <role> \| --tool <tool>` | install each missing program by its pinned method into the user's own prefix |
+| `tool install <role> \| --tool <tool>` | install each program whose check fails by its pinned method into the user's own prefix (§3.5), in order; the first refusal stops it and names what was installed before it |
 | `env <role> [-- <command>...]` | §7.1 |
 | `new <role> --need "<text>" [--source <name>]` | scaffold `roles/<role>/` (`role.toml` with the need as its draft description, empty `core.md` and `prohibitions.toml`, no skills) in the source's working copy on a new branch `rolesmith/new-<role>` from `main`, and print the drafting brief; `--source` may be left out when there is one source; refuse a working copy with uncommitted changes, a role `main` has, and a branch that exists |
-| `propose [<role>] [--source <name>] [--closes <n>...]` | run `check`, commit the working copy's changes on its branch, push it, open a pull request through `gh`; print its URL |
+| `propose [<role>] [--source <name>] [--closes <n>...]` | run `check` (of the role, or the whole working copy) and refuse with its problems if it fails; commit the working copy's changes on its current `rolesmith/*` branch (refuse on `main` or any other branch, and when the branch does not differ from `main`); push that branch to the source's `origin`, never `main`, never forced; open a pull request onto `main` with `gh pr create`, its body listing what changed per role (and outside any role) and a `Closes #<n>` line per `--closes`; print its URL. `--source` may be left out when there is one source |
 | `lesson add <role> --evidence <url> [--source felix\|agent]` | §6; the lesson text on stdin |
 | `lesson list [<role>]` | open lessons: number, role, title, age |
 | `lesson close [<source>#]<n> --why "<text>"` | close a lesson that will not be absorbed |
-| `distill <role>` | print the distilling brief and the role's open lessons, and put the working copy on branch `rolesmith/distill-<role>` |
+| `distill <role>` | ask `gh` for the role's open lessons (`lesson` and `role:<role>`); with none, say so and change nothing (`branch` and `brief` null); otherwise refuse a working copy with uncommitted changes, put it on a new branch `rolesmith/distill-<role>` from `main` (refuse one that exists), and print the distilling brief: the role's current `core.md`, prohibitions and skills, each open lesson (number, title, body, evidence), where each belongs (the narrowest place; core only for rules of every task), `lesson close` for one judged wrong, and the last step `check`, then `propose --closes <n>...` |
 | `agent-context` | §8 |
 
 ### 8.1 Briefs

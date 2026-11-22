@@ -1,5 +1,6 @@
 //! `rolesmith use <role>... --into <target>... [--project <dir>] [--rev <sha>]`: record roles in
-//! a project's `rolesmith.toml` and install them (SPEC.md §4, §5.1, §8).
+//! a project's `rolesmith.toml` and install them (SPEC.md §4, §5.1, §8); `use --auto` installs what
+//! `suggest` lists (§5.5).
 
 use std::path::PathBuf;
 
@@ -8,13 +9,18 @@ use serde_json::Value;
 use super::{Command, Failure, Output, sync};
 use crate::project::{self, Record, RoleEntry};
 use crate::sources::{self, Sources};
+use crate::suggestions;
 
 /// Install roles into a project's agents and record them in its rolesmith.toml; idempotent.
 #[derive(clap::Args)]
 pub struct Args {
     /// Each role: <role> when one source has it, <source>/<role> otherwise.
-    #[arg(required = true)]
+    #[arg(required_unless_present = "auto", conflicts_with = "auto")]
     pub roles: Vec<String>,
+
+    /// Install exactly the roles `suggest` lists for the project.
+    #[arg(long, conflicts_with = "rev")]
+    pub auto: bool,
 
     /// Each agent to install into (claude-code).
     #[arg(long, value_name = "TARGET", required = true)]
@@ -44,8 +50,20 @@ impl Command for Args {
         let dir = sync::project_dir(self.project)?;
         let mut record = Record::load(&dir)?;
         let known = Sources::load()?;
+        let roles = if self.auto {
+            let found = suggestions::suggest(&dir)?;
+            if found.is_empty() {
+                return Err(Failure::new(format!(
+                    "no role matches {} (`rolesmith suggest`); nothing installed",
+                    dir.display()
+                )));
+            }
+            found.iter().map(|s| s.qualified()).collect()
+        } else {
+            self.roles
+        };
 
-        for address in &self.roles {
+        for address in &roles {
             let name = address.rsplit('/').next().unwrap_or(address);
             let recorded = record.role.iter().position(|r| r.name == name);
             // A recorded role keeps its rev; a bare name reaches it in its recorded source.

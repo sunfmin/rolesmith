@@ -1,6 +1,8 @@
-//! `doctor` and `tool show` (SPEC.md §3.5, §7.1, §8) through the built binary, with a local bare
-//! repository as the library, stand-in programs on `PATH`, and a `mytokens` stand-in that answers
-//! `list` and fails the test if anything reads a value (`get`, `env`).
+//! `doctor`, `tool show`, `tool install` and `env` (SPEC.md §3.5, §7.1, §8) through the built
+//! binary, with a local bare repository as the library, stand-in programs on `PATH`, a `mytokens`
+//! stand-in that answers `list` and fails the test if anything reads a value (`get`, `env`) unless
+//! the test serves values (for `rolesmith env`), a `brew` stand-in that offers the formulae a test
+//! gives it, and a `sudo` stand-in that fails the test if anything runs it.
 
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -31,6 +33,22 @@ impl Machine {
                 calls = m.path("calls").display(),
                 listing = m.path("listing").display(),
                 read = m.path("value-read").display(),
+            ),
+        );
+        m.program(
+            "sudo",
+            &format!(
+                "echo \"$*\" >> '{}'\nexit 1\n",
+                m.path("sudo-ran").display()
+            ),
+        );
+        m.program(
+            "brew",
+            &format!(
+                "echo \"$*\" >> '{calls}'\nf='{formulae}'/\"$3\"\ncase \"$1\" in\n  info) [ -f \"$f\" ] || {{ echo \"No available formula $3\" >&2; exit 1; }}; echo \"{{\\\"formulae\\\":[{{\\\"versions\\\":{{\\\"stable\\\":\\\"$(cat \"$f\")\\\"}}}}]}}\" ;;\n  install) f='{formulae}'/\"$2\"; [ -f \"$f.provides\" ] || exit 1; p='{bin}'/\"$(cat \"$f.provides\")\"; printf '#!/bin/sh\\nexit 0\\n' > \"$p\"; chmod +x \"$p\" ;;\n  *) exit 1 ;;\nesac\n",
+                calls = m.path("brew-calls").display(),
+                formulae = m.path("formulae").display(),
+                bin = m.path("bin").display(),
             ),
         );
         m.program("asc", "exit 0\n");
@@ -74,6 +92,11 @@ impl Machine {
         self.env(&mut cmd);
         let o = cmd.output().expect("the binary runs");
         assert!(
+            !self.path("sudo-ran").exists(),
+            "{args:?} ran sudo: {}",
+            std::fs::read_to_string(self.path("sudo-ran")).unwrap_or_default()
+        );
+        assert!(
             !self.path("value-read").exists(),
             "{args:?} asked mytokens for a value: {}",
             std::fs::read_to_string(self.path("calls")).unwrap_or_default()
@@ -107,6 +130,19 @@ impl Machine {
         self.git(&work, &["push", "--quiet", bare.to_str().unwrap(), "main"]);
         let o = self.rolesmith(&["source", "add", "felix", bare.to_str().unwrap()]);
         assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    }
+
+    /// Have brew offer `formula` at `version`; installing it puts `provides` on `PATH`, exiting 0.
+    fn formula(&self, formula: &str, version: &str, provides: &str) {
+        let dir = self.path("formulae");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join(formula), version).unwrap();
+        std::fs::write(dir.join(format!("{formula}.provides")), provides).unwrap();
+    }
+
+    /// What was asked of brew, one call a line.
+    fn brew_calls(&self) -> String {
+        std::fs::read_to_string(self.path("brew-calls")).unwrap_or_default()
     }
 
     /// What was asked of mytokens, one call a line.
@@ -165,8 +201,12 @@ fn role(programs: &[&str], services: &[&str]) -> String {
 }
 
 fn tool(check: &str, credential: &str) -> String {
+    brewed(check, "x", "1.0.0", credential)
+}
+
+fn brewed(check: &str, formula: &str, version: &str, credential: &str) -> String {
     format!(
-        "description = \"A tool\"\ncheck = \"{check}\"\n[install]\nbrew = \"x\"\nversion = \"1.0.0\"\n{credential}"
+        "description = \"A tool\"\ncheck = \"{check}\"\n[install]\nbrew = \"{formula}\"\nversion = \"{version}\"\n{credential}"
     )
 }
 
@@ -333,4 +373,343 @@ fn tool_show_prints_the_tool_toml_and_whether_its_check_passes_here() {
     let o = m.rolesmith(&["tool", "show", "broken"]);
     assert_eq!(o.status.code(), Some(1));
     assert!(stderr(&o).contains("does not parse"), "{}", stderr(&o));
+}
+
+#[test]
+fn tool_install_installs_each_failing_program_pinned_and_leaves_a_passing_one_alone() {
+    let m = Machine::new(&[]);
+    let role_toml = role(&["asc", "swiftlint", "xcodegen"], &[]);
+    // asc passes already; swiftlint has a versioned formula; xcodegen's formula is at the pin.
+    let asc = brewed("asc --version", "asc", "7.0.0", "");
+    let swiftlint = brewed(
+        "rolesmith-test-swiftlint --version",
+        "swiftlint",
+        "0.57.0",
+        "",
+    );
+    let xcodegen = brewed("xcodegen --version", "xcodegen", "2.42.0", "");
+    m.source(&[
+        ("roles/releaser/role.toml", &role_toml),
+        ("roles/releaser/core.md", "Core.\n"),
+        ("tools/asc/tool.toml", &asc),
+        ("tools/swiftlint/tool.toml", &swiftlint),
+        ("tools/xcodegen/tool.toml", &xcodegen),
+    ]);
+    m.formula("swiftlint@0.57.0", "0.57.0", "rolesmith-test-swiftlint");
+    m.formula("xcodegen", "2.42.0", "xcodegen");
+
+    let o = m.rolesmith(&["--json", "tool", "install", "releaser"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    let doc = json(&o);
+    let install_shape = rolesmith::commands::output_shapes()
+        .into_iter()
+        .find(|(n, _)| *n == "tool")
+        .unwrap()
+        .1["oneOf"][1]
+        .clone();
+    conforms(&doc, &install_shape);
+    assert_eq!(
+        doc["tools"],
+        serde_json::json!([
+            { "name": "asc", "formula": null },
+            { "name": "swiftlint", "formula": "swiftlint@0.57.0" },
+            { "name": "xcodegen", "formula": "xcodegen" },
+        ])
+    );
+    assert_eq!(
+        m.brew_calls(),
+        "info --json=v2 swiftlint@0.57.0\ninstall swiftlint@0.57.0\n\
+         info --json=v2 xcodegen@2.42.0\ninfo --json=v2 xcodegen\ninstall xcodegen\n",
+        "asc's check passes, so brew is not asked about it"
+    );
+
+    // Now every check passes: nothing more is asked of brew.
+    let o = m.rolesmith(&["tool", "install", "felix/releaser"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    let human = String::from_utf8(o.stdout).unwrap();
+    assert!(
+        human.contains("- swiftlint: its check passes, left alone"),
+        "{human}"
+    );
+    assert_eq!(m.brew_calls().lines().count(), 5);
+}
+
+#[test]
+fn tool_install_refuses_a_version_brew_does_not_offer_and_a_check_that_still_fails() {
+    let m = Machine::new(&[]);
+    let old = brewed("rolesmith-test-old --version", "old", "1.0.0", "");
+    let liar = brewed("rolesmith-test-liar --version", "liar", "3.0.0", "");
+    let unknown = brewed("rolesmith-test-unknown --version", "unknown", "1.0.0", "");
+    let first = brewed("rolesmith-test-first --version", "first", "1.0.0", "");
+    let role_toml = role(&["first", "old"], &[]);
+    m.source(&[
+        ("roles/rr/role.toml", &role_toml),
+        ("roles/rr/core.md", "Core.\n"),
+        ("tools/first/tool.toml", &first),
+        ("tools/old/tool.toml", &old),
+        ("tools/liar/tool.toml", &liar),
+        ("tools/unknown/tool.toml", &unknown),
+    ]);
+    m.formula("first", "1.0.0", "rolesmith-test-first");
+    m.formula("old", "2.0.0", "rolesmith-test-old");
+    m.formula("liar", "3.0.0", "rolesmith-test-something-else");
+
+    let o = m.rolesmith(&["--json", "tool", "install", "rr"]);
+    assert_eq!(o.status.code(), Some(1));
+    let message = json(&o)["error"]["message"].as_str().unwrap().to_owned();
+    assert_eq!(
+        message,
+        "brew offers old 2.0.0, not the pinned 1.0.0, and no old@1.0.0; nothing installed; \
+         installed before it: first"
+    );
+    assert!(
+        !m.brew_calls().contains("install old"),
+        "{}",
+        m.brew_calls()
+    );
+
+    let o = m.rolesmith(&["tool", "install", "--tool", "liar"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains(
+            "installed liar, but tool liar's check `rolesmith-test-liar --version` not installed"
+        ),
+        "{}",
+        stderr(&o)
+    );
+
+    let o = m.rolesmith(&["tool", "install", "--tool", "felix/unknown"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains("brew has no formula unknown: No available formula unknown"),
+        "{}",
+        stderr(&o)
+    );
+
+    let o = m.rolesmith(&["tool", "install"]);
+    assert_eq!(o.status.code(), Some(2), "a role or --tool is required");
+    let o = m.rolesmith(&["tool", "install", "rr", "--tool", "liar"]);
+    assert_eq!(o.status.code(), Some(2), "not both");
+}
+
+#[test]
+fn tool_install_refuses_an_unpinned_tool_named_alone() {
+    let m = Machine::new(&[]);
+    m.source(&[
+        (
+            "tools/loose/tool.toml",
+            "description = \"A\"\ncheck = \"false\"\n[install]\nbrew = \"loose\"\n",
+        ),
+        ("tools/empty/tool.toml", &brewed("false", "empty", "", "")),
+    ]);
+    let o = m.rolesmith(&["tool", "install", "--tool", "loose"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains("tool loose is not pinned"),
+        "{}",
+        stderr(&o)
+    );
+    let o = m.rolesmith(&["tool", "install", "--tool", "empty"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains("its `version` is empty"),
+        "{}",
+        stderr(&o)
+    );
+    assert_eq!(m.brew_calls(), "");
+}
+
+impl Machine {
+    /// Let `mytokens get <entry> [--field <f>]` answer each of `values` (entry, field, value),
+    /// newline-terminated as mytokens prints it; `list` still names the entries of `new`.
+    fn serve_values(&self, values: &[(&str, &str, &str)]) {
+        let mut cases = String::new();
+        for (i, (entry, field, value)) in values.iter().enumerate() {
+            let file = self.path(&format!("value-{i}"));
+            std::fs::write(&file, format!("{value}\n")).unwrap();
+            let args = if field.is_empty() {
+                format!("get {entry}")
+            } else {
+                format!("get {entry} --field {field}")
+            };
+            cases.push_str(&format!("  '{args}') cat '{}' ;;\n", file.display()));
+        }
+        self.program(
+            "mytokens",
+            &format!(
+                "echo \"$*\" >> '{calls}'\ncase \"$*\" in\n  list) cat '{listing}' ;;\n{cases}  *) echo \"no $*\" >&2; exit 1 ;;\nesac\n",
+                calls = self.path("calls").display(),
+                listing = self.path("listing").display(),
+            ),
+        );
+    }
+
+    /// Every file under `dirs` with its contents and modification time.
+    fn snapshot(&self, dirs: &[&str]) -> Vec<(PathBuf, Vec<u8>, std::time::SystemTime)> {
+        let mut files = Vec::new();
+        let mut todo: Vec<PathBuf> = dirs.iter().map(|d| self.path(d)).collect();
+        while let Some(dir) = todo.pop() {
+            let Ok(entries) = std::fs::read_dir(&dir) else {
+                continue;
+            };
+            for entry in entries {
+                let path = entry.unwrap().path();
+                let meta = std::fs::symlink_metadata(&path).unwrap();
+                if meta.is_dir() {
+                    todo.push(path.clone());
+                }
+                let bytes = if meta.is_file() {
+                    std::fs::read(&path).unwrap()
+                } else {
+                    Vec::new()
+                };
+                files.push((path, bytes, meta.modified().unwrap()));
+            }
+        }
+        files.sort();
+        files
+    }
+}
+
+/// A value with every character sh treats specially inside and outside quotes.
+const AWKWARD: &str = "it's \"quoted\"\nline two $HOME `id` \\ end";
+
+fn env_library(m: &Machine, services: &[&str]) {
+    let role_toml = role(&["asc", "gh"], services);
+    let asc = tool("asc --version", ASC_CREDENTIAL);
+    let gh = tool(
+        "true",
+        "[credential]\nmytokens = \"github\"\nenv = { GH_TOKEN = \"\" }\n",
+    );
+    m.source(&[
+        ("roles/releaser/role.toml", &role_toml),
+        ("roles/releaser/core.md", "Core.\n"),
+        ("tools/asc/tool.toml", &asc),
+        ("tools/gh/tool.toml", &gh),
+    ]);
+    m.serve_values(&[
+        ("asc-api-key", "Key ID", AWKWARD),
+        ("asc-api-key", "Issuer ID", "issuer"),
+        ("github", "", "gh-value"),
+    ]);
+}
+
+#[test]
+fn env_prints_export_lines_that_sh_evals_back_to_each_value() {
+    let m = Machine::new(&["asc-api-key", "github"]);
+    env_library(&m, &["github"]);
+
+    let o = m.rolesmith(&["env", "releaser"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    let lines = String::from_utf8(o.stdout).unwrap();
+    assert!(
+        lines.starts_with("export ASC_ISSUER_ID='issuer'\n"),
+        "{lines}"
+    );
+    let file = m.path("exports");
+    std::fs::write(&file, &lines).unwrap();
+    for (name, want) in [
+        ("ASC_KEY_ID", AWKWARD),
+        ("ASC_ISSUER_ID", "issuer"),
+        ("GH_TOKEN", "gh-value"),
+    ] {
+        let script = format!(
+            "eval \"$(cat '{}')\"; printf %s \"${name}\"",
+            file.display()
+        );
+        let got = Command::new("sh").arg("-c").arg(script).output().unwrap();
+        assert_eq!(String::from_utf8(got.stdout).unwrap(), want, "{name}");
+    }
+
+    let o = m.rolesmith(&["--json", "env", "releaser"]);
+    let doc = json(&o);
+    conforms(&doc, &shape("env"));
+    assert_eq!(doc["variables"]["ASC_KEY_ID"], AWKWARD);
+    assert_eq!(doc["role"], "felix/releaser");
+}
+
+#[test]
+fn env_runs_a_command_after_the_double_dash_with_the_variables_set() {
+    let m = Machine::new(&["asc-api-key", "github"]);
+    env_library(&m, &[]);
+
+    let o = m.rolesmith(&["env", "releaser", "--", "env"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    let child = String::from_utf8(o.stdout).unwrap();
+    let has = |want: &str| child.lines().any(|l| l == want);
+    assert!(has("GH_TOKEN=gh-value"), "{child}");
+    assert!(has("ASC_ISSUER_ID=issuer"), "{child}");
+    assert!(
+        child.lines().any(|l| l.starts_with("HOME=")),
+        "the child keeps the environment: {child}"
+    );
+
+    let o = m.rolesmith(&[
+        "env",
+        "releaser",
+        "--",
+        "sh",
+        "-c",
+        "printf %s \"$ASC_KEY_ID\"; exit 7",
+    ]);
+    assert_eq!(o.status.code(), Some(7), "the child's exit is rolesmith's");
+    assert_eq!(String::from_utf8(o.stdout).unwrap(), AWKWARD);
+
+    let o = m.rolesmith(&["env", "releaser", "--", "rolesmith-test-nothere"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains("cannot run `rolesmith-test-nothere`"),
+        "{}",
+        stderr(&o)
+    );
+}
+
+#[test]
+fn env_writes_no_file_under_home_the_xdg_dirs_or_the_cwd() {
+    let m = Machine::new(&["asc-api-key", "github"]);
+    env_library(&m, &[]);
+    let dirs = ["home", "config", "data", "cache", "state", "work"];
+    std::fs::create_dir_all(m.path("work")).unwrap();
+    let before = m.snapshot(&dirs);
+    assert!(!before.is_empty(), "the source's clone is under data");
+
+    for args in [&["env", "releaser"][..], &["env", "releaser", "--", "true"]] {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_rolesmith"));
+        cmd.args(args).current_dir(m.path("work"));
+        m.env(&mut cmd);
+        cmd.env("XDG_CACHE_HOME", m.path("cache"))
+            .env("XDG_STATE_HOME", m.path("state"));
+        let o = cmd.output().unwrap();
+        assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    }
+    assert_eq!(m.snapshot(&dirs), before);
+}
+
+#[test]
+fn env_refuses_a_service_no_credential_maps_and_a_failing_read() {
+    let m = Machine::new(&["asc-api-key", "github", "sentry"]);
+    env_library(&m, &["github", "sentry"]);
+    let o = m.rolesmith(&["--json", "env", "releaser"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert_eq!(json(&o)["error"]["unmapped"], serde_json::json!(["sentry"]));
+    assert!(
+        stderr(&o).contains("no program's [credential] maps"),
+        "{}",
+        stderr(&o)
+    );
+    assert!(
+        !m.mytokens_calls().contains("get"),
+        "nothing is read before the refusal"
+    );
+
+    let m = Machine::new(&["asc-api-key", "github"]);
+    env_library(&m, &[]);
+    m.serve_values(&[]);
+    let o = m.rolesmith(&["env", "releaser", "--", "true"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains("`mytokens get asc-api-key` failed: no get"),
+        "{}",
+        stderr(&o)
+    );
 }

@@ -9,15 +9,19 @@ use serde_json::Value;
 
 pub mod agent_context;
 pub mod check;
+pub mod distill;
 pub mod doctor;
+pub mod env;
 pub mod lesson;
 pub mod list;
 pub mod new;
 pub mod prompt;
+pub mod propose;
 pub mod remove;
 pub mod show;
 pub mod source;
 pub mod status;
+pub mod suggest;
 pub mod sync;
 pub mod tool;
 pub mod update;
@@ -109,15 +113,19 @@ macro_rules! registry {
 registry! {
     AgentContext => agent_context,
     Check => check,
+    Distill => distill,
     Doctor => doctor,
+    Env => env,
     Lesson => lesson,
     List => list,
     New => new,
     Prompt => prompt,
+    Propose => propose,
     Remove => remove,
     Show => show,
     Source => source,
     Status => status,
+    Suggest => suggest,
     Sync => sync,
     Use => use_,
     Tool => tool,

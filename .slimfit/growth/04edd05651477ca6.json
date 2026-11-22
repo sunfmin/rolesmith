@@ -1,0 +1,10 @@
+{
+  "tree": "d6c1ba422a31d1d8d3e90ba862c19f79c934f25d+d1fba762150c532c",
+  "lines": 508,
+  "serves": "rolesmith#12",
+  "considered": "machine::entries' mytokens subprocess handling (now shared with value via one mytokens() helper); doctor's credential walk (env walks the same role.toml programs but needs values, not field names, so no shared code there)",
+  "reviewer": "codex:01a202a9-584c-7ad3-948d-34c83afffbc6:default",
+  "author": "claude-code:6ac3b9d2-448d-5416-90b5-150d1072eebf:opus",
+  "cut": "In src/machine.rs, reuse the mytokens subprocess handling from entries for value, preserving each command’s error text, and strip one trailing newline from stdout before decoding to remove the mutable string and conditional pop.",
+  "answer": "Done: entries and value share a private mytokens() helper with the same error texts; value strips one trailing newline from the bytes with strip_suffix."
+}
