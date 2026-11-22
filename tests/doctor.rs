@@ -1,6 +1,7 @@
-//! `doctor` and `tool show` (SPEC.md §3.5, §7.1, §8) through the built binary, with a local bare
-//! repository as the library, stand-in programs on `PATH`, and a `mytokens` stand-in that answers
-//! `list` and fails the test if anything reads a value (`get`, `env`).
+//! `doctor`, `tool show` and `env` (SPEC.md §3.5, §7.1, §8) through the built binary, with a local
+//! bare repository as the library, stand-in programs on `PATH`, and a `mytokens` stand-in that
+//! answers `list` and fails the test if anything reads a value (`get`, `env`), unless the test
+//! serves values (for `rolesmith env`).
 
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -333,4 +334,198 @@ fn tool_show_prints_the_tool_toml_and_whether_its_check_passes_here() {
     let o = m.rolesmith(&["tool", "show", "broken"]);
     assert_eq!(o.status.code(), Some(1));
     assert!(stderr(&o).contains("does not parse"), "{}", stderr(&o));
+}
+
+impl Machine {
+    /// Let `mytokens get <entry> [--field <f>]` answer each of `values` (entry, field, value),
+    /// newline-terminated as mytokens prints it; `list` still names the entries of `new`.
+    fn serve_values(&self, values: &[(&str, &str, &str)]) {
+        let mut cases = String::new();
+        for (i, (entry, field, value)) in values.iter().enumerate() {
+            let file = self.path(&format!("value-{i}"));
+            std::fs::write(&file, format!("{value}\n")).unwrap();
+            let args = if field.is_empty() {
+                format!("get {entry}")
+            } else {
+                format!("get {entry} --field {field}")
+            };
+            cases.push_str(&format!("  '{args}') cat '{}' ;;\n", file.display()));
+        }
+        self.program(
+            "mytokens",
+            &format!(
+                "echo \"$*\" >> '{calls}'\ncase \"$*\" in\n  list) cat '{listing}' ;;\n{cases}  *) echo \"no $*\" >&2; exit 1 ;;\nesac\n",
+                calls = self.path("calls").display(),
+                listing = self.path("listing").display(),
+            ),
+        );
+    }
+
+    /// Every file under `dirs` with its contents and modification time.
+    fn snapshot(&self, dirs: &[&str]) -> Vec<(PathBuf, Vec<u8>, std::time::SystemTime)> {
+        let mut files = Vec::new();
+        let mut todo: Vec<PathBuf> = dirs.iter().map(|d| self.path(d)).collect();
+        while let Some(dir) = todo.pop() {
+            let Ok(entries) = std::fs::read_dir(&dir) else {
+                continue;
+            };
+            for entry in entries {
+                let path = entry.unwrap().path();
+                let meta = std::fs::symlink_metadata(&path).unwrap();
+                if meta.is_dir() {
+                    todo.push(path.clone());
+                }
+                let bytes = if meta.is_file() {
+                    std::fs::read(&path).unwrap()
+                } else {
+                    Vec::new()
+                };
+                files.push((path, bytes, meta.modified().unwrap()));
+            }
+        }
+        files.sort();
+        files
+    }
+}
+
+/// A value with every character sh treats specially inside and outside quotes.
+const AWKWARD: &str = "it's \"quoted\"\nline two $HOME `id` \\ end";
+
+fn env_library(m: &Machine, services: &[&str]) {
+    let role_toml = role(&["asc", "gh"], services);
+    let asc = tool("asc --version", ASC_CREDENTIAL);
+    let gh = tool(
+        "true",
+        "[credential]\nmytokens = \"github\"\nenv = { GH_TOKEN = \"\" }\n",
+    );
+    m.source(&[
+        ("roles/releaser/role.toml", &role_toml),
+        ("roles/releaser/core.md", "Core.\n"),
+        ("tools/asc/tool.toml", &asc),
+        ("tools/gh/tool.toml", &gh),
+    ]);
+    m.serve_values(&[
+        ("asc-api-key", "Key ID", AWKWARD),
+        ("asc-api-key", "Issuer ID", "issuer"),
+        ("github", "", "gh-value"),
+    ]);
+}
+
+#[test]
+fn env_prints_export_lines_that_sh_evals_back_to_each_value() {
+    let m = Machine::new(&["asc-api-key", "github"]);
+    env_library(&m, &["github"]);
+
+    let o = m.rolesmith(&["env", "releaser"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    let lines = String::from_utf8(o.stdout).unwrap();
+    assert!(
+        lines.starts_with("export ASC_ISSUER_ID='issuer'\n"),
+        "{lines}"
+    );
+    let file = m.path("exports");
+    std::fs::write(&file, &lines).unwrap();
+    for (name, want) in [
+        ("ASC_KEY_ID", AWKWARD),
+        ("ASC_ISSUER_ID", "issuer"),
+        ("GH_TOKEN", "gh-value"),
+    ] {
+        let script = format!(
+            "eval \"$(cat '{}')\"; printf %s \"${name}\"",
+            file.display()
+        );
+        let got = Command::new("sh").arg("-c").arg(script).output().unwrap();
+        assert_eq!(String::from_utf8(got.stdout).unwrap(), want, "{name}");
+    }
+
+    let o = m.rolesmith(&["--json", "env", "releaser"]);
+    let doc = json(&o);
+    conforms(&doc, &shape("env"));
+    assert_eq!(doc["variables"]["ASC_KEY_ID"], AWKWARD);
+    assert_eq!(doc["role"], "felix/releaser");
+}
+
+#[test]
+fn env_runs_a_command_after_the_double_dash_with_the_variables_set() {
+    let m = Machine::new(&["asc-api-key", "github"]);
+    env_library(&m, &[]);
+
+    let o = m.rolesmith(&["env", "releaser", "--", "env"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    let child = String::from_utf8(o.stdout).unwrap();
+    assert!(child.contains("\nGH_TOKEN=gh-value\n"), "{child}");
+    assert!(child.contains("\nASC_ISSUER_ID=issuer\n"), "{child}");
+    assert!(
+        child.contains("\nHOME="),
+        "the child keeps the environment: {child}"
+    );
+
+    let o = m.rolesmith(&[
+        "env",
+        "releaser",
+        "--",
+        "sh",
+        "-c",
+        "printf %s \"$ASC_KEY_ID\"; exit 7",
+    ]);
+    assert_eq!(o.status.code(), Some(7), "the child's exit is rolesmith's");
+    assert_eq!(String::from_utf8(o.stdout).unwrap(), AWKWARD);
+
+    let o = m.rolesmith(&["env", "releaser", "--", "rolesmith-test-nothere"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains("cannot run `rolesmith-test-nothere`"),
+        "{}",
+        stderr(&o)
+    );
+}
+
+#[test]
+fn env_writes_no_file_under_home_the_xdg_dirs_or_the_cwd() {
+    let m = Machine::new(&["asc-api-key", "github"]);
+    env_library(&m, &[]);
+    let dirs = ["home", "config", "data", "cache", "state", "work"];
+    std::fs::create_dir_all(m.path("work")).unwrap();
+    let before = m.snapshot(&dirs);
+    assert!(!before.is_empty(), "the source's clone is under data");
+
+    for args in [&["env", "releaser"][..], &["env", "releaser", "--", "true"]] {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_rolesmith"));
+        cmd.args(args).current_dir(m.path("work"));
+        m.env(&mut cmd);
+        cmd.env("XDG_CACHE_HOME", m.path("cache"))
+            .env("XDG_STATE_HOME", m.path("state"));
+        let o = cmd.output().unwrap();
+        assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    }
+    assert_eq!(m.snapshot(&dirs), before);
+}
+
+#[test]
+fn env_refuses_a_service_no_credential_maps_and_a_failing_read() {
+    let m = Machine::new(&["asc-api-key", "github", "sentry"]);
+    env_library(&m, &["github", "sentry"]);
+    let o = m.rolesmith(&["--json", "env", "releaser"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert_eq!(json(&o)["error"]["unmapped"], serde_json::json!(["sentry"]));
+    assert!(
+        stderr(&o).contains("no program's [credential] maps"),
+        "{}",
+        stderr(&o)
+    );
+    assert!(
+        !m.mytokens_calls().contains("get"),
+        "nothing is read before the refusal"
+    );
+
+    let m = Machine::new(&["asc-api-key", "github"]);
+    env_library(&m, &[]);
+    m.serve_values(&[]);
+    let o = m.rolesmith(&["env", "releaser", "--", "true"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains("`mytokens get asc-api-key` failed: no get"),
+        "{}",
+        stderr(&o)
+    );
 }

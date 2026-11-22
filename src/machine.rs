@@ -60,6 +60,31 @@ pub fn entries() -> Result<BTreeSet<String>, Failure> {
         .collect())
 }
 
+/// The value of `entry`'s `field` (`""`: its single value), read from mytokens now and kept
+/// nowhere. The newline mytokens ends its answer with is not part of the value.
+pub fn value(entry: &str, field: &str) -> Result<String, Failure> {
+    let mut cmd = Command::new("mytokens");
+    cmd.arg("get").arg(entry);
+    if !field.is_empty() {
+        cmd.arg("--field").arg(field);
+    }
+    let out = cmd
+        .stdin(Stdio::null())
+        .output()
+        .map_err(|e| Failure::new(format!("cannot run `mytokens get {entry}`: {e}")))?;
+    if !out.status.success() {
+        return Err(Failure::new(format!(
+            "`mytokens get {entry}` failed: {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        )));
+    }
+    let mut text = String::from_utf8_lossy(&out.stdout).into_owned();
+    if text.ends_with('\n') {
+        text.pop();
+    }
+    Ok(text)
+}
+
 /// The command that stores the entry `name` with `fields` (none: one bare value).
 pub fn put_command(name: &str, fields: &[String]) -> String {
     if fields.is_empty() {
