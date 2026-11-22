@@ -436,3 +436,96 @@ fn prompt_prints_the_role_as_one_document_and_writes_nothing() {
         serde_json::json!(["role", "rev", "markdown"])
     );
 }
+
+#[test]
+fn list_and_show_never_read_the_working_tree_and_show_refuses_what_check_refuses() {
+    let m = Machine::new();
+    let (lib, first) = published(&m, "felix", &["rust-cli"]);
+    m.json(&["source", "add", "felix", lib.url()]);
+
+    // The clone's working tree changes, uncommitted: a new core and a new role.
+    let clone = m.path("data/rolesmith/sources/felix");
+    std::fs::write(clone.join("roles/rust-cli/core.md"), "# Core\n\nEdited.\n").unwrap();
+    std::fs::create_dir_all(clone.join("roles/web")).unwrap();
+    std::fs::write(clone.join("roles/web/role.toml"), "description = \"Web\"\n").unwrap();
+    std::fs::write(clone.join("roles/web/core.md"), "# Core\n").unwrap();
+
+    let shown = m.json(&["show", "rust-cli"]);
+    assert_eq!(shown["rev"], first.as_str());
+    assert!(shown["core"].as_str().unwrap().contains("First rule"));
+    let listed = m.json(&["list"]);
+    let roles = listed["roles"].as_array().unwrap();
+    assert_eq!(roles.len(), 1, "{listed}");
+    assert_eq!(roles[0]["address"], "rust-cli");
+    assert_ne!(m.rolesmith(&["show", "web"]).status.code(), Some(0));
+    m.git(&clone, &["checkout", "--quiet", "--", "."]);
+    m.git(&clone, &["clean", "--quiet", "-fd"]);
+
+    // A commit whose role `check` refuses: `show` refuses it, with the same problems.
+    lib.write("roles/rust-cli/core.md", &"x".repeat(8001));
+    let broken = m.publish(&lib, "too long a core");
+    m.json(&["source", "update"]);
+    let o = m.rolesmith(&["--json", "show", "rust-cli"]);
+    assert_eq!(o.status.code(), Some(1), "{}", stderr(&o));
+    let shown: serde_json::Value = serde_json::from_slice(&o.stdout).unwrap();
+    let mut check = Command::new(env!("CARGO_BIN_EXE_rolesmith"));
+    m.env(&mut check);
+    let o = check
+        .args(["--json", "check", "rust-cli"])
+        .current_dir(&lib.work)
+        .output()
+        .unwrap();
+    assert_eq!(o.status.code(), Some(1), "{}", stderr(&o));
+    let checked: serde_json::Value = serde_json::from_slice(&o.stdout).unwrap();
+    assert!(
+        !checked["error"]["problems"].as_array().unwrap().is_empty(),
+        "{checked}"
+    );
+    assert_eq!(
+        shown["error"]["problems"], checked["error"]["problems"],
+        "show at {broken}"
+    );
+}
+
+#[test]
+fn update_fast_forwards_main_on_whichever_branch_the_clone_is() {
+    let m = Machine::new();
+    let (lib, first) = published(&m, "felix", &["rust-cli"]);
+    m.json(&["source", "add", "felix", lib.url()]);
+    let clone = m.path("data/rolesmith/sources/felix");
+    m.git(
+        &clone,
+        &["checkout", "--quiet", "-b", "rolesmith/distill-rust-cli"],
+    );
+
+    lib.write("roles/rust-cli/core.md", "# Core\n\nSecond rule.\n");
+    let second = m.publish(&lib, "a second rule");
+    let updated = m.json(&["source", "update"]);
+    assert_eq!(updated["updated"][0]["from"], first.as_str());
+    assert_eq!(updated["updated"][0]["to"], second.as_str());
+    assert_eq!(m.git(&clone, &["rev-parse", "main"]), second);
+    assert_eq!(
+        m.git(&clone, &["symbolic-ref", "--short", "HEAD"]),
+        "rolesmith/distill-rust-cli"
+    );
+    assert_eq!(
+        m.git(&clone, &["rev-parse", "HEAD"]),
+        first,
+        "the branch is left alone"
+    );
+
+    // Upstream rewrites main: refused off main too, and the local main stays.
+    lib.write(
+        "library.toml",
+        "name = \"felix\"\ndescription = \"rewritten\"\n",
+    );
+    m.git(&lib.work, &["add", "-A"]);
+    m.git(
+        &lib.work,
+        &["commit", "--quiet", "--amend", "-m", "rewritten"],
+    );
+    m.git(&lib.work, &["push", "--quiet", "--force", "origin", "main"]);
+    let o = m.rolesmith(&["source", "update"]);
+    assert_eq!(o.status.code(), Some(1), "{}", stderr(&o));
+    assert_eq!(m.git(&clone, &["rev-parse", "main"]), second);
+}
