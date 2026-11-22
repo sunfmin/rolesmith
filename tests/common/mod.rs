@@ -102,10 +102,7 @@ impl Machine {
     }
 
     pub fn rolesmith(&self, args: &[&str]) -> Output {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_rolesmith"));
-        cmd.args(args);
-        self.env(&mut cmd);
-        cmd.output().expect("the binary runs")
+        self.rolesmith_input(args, "")
     }
 
     /// Run `rolesmith --json <args>`, expect success, answer its document.

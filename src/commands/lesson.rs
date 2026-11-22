@@ -72,35 +72,29 @@ impl Command for Args {
     fn output_shape() -> Value {
         let string = json!({ "type": "string" });
         let number = json!({ "type": "integer", "minimum": 1 });
+        let array = |items: Value| json!({ "type": "array", "items": items });
         json!({
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "description": "by subcommand: add prints the lesson opened; list the open lessons and the sources skipped; close the lesson closed",
             "oneOf": [
-                { "title": "add", "type": "object", "required": ["opened", "reminder"], "properties": {
-                    "opened": { "type": "object",
-                        "required": ["source", "repo", "role", "number", "url", "title", "by"],
-                        "properties": { "source": string, "repo": string, "role": string,
-                            "number": number, "url": string, "title": string,
-                            "by": { "enum": ["felix", "agent"] } } },
+                titled("add", object(json!({
+                    "opened": object(json!({ "source": string, "repo": string, "role": string,
+                        "number": number, "url": string, "title": string,
+                        "by": { "enum": ["felix", "agent"] } })),
                     "reminder": { "type": ["string", "null"],
                         "description": "set when the library is public: keep project details general" }
-                } },
-                { "title": "list", "type": "object", "required": ["lessons", "skipped"], "properties": {
-                    "lessons": { "type": "array", "items": { "type": "object",
-                        "required": ["source", "repo", "number", "role", "title", "created_at", "age", "url"],
-                        "properties": { "source": string, "repo": string, "number": number,
-                            "role": { "type": ["string", "null"], "description": "from its role:<role> label" },
-                            "title": string, "created_at": string,
-                            "age": { "type": "string", "description": "e.g. 3d, 5h, 12m" },
-                            "url": string } } },
-                    "skipped": { "type": "array", "items": { "type": "object",
-                        "required": ["source", "reason"],
-                        "properties": { "source": string, "reason": string } } }
-                } },
-                { "title": "close", "type": "object", "required": ["closed"], "properties": {
-                    "closed": { "type": "object", "required": ["source", "repo", "number", "url"],
-                        "properties": { "source": string, "repo": string, "number": number, "url": string } }
-                } }
+                }))),
+                titled("list", object(json!({
+                    "lessons": array(object(json!({ "source": string, "repo": string, "number": number,
+                        "role": { "type": ["string", "null"], "description": "from its role:<role> label" },
+                        "title": string, "created_at": string,
+                        "age": { "type": "string", "description": "e.g. 3d, 5h, 12m" },
+                        "url": string }))),
+                    "skipped": array(object(json!({ "source": string, "reason": string })))
+                }))),
+                titled("close", object(json!({
+                    "closed": object(json!({ "source": string, "repo": string, "number": number, "url": string }))
+                })))
             ]
         })
     }
@@ -122,6 +116,22 @@ impl Command for Args {
             Action::Close { lesson, why } => close(&lesson, &why),
         }
     }
+}
+
+/// A JSON Schema object whose every property is required.
+fn object(properties: Value) -> Value {
+    let required: Vec<&String> = properties
+        .as_object()
+        .into_iter()
+        .flatten()
+        .map(|(k, _)| k)
+        .collect();
+    json!({ "type": "object", "required": required, "properties": properties })
+}
+
+fn titled(title: &str, mut schema: Value) -> Value {
+    schema["title"] = json!(title);
+    schema
 }
 
 /// Refuse `text` (called `what`) if any line matches a secret pattern, naming the line and the
@@ -267,14 +277,15 @@ fn list(address: Option<&str>) -> Result<Output, Failure> {
     };
 
     let now = now_seconds();
-    let mut lessons = Vec::new();
-    let mut skipped = Vec::new();
+    let (mut lessons, mut skipped) = (Vec::new(), Vec::new());
+    let (mut rows, mut skips) = (String::new(), String::new());
     for (source, role_label) in asked {
         let repo = match Repo::of_source(&source, &record.get(&source)?.url) {
             Ok(repo) => repo,
             // A role asked for by name is refused; a sweep of every source skips what it cannot ask.
             Err(e) if role_label.is_some() => return Err(e),
             Err(e) => {
+                skips.push_str(&format!("skipped {source}: {}\n", e.message));
                 skipped.push(json!({ "source": source, "reason": e.message }));
                 continue;
             }
@@ -303,39 +314,28 @@ fn list(address: Option<&str>) -> Result<Output, Failure> {
                 .filter_map(|l| l["name"].as_str()?.strip_prefix("role:"))
                 .next();
             let created = issue["createdAt"].as_str().unwrap_or_default();
+            let age = parse_time(created).map_or_else(|| "?".to_owned(), |t| age(now - t));
+            let (number, title) = (
+                &issue["number"],
+                issue["title"].as_str().unwrap_or_default(),
+            );
+            rows.push_str(&format!(
+                "{source}#{number}\t{}\t{title}\t{age}\n",
+                role.unwrap_or("(no role)")
+            ));
             lessons.push(json!({
-                "source": source, "repo": repo.0, "number": issue["number"], "role": role,
-                "title": issue["title"], "created_at": created,
-                "age": parse_time(created).map_or_else(|| "?".to_owned(), |t| age(now - t)),
-                "url": issue["url"],
+                "source": source, "repo": repo.0, "number": number, "role": role,
+                "title": title, "created_at": created, "age": age, "url": issue["url"],
             }));
         }
     }
 
-    let mut human = String::new();
-    for l in &lessons {
-        human.push_str(&format!(
-            "{}#{}\t{}\t{}\t{}\n",
-            l["source"].as_str().unwrap_or_default(),
-            l["number"],
-            l["role"].as_str().unwrap_or("(no role)"),
-            l["title"].as_str().unwrap_or_default(),
-            l["age"].as_str().unwrap_or_default(),
-        ));
-    }
     if lessons.is_empty() {
-        human.push_str("no open lessons\n");
-    }
-    for s in &skipped {
-        human.push_str(&format!(
-            "skipped {}: {}\n",
-            s["source"].as_str().unwrap_or_default(),
-            s["reason"].as_str().unwrap_or_default()
-        ));
+        rows.push_str("no open lessons\n");
     }
     Ok(Output {
         json: json!({ "lessons": lessons, "skipped": skipped }),
-        human,
+        human: rows + &skips,
     })
 }
 

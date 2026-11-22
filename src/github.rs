@@ -49,9 +49,33 @@ impl Repo {
     /// Run `gh <args> --repo <repo>`, with `input` on its stdin when given; its stdout, or a
     /// failure carrying its stderr.
     pub fn gh(&self, args: &[&str], input: Option<&str>) -> Result<String, Failure> {
-        let mut all: Vec<&str> = args.to_vec();
-        all.extend(["--repo", &self.0]);
-        gh(&all, input)
+        let shown = || format!("gh {} --repo {self}", args.join(" "));
+        let ran = |e: std::io::Error| Failure::new(format!("cannot run {}: {e}", shown()));
+        let mut child = Command::new("gh")
+            .args(args)
+            .args(["--repo", &self.0])
+            .stdin(if input.is_some() {
+                Stdio::piped()
+            } else {
+                Stdio::null()
+            })
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(ran)?;
+        if let Some(input) = input {
+            let mut stdin = child.stdin.take().expect("stdin is piped");
+            stdin.write_all(input.as_bytes()).map_err(ran)?;
+        }
+        let out = child.wait_with_output().map_err(ran)?;
+        if !out.status.success() {
+            return Err(Failure::new(format!(
+                "{} failed: {}",
+                shown(),
+                String::from_utf8_lossy(&out.stderr).trim()
+            )));
+        }
+        Ok(String::from_utf8_lossy(&out.stdout).trim().to_owned())
     }
 
     /// Like [`Repo::gh`] without input, parsing stdout as JSON.
@@ -70,38 +94,6 @@ impl std::fmt::Display for Repo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.0)
     }
-}
-
-fn gh(args: &[&str], input: Option<&str>) -> Result<String, Failure> {
-    let shown = || format!("gh {}", args.join(" "));
-    let mut child = Command::new("gh")
-        .args(args)
-        .stdin(if input.is_some() {
-            Stdio::piped()
-        } else {
-            Stdio::null()
-        })
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| Failure::new(format!("cannot run gh: {e}")))?;
-    if let Some(input) = input {
-        let mut stdin = child.stdin.take().expect("stdin is piped");
-        stdin
-            .write_all(input.as_bytes())
-            .map_err(|e| Failure::new(format!("cannot write to {}: {e}", shown())))?;
-    }
-    let out = child
-        .wait_with_output()
-        .map_err(|e| Failure::new(format!("cannot run gh: {e}")))?;
-    if !out.status.success() {
-        return Err(Failure::new(format!(
-            "{} failed: {}",
-            shown(),
-            String::from_utf8_lossy(&out.stderr).trim()
-        )));
-    }
-    Ok(String::from_utf8_lossy(&out.stdout).trim().to_owned())
 }
 
 #[cfg(test)]
