@@ -1,0 +1,15 @@
+{
+  "tree": "d6c1ba422a31d1d8d3e90ba862c19f79c934f25d+d1fba762150c532c",
+  "picker": "codex:01a202a9-114c-7ff0-b98d-be519fb74e76:default",
+  "author": "claude-code:6ac3b9d2-448d-5416-90b5-150d1072eebf:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/commands/env.rs:27:9: replace <impl Command for Args>::output_shape -> Value with Default::default()",
+        "why": "The test checks a response against the schema the command itself publishes, leaving the schema’s required fields without an independent assertion.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  }
+}
