@@ -211,6 +211,15 @@ time: what happened, the rule that would have prevented it, and the evidence (a 
   skills or prohibitions in the source's working copy, then `rolesmith check` and
   `rolesmith propose`, whose pull request says `Closes #<n>` for each lesson it absorbed. A lesson
   the agent judges wrong is closed with a comment saying why, by `rolesmith lesson close`.
+- The library's repository is the one its source's URL names on github.com
+  (`https://github.com/<owner>/<repo>`, `git@github.com:…`, `ssh://git@github.com/…`); a source
+  whose URL is not on GitHub is refused, and `lesson list` without a role skips it, saying so.
+- `lesson add` reads the lesson on stdin: its first line is the issue's title, the rest its body,
+  which ends with `Evidence: <url>` and `Handed in by: felix|agent` (`--source`, default `agent`).
+  The labels are created on the repository when it lacks them.
+- `lesson close` takes `<n>` when the machine has one source and `<source>#<n>` otherwise (as
+  `lesson list` prints them); it closes only an open issue labelled `lesson`, with the reason as
+  its comment. The reason is refused like the lesson text when it looks like a secret.
 - There is no other record of absorbed lessons: the closed issue and the merged pull request are it.
 
 A private lesson goes to a private library: a person who wants one keeps a private library as a
@@ -274,7 +283,7 @@ one JSON document, generated from the same definitions the parser uses.
 | `propose [<role>] [--source <name>] [--closes <n>...]` | run `check`, commit the working copy's changes on its branch, push it, open a pull request through `gh`; print its URL |
 | `lesson add <role> --evidence <url> [--source felix\|agent]` | §6; the lesson text on stdin |
 | `lesson list [<role>]` | open lessons: number, role, title, age |
-| `lesson close <n> --why "<text>"` | close a lesson that will not be absorbed |
+| `lesson close [<source>#]<n> --why "<text>"` | close a lesson that will not be absorbed |
 | `distill <role>` | print the distilling brief and the role's open lessons, and put the working copy on branch `rolesmith/distill-<role>` |
 | `agent-context` | §8 |
 

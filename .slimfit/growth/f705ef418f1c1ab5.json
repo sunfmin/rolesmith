@@ -1,0 +1,10 @@
+{
+  "tree": "ef2828862495ad4acdb231d7681e790ed738b239+d1fba762150c532c",
+  "lines": 458,
+  "serves": "rolesmith#15",
+  "considered": "sources::git as the gh runner (it takes no stdin and carries a dir, not --repo); secrets::scan reused as is for lesson text, --evidence and --why; tests/sources.rs's Machine moved to tests/common and shared rather than copied",
+  "reviewer": "codex:01a2029b-ceb2-78e0-a02f-e5882482b8e6:default",
+  "author": "claude-code:895ddb6b-3d5f-59b1-96f9-e640aff83d91:opus",
+  "cut": "In src/commands/lesson.rs, derive each schema object's required keys from its properties, build list display rows alongside the JSON rows to remove the second pass and JSON field lookups, and replace the handwritten calendar arithmetic with a date-time parser while keeping the existing age format and `?` fallback. In src/github.rs, fold the private subprocess runner into `Repo::gh` and append `--repo` directly to the command. In tests/common/mod.rs, have `rolesmith` call `rolesmith_input` with empty input to remove the duplicate process setup.",
+  "answer": "Made all but one: required keys come from an object() helper; list builds its human rows in the same pass as the JSON rows; the private gh runner is folded into Repo::gh, which appends --repo itself; Machine::rolesmith calls rolesmith_input with empty input. Not made: a date-time parser. rolesmith has no date crate, and adding one (time/chrono and their dependencies) to read one fixed GitHub format would replace about 15 lines that a unit test pins (epoch, a leap-year boundary, today, malformed input) with a dependency to keep pinned and audited."
+}
