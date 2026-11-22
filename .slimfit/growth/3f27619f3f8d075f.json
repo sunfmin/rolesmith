@@ -1,0 +1,10 @@
+{
+  "tree": "75596133882d3d88f82c683bf774ee35ce931e83+d1fba762150c532c",
+  "lines": 61,
+  "serves": "rolesmith#8",
+  "considered": "show.rs's role/--rev args and resolve+read_role (now shared: prompt flattens show::Args and calls its read); show's human rendering of core and prohibitions (different form: a heading per section, '(none)' lines)",
+  "reviewer": "codex:01a20292-68ef-7e82-aea5-75d6301209b1:default",
+  "author": "claude-code:a4bcc455-f7e9-527d-bc2e-ebc7ccd6236d:opus",
+  "cut": "In src/commands/show.rs and src/commands/prompt.rs, flatten show::Args directly into prompt::Args and put read on show::Args, removing the RoleAt wrapper while sharing the same role and revision parsing. In tests/sources.rs, use include_str!(\"golden/prompt.md\") for the golden fixture and keep the revision substitution.",
+  "answer": "Made both cuts: prompt::Args flattens show::Args (group(skip) to avoid clap's duplicate group id), read() lives on show::Args, RoleAt removed; the golden file is read with include_str!. Growth went 66 -> 61 net lines; the rest is the command and its test."
+}

@@ -385,3 +385,60 @@ fn a_relative_xdg_directory_falls_back_to_home_and_an_unreadable_record_fails() 
     assert_eq!(o.status.code(), Some(1), "{}", stderr(&o));
     assert!(stderr(&o).contains("cannot read"), "{}", stderr(&o));
 }
+
+/// Every file under `dir` with its contents, to see that a command wrote nothing.
+fn snapshot(dir: &Path) -> Vec<(PathBuf, Vec<u8>)> {
+    let mut files = Vec::new();
+    let mut todo = vec![dir.to_path_buf()];
+    while let Some(d) = todo.pop() {
+        for entry in std::fs::read_dir(&d).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                todo.push(path);
+            } else {
+                let bytes = std::fs::read(&path).unwrap();
+                files.push((path, bytes));
+            }
+        }
+    }
+    files.sort();
+    files
+}
+
+#[test]
+fn prompt_prints_the_role_as_one_document_and_writes_nothing() {
+    let m = Machine::new();
+    let (lib, _) = published(&m, "felix", &["app-store-releaser"]);
+    lib.write(
+        "roles/app-store-releaser/skills/notarize/SKILL.md",
+        "---\nname: notarize\ndescription: Use when a macOS build needs notarizing.\n---\n\nSteps.\n",
+    );
+    let rev = m.publish(&lib, "a second skill");
+    m.json(&["source", "add", "felix", lib.url()]);
+    let project = m.path("project");
+    std::fs::create_dir_all(&project).unwrap();
+
+    let before = snapshot(m.dir.path());
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_rolesmith"));
+    cmd.args(["prompt", "app-store-releaser"])
+        .current_dir(&project);
+    m.env(&mut cmd);
+    let o = cmd.output().unwrap();
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    assert_eq!(snapshot(m.dir.path()), before, "prompt wrote a file");
+
+    let golden = include_str!("golden/prompt.md").replace("<rev>", &rev);
+    assert_eq!(String::from_utf8(o.stdout).unwrap(), golden);
+
+    let doc = m.json(&["prompt", "felix/app-store-releaser", "--rev", &rev[..12]]);
+    assert_eq!(
+        doc,
+        serde_json::json!({ "role": "felix/app-store-releaser", "rev": rev, "markdown": golden })
+    );
+    let shapes = rolesmith::commands::output_shapes();
+    let (_, shape) = shapes.iter().find(|(n, _)| *n == "prompt").unwrap();
+    assert_eq!(
+        shape["required"],
+        serde_json::json!(["role", "rev", "markdown"])
+    );
+}
