@@ -11,6 +11,7 @@ pub mod agent_context;
 pub mod check;
 pub mod doctor;
 pub mod list;
+pub mod new;
 pub mod prompt;
 pub mod show;
 pub mod source;
@@ -104,6 +105,7 @@ registry! {
     Check => check,
     Doctor => doctor,
     List => list,
+    New => new,
     Prompt => prompt,
     Show => show,
     Source => source,
