@@ -36,6 +36,44 @@ fn verb(args: &[String]) -> String {
     format!("{} {}", args[0], args[1])
 }
 
+/// Assert `doc` has the shape agent-context advertises for `lesson <action>`: every required key
+/// present, all the way down.
+fn assert_shaped(m: &Machine, action: &str, doc: &Value) {
+    let context = m.json(&["agent-context"]);
+    let lesson = context["commands"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "lesson")
+        .unwrap();
+    let variant = lesson["output"]["oneOf"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|v| v["title"] == action)
+        .unwrap_or_else(|| panic!("no shape for lesson {action}"));
+    fn conforms(schema: &Value, doc: &Value, at: &str) {
+        for key in schema["required"].as_array().into_iter().flatten() {
+            let key = key.as_str().unwrap();
+            assert!(doc.get(key).is_some(), "{at} lacks {key}: {doc}");
+            conforms(
+                &schema["properties"][key],
+                &doc[key],
+                &format!("{at}.{key}"),
+            );
+        }
+        for item in doc.as_array().into_iter().flatten() {
+            conforms(&schema["items"], item, &format!("{at}[]"));
+        }
+    }
+    assert!(
+        variant["required"]
+            .as_array()
+            .is_some_and(|r| !r.is_empty())
+    );
+    conforms(variant, doc, action);
+}
+
 const LESSON: &str = "Bump the build number before uploading\n\nThe upload was refused because the \
                       build number was reused.\nRule: bump it first.\n";
 const EVIDENCE: &str = "https://github.com/acme/app/pull/12";
@@ -62,6 +100,7 @@ fn add_opens_an_issue_with_title_body_and_labels() {
     );
     assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
     let doc: Value = serde_json::from_slice(&o.stdout).unwrap();
+    assert_shaped(&m, "add", &doc);
     assert_eq!(doc["opened"]["number"], 7);
     assert_eq!(doc["opened"]["repo"], "acme/lore");
     assert_eq!(doc["opened"]["role"], "app-store-releaser");
@@ -139,6 +178,18 @@ fn a_private_library_gets_no_reminder_and_both_labels_are_created_when_missing()
         .map(|(a, _)| a[2].as_str())
         .collect();
     assert_eq!(created, ["lesson", "role:app-store-releaser"]);
+    let descriptions: Vec<&str> = calls
+        .iter()
+        .filter(|(a, _)| verb(a) == "label create")
+        .flat_map(|(a, _)| values(a, "--description"))
+        .collect();
+    assert_eq!(
+        descriptions,
+        [
+            "A lesson for a role, waiting to be distilled (rolesmith)",
+            "A lesson for the role app-store-releaser"
+        ]
+    );
     let body = &calls.last().unwrap().1;
     assert_eq!(
         body,
@@ -264,6 +315,7 @@ fn list_shows_open_lessons_with_number_role_title_and_age() {
     );
 
     let listed = m.json(&["lesson", "list"]);
+    assert_shaped(&m, "list", &listed);
     let lesson = &listed["lessons"][0];
     assert_eq!(lesson["number"], 7);
     assert_eq!(lesson["role"], "app-store-releaser");
@@ -271,7 +323,8 @@ fn list_shows_open_lessons_with_number_role_title_and_age() {
     assert_eq!(lesson["created_at"], "2020-01-01T00:00:00Z");
     let age = lesson["age"].as_str().unwrap();
     assert!(
-        age.ends_with('d') && age.trim_end_matches('d').parse::<u32>().unwrap() > 2000,
+        age.ends_with('d')
+            && (2000..10_000).contains(&age.trim_end_matches('d').parse::<u32>().unwrap()),
         "{age}"
     );
     assert_eq!(listed["skipped"], serde_json::json!([]));
@@ -313,6 +366,7 @@ fn close_comments_the_reason_and_closes_only_an_open_lesson() {
         "--why",
         "It contradicts the core rule",
     ]);
+    assert_shaped(&m, "close", &closed);
     assert_eq!(closed["closed"]["number"], 4);
     assert_eq!(
         closed["closed"]["url"],
@@ -351,6 +405,7 @@ fn close_comments_the_reason_and_closes_only_an_open_lesson() {
 
     for (bad, says) in [
         ("x", "not a lesson number"),
+        ("0", "not a lesson number"),
         ("nobody#4", "no source named"),
     ] {
         let o = m.rolesmith(&["lesson", "close", bad, "--why", "x"]);

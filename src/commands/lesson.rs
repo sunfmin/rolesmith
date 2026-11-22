@@ -440,6 +440,7 @@ mod tests {
         assert_eq!(parse_time("2026-11-22T10:30:15Z"), Some(1_795_343_415));
         assert_eq!(parse_time("2026-11-22"), None);
         assert_eq!(parse_time("2026-13-22T10:30:15Z"), None);
+        assert_eq!(parse_time("2026-11-22T10:30:15X"), None);
     }
 
     #[test]
