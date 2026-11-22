@@ -123,8 +123,13 @@ mytokens = "asc-api-key"                      # the entry
 env = { ASC_KEY_ID = "Key ID", ASC_ISSUER_ID = "Issuer ID", ASC_PRIVATE_KEY_B64 = "Key (base64 .p8)" }
 ```
 
-An install method other than `brew` (`cargo`, `uv tool`, `npm -g`, a release tarball) is added by
-an ADR when a tool needs it. `env` maps each environment variable to the field of the mytokens entry
+`rolesmith tool install` leaves a tool whose `check` passes alone. Otherwise it installs
+`<formula>@<version>` where brew offers that formula, else `<formula>` when `brew info` reports the
+pinned version as the formula's stable one, and refuses before installing anything when it reports
+another. After installing, the tool's `check` must pass, or the install is refused. It runs only
+`brew`, as the user, into brew's own prefix: never `sudo`, never a system directory. An install
+method other than `brew` (`cargo`, `uv tool`, `npm -g`, a release tarball) is added by an ADR when a
+tool needs it. `env` maps each environment variable to the field of the mytokens entry
 it is filled from; a variable mapped to `""` is filled from the entry's single value.
 
 ## 4. Projects
@@ -268,7 +273,7 @@ one JSON document, generated from the same definitions the parser uses.
 | `suggest [--dir <dir>]` | §5.5 |
 | `doctor <role>` | for each program: tool.toml present (a role without one is refused as `show` refuses it), `check` passes (run by `sh -c`, exit 0); for each service and credential: mytokens entry present, read by `mytokens list` alone. Exit 1 if anything is missing, each with the command that fixes it (`rolesmith tool install <source>/<role>`, `mytokens put <entry> [--fields ...]`) |
 | `tool show <tool>` | the tool.toml on its source's `main`, and whether its check passes here; a tool is addressed as a role is (§2) |
-| `tool install <role> \| --tool <tool>` | install each missing program by its pinned method into the user's own prefix |
+| `tool install <role> \| --tool <tool>` | install each program whose check fails by its pinned method into the user's own prefix (§3.5), in order; the first refusal stops it and names what was installed before it |
 | `env <role> [-- <command>...]` | §7.1 |
 | `new <role> --need "<text>" [--source <name>]` | scaffold `roles/<role>/` in the source's working copy on a new branch `rolesmith/new-<role>`, and print the drafting brief |
 | `propose [<role>] [--source <name>] [--closes <n>...]` | run `check`, commit the working copy's changes on its branch, push it, open a pull request through `gh`; print its URL |
