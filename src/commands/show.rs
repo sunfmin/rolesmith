@@ -50,7 +50,9 @@ impl Command for Args {
                 "core": { "type": "string", "description": "the text of core.md" },
                 "prohibitions": { "type": "array", "items": {
                     "type": "object", "required": ["rule", "why"],
-                    "properties": { "rule": { "type": "string" }, "why": { "type": "string" } }
+                    "properties": { "rule": { "type": "string" }, "why": { "type": "string" } },
+                    "additionalProperties": { "type": "object",
+                        "description": "a consumer's own sub-table (e.g. guild), as written" }
                 } },
                 "skills": named.clone(),
                 "programs": named,
@@ -87,7 +89,13 @@ impl Command for Args {
                 "Prohibitions",
                 role.prohibitions
                     .iter()
-                    .map(|p| format!("{} ({})", p.rule, p.why))
+                    .map(|p| {
+                        let mut item = format!("{} ({})", p.rule, p.why);
+                        for (name, table) in &p.consumers {
+                            item.push_str(&format!("; {name}: {table}"));
+                        }
+                        item
+                    })
                     .collect(),
             ),
             (
@@ -125,7 +133,13 @@ impl Command for Args {
             "role_toml": role_toml,
             "core": role.core,
             "prohibitions": role.prohibitions.iter()
-                .map(|p| json!({ "rule": p.rule, "why": p.why })).collect::<Vec<_>>(),
+                .map(|p| {
+                    let mut o = json!({ "rule": p.rule, "why": p.why });
+                    for (name, table) in &p.consumers {
+                        o[name] = json!(table);
+                    }
+                    o
+                }).collect::<Vec<_>>(),
             "skills": role.skills.iter()
                 .map(|s| json!({ "name": s.name, "description": s.description })).collect::<Vec<_>>(),
             "programs": role.toml.programs.iter()

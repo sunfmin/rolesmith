@@ -251,6 +251,48 @@ fn prohibitions_toml_must_parse() {
 }
 
 #[test]
+fn a_prohibition_keeps_a_consumer_sub_table_and_refuses_any_other_key() {
+    let lib = sound();
+    let file = "roles/app-store-releaser/prohibitions.toml";
+    write(
+        lib.path(),
+        file,
+        "[[prohibition]]\nrule = \"Never spend money\"\nwhy = \"Felix approves\"\n\
+         [prohibition.guild]\nid = \"money\"\nguards = \"money\"\non = \"PreToolUse\"\nmatch = \"pay\"\n\
+         [[prohibition]]\nrule = \"x\"\nwhy = \"y\"\n[prohibition.guild]\nid = \"x\"\n",
+    );
+    let o = check(lib.path(), &[]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+
+    write(
+        lib.path(),
+        file,
+        "[[prohibition]]\nrule = \"x\"\nwhy = \"y\"\n[prohibition.guild]\nid = \"x\"\n\
+         [[prohibition]]\nrule = \"x\"\nwhy = \"y\"\nseverity = \"high\"\n[prohibition.other]\nz = 1\n",
+    );
+    let found = problems(lib.path());
+    let mut lines: Vec<_> = found
+        .iter()
+        .filter(|(f, _, r)| f == file && r == "prohibitions")
+        .map(|(_, line, _)| *line)
+        .collect();
+    lines.sort();
+    assert_eq!(
+        lines,
+        [Some(9), Some(10)],
+        "severity and [other], not [guild]: {found:?}"
+    );
+
+    // a consumer's key is a sub-table, not a value
+    write(
+        lib.path(),
+        file,
+        "[[prohibition]]\nrule = \"x\"\nwhy = \"y\"\nguild = 1\n",
+    );
+    assert!(has(&problems(lib.path()), file, "prohibitions"));
+}
+
+#[test]
 fn a_skill_names_its_directory_and_says_when_to_use_it() {
     let skill = "roles/app-store-releaser/skills/submit-build/SKILL.md";
     broken(

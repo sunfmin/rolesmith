@@ -87,7 +87,7 @@ engine = { preferred = "claude-code", fallback = ["codex"] }
 
 Unknown top-level keys are refused by `rolesmith check`, except tables named by another consumer
 (`[guild]`), which rolesmith carries untouched. The list of such consumer tables is in rolesmith's
-code, one place.
+code, one place; the same list names a prohibition's consumer sub-tables (§3.3).
 
 ### 3.2 core.md
 
@@ -100,9 +100,16 @@ of the role. Anything that applies only to some tasks belongs in a skill.
 [[prohibition]]
 rule = "Never revoke a signing certificate"
 why = "Revoking it breaks every other machine that signs with it"
+
+[prohibition.guild]                     # optional: Guild's own keys; rolesmith keeps and ignores them
+id = "no-revoke"
+guards = "signing"
 ```
 
-Installed with the core (§5), rendered as a list under the core memory. An absent file means no prohibitions.
+Installed with the core (§5), rendered as a list under the core memory: `rule` and `why` only. An
+absent file means no prohibitions. A prohibition takes `rule`, `why`, and sub-tables named by a
+consumer from the same list as §3.1 (`[prohibition.guild]`), which rolesmith carries untouched:
+`rolesmith check` keeps them and `show` shows them. Any other key or sub-table is refused.
 
 ### 3.4 Skills
 
