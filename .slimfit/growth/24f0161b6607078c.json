@@ -1,0 +1,10 @@
+{
+  "tree": "99fbd99cb607d28730fa3429b7183866ecb1f5f6+d1fba762150c532c",
+  "lines": 314,
+  "serves": "rolesmith#5",
+  "considered": "project::sync (reused for update and remove), sync::output and sync::shape (reused as the output of update and remove), use's record put-back (moved into project::install, shared by use, update, remove), sources::main_commit and git for status",
+  "reviewer": "codex:01a202cc-b22c-7843-9ac7-43c2ca22c3c1:default",
+  "author": "claude-code:2653d8a8-315d-591b-bd05-a100d46ea0c1:opus",
+  "cut": "In src/commands/status.rs, format each human-readable row from the pinned revision, main revision, counts, and drift paths before building its JSON object, then delete line() and its JSON lookups and fallback conversions. In src/commands/remove.rs, src/commands/update.rs, and src/commands/use_.rs, replace the repeated install-and-format tail with one helper in src/commands/sync.rs that calls project::install and reuses sync::output.",
+  "answer": "Made both: role_status builds the line from its typed values and line() is gone; sync::install(dir, record) is the one install-and-output tail of use, update and remove."
+}

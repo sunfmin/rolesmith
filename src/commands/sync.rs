@@ -74,6 +74,12 @@ pub fn project_dir(project: Option<PathBuf>) -> Result<PathBuf, Failure> {
     Ok(dir)
 }
 
+/// Save `record` to the project at `dir`, sync it, and say what changed (`use`, `update`, `remove`).
+pub fn install(dir: &std::path::Path, record: &Record) -> Result<Output, Failure> {
+    let synced = project::install(dir, record)?;
+    Ok(output(dir, record, &synced))
+}
+
 /// The output of `use` and `sync`.
 pub fn output(dir: &std::path::Path, record: &Record, synced: &Synced) -> Output {
     let mut human = String::new();

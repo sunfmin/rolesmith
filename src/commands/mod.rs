@@ -17,11 +17,14 @@ pub mod list;
 pub mod new;
 pub mod prompt;
 pub mod propose;
+pub mod remove;
 pub mod show;
 pub mod source;
+pub mod status;
 pub mod suggest;
 pub mod sync;
 pub mod tool;
+pub mod update;
 pub mod use_;
 
 /// What a successful command produced, in both of its forms.
@@ -118,10 +121,13 @@ registry! {
     New => new,
     Prompt => prompt,
     Propose => propose,
+    Remove => remove,
     Show => show,
     Source => source,
+    Status => status,
     Suggest => suggest,
     Sync => sync,
     Use => use_,
     Tool => tool,
+    Update => update,
 }
