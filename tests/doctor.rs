@@ -123,6 +123,33 @@ fn json(o: &Output) -> Value {
     serde_json::from_slice(&o.stdout).unwrap()
 }
 
+/// The output shape `command` publishes (the first of a `oneOf`).
+fn shape(command: &str) -> Value {
+    let (_, shape) = rolesmith::commands::output_shapes()
+        .into_iter()
+        .find(|(n, _)| *n == command)
+        .unwrap();
+    shape.get("oneOf").map_or(shape.clone(), |s| s[0].clone())
+}
+
+/// `doc` has every key `shape` requires, and so do the items of each array it describes.
+fn conforms(doc: &Value, shape: &Value) {
+    let required = shape["required"]
+        .as_array()
+        .expect("the shape requires keys");
+    assert!(!required.is_empty());
+    for key in required {
+        let key = key.as_str().unwrap();
+        assert!(doc.get(key).is_some(), "{key} missing from {doc}");
+        let items = &shape["properties"][key]["items"];
+        if items.get("required").is_some() {
+            for item in doc[key].as_array().unwrap() {
+                conforms(item, items);
+            }
+        }
+    }
+}
+
 fn role(programs: &[&str], services: &[&str]) -> String {
     let list = |xs: &[&str]| {
         xs.iter()
@@ -159,6 +186,7 @@ fn doctor_passes_when_every_program_checks_and_every_entry_exists() {
     let o = m.rolesmith(&["--json", "doctor", "releaser"]);
     assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
     let doc = json(&o);
+    conforms(&doc, &shape("doctor"));
     assert_eq!(doc["role"], "releaser");
     assert_eq!(doc["programs"][0]["name"], "asc");
     assert_eq!(doc["entries"], serde_json::json!(["github", "asc-api-key"]));
@@ -189,6 +217,9 @@ fn doctor_reports_a_missing_program_a_failing_check_and_a_missing_entry_each_wit
     let o = m.rolesmith(&["--json", "doctor", "releaser"]);
     assert_eq!(o.status.code(), Some(1), "{}", stderr(&o));
     let missing = json(&o)["error"]["missing"].clone();
+    for item in missing.as_array().unwrap() {
+        conforms(item, &rolesmith::machine::Missing::shape());
+    }
     let fix_program = "rolesmith tool install felix/releaser";
     let expected = serde_json::json!([
         { "kind": "program", "name": "xcodegen",
@@ -260,6 +291,13 @@ fn doctor_refuses_a_role_whose_program_has_no_tool_toml() {
 #[test]
 fn tool_show_prints_the_tool_toml_and_whether_its_check_passes_here() {
     let m = Machine::new(&[]);
+    let o = m.rolesmith(&["tool", "show", "asc"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains("no tool asc: no sources"),
+        "{}",
+        stderr(&o)
+    );
     let asc = tool("asc --version", ASC_CREDENTIAL);
     let xcodegen = tool("xcodegen --version", "");
     m.source(&[
@@ -271,6 +309,7 @@ fn tool_show_prints_the_tool_toml_and_whether_its_check_passes_here() {
     let o = m.rolesmith(&["--json", "tool", "show", "asc"]);
     assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
     let doc = json(&o);
+    conforms(&doc, &shape("tool"));
     assert_eq!(doc["tool_toml"], asc.trim_end());
     assert_eq!(doc["check"], "asc --version");
     assert_eq!(doc["passes"], true);
