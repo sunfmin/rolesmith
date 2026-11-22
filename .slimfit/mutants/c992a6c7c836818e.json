@@ -1,0 +1,15 @@
+{
+  "tree": "eb6a66da81c95c083927653dd5d3ea4232d8d2ac+d1fba762150c532c",
+  "picker": "codex:01a202ad-baf2-7e73-8310-e3b2becff797:default",
+  "author": "claude-code:a0672176-8adc-5279-82b4-9a1f6d420157:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/sources.rs:115:13: delete match arm (None, _) in Sources::pick",
+        "why": "The shown tests cover one configured source and an unknown explicit name, leaving the dedicated no-sources error unasserted.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  }
+}

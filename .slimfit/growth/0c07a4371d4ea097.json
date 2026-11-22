@@ -1,0 +1,10 @@
+{
+  "tree": "eb6a66da81c95c083927653dd5d3ea4232d8d2ac+d1fba762150c532c",
+  "lines": 702,
+  "serves": "rolesmith#14",
+  "considered": "Reused sources::git for every git call and moved new's only_source into Sources::pick so new and propose share it; reused library::load and Failure::listing for check's refusal as check does; no existing gh helper to reuse (machine.rs only runs mytokens and sh).",
+  "reviewer": "codex:01a202ad-bf91-72a0-a7cd-3e9155f19596:default",
+  "author": "claude-code:a0672176-8adc-5279-82b4-9a1f6d420157:opus",
+  "cut": "In src/commands/propose.rs, render the role sections from the map’s Some-key range and append the None entry by lookup, and extract the gh URL by trimming trailing whitespace and taking the last line. In tests/propose.rs, initialize the seed repository directly on main and push to the bare repository by path, removing the empty clone and separate branch checkout.",
+  "answer": "Made all three cuts in commit 'propose: the growth reviewer's cuts': role sections from changes.range(Some(\"\")..) plus a lookup of None through one section closure; the URL as trim_end().lines().last(); the test seeds with git init -b main in place and pushes to the bare path."
+}

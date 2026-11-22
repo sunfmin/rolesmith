@@ -49,13 +49,7 @@ impl Command for Args {
             )));
         }
         let record = Sources::load()?;
-        let source = match self.source {
-            Some(name) => {
-                record.get(&name)?;
-                name
-            }
-            None => only_source(&record)?,
-        };
+        let source = record.pick(self.source)?;
         let clone = sources::clone_dir(&source)?;
         let dir = Some(clone.as_path());
         let main = sources::main_commit(&clone).ok_or_else(|| {
@@ -107,21 +101,6 @@ impl Command for Args {
             }),
             human: brief,
         })
-    }
-}
-
-/// The one source there is, or a refusal asking for `--source`.
-fn only_source(record: &Sources) -> Result<String, Failure> {
-    let mut names = record.source.keys();
-    match (names.next(), names.next()) {
-        (Some(name), None) => Ok(name.clone()),
-        (None, _) => Err(Failure::new(
-            "no sources; add one with `rolesmith source add <name> <git-url>`",
-        )),
-        _ => Err(Failure::new(format!(
-            "more than one source; name one with --source ({})",
-            record.source.keys().cloned().collect::<Vec<_>>().join(", ")
-        ))),
     }
 }
 
