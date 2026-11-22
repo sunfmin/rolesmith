@@ -1,0 +1,142 @@
+{
+  "037f54ea89e5": {
+    "mark": "not",
+    "sentence": "Anything that applies only to some tasks belongs in a skill.",
+    "source": "SPEC.md:82",
+    "why": "rationale, history or advice to the reader (what core.md is for, where task-specific rules go, why roles left Guild), not a promise a run of rolesmith could break"
+  },
+  "1228135ed2d3": {
+    "mark": "promise",
+    "sentence": "`rolesmith check` and `rolesmith lesson add` refuse text matching any of the patterns in one table in the code (private key blocks, `ghp_`/`github_pat_`, `sk-`, AWS access keys, JWTs, long base64 or hex runs after `key`/`token`/`secret`/`password`), naming the file, line and pattern, never echoing the match.",
+    "source": "SPEC.md:216"
+  },
+  "1ff7784929fa": {
+    "mark": "promise",
+    "sentence": "Everything rolesmith writes into a project besides it is **generated** from it: listed in `.rolesmith/manifest.json`, ignored by git (rolesmith adds the lines to `.gitignore`), rewritten identically by `rolesmith sync`. rolesmith deletes only files its manifest lists.",
+    "source": "SPEC.md:131"
+  },
+  "335ed4d17ec6": {
+    "mark": "promise",
+    "sentence": "rolesmith never edits a project's `CLAUDE.md`, `AGENTS.md`, code, build files or settings.",
+    "source": "SPEC.md:135"
+  },
+  "359f667912d3": {
+    "mark": "promise",
+    "sentence": "A role names the credentials it needs by their **mytokens** entry; rolesmith reads a value only to hand it to a process (`rolesmith env`), and never writes one to disk, to a library, to a project or to its own output files.",
+    "source": "SPEC.md:24"
+  },
+  "5544a5c6bdd7": {
+    "mark": "not",
+    "sentence": "The question came from an App Store release (sunfmin/chessmirror#20): that know-how belongs to no one repo and should reach every similar project, on any agent.",
+    "source": "docs/adr/0001-roles-leave-guild-and-people-schedule-their-drafting-and-distilling.md:12",
+    "why": "rationale, history or advice to the reader (what core.md is for, where task-specific rules go, why roles left Guild), not a promise a run of rolesmith could break"
+  },
+  "57d7aec30494": {
+    "mark": "promise",
+    "sentence": "`rolesmith suggest [--dir <dir>]` lists roles of every source whose `[match]` the project meets, with which rule matched.",
+    "source": "SPEC.md:179"
+  },
+  "58ea651f2d2e": {
+    "mark": "promise",
+    "sentence": "validate a library working copy or one role (§3, §7.2); prints every problem, not the first",
+    "source": "SPEC.md:245"
+  },
+  "60fc922b0b2d": {
+    "mark": "promise",
+    "sentence": "A role name is lowercase ASCII letters, digits and single hyphens, 2–48 characters, unique within its library.",
+    "source": "SPEC.md:55"
+  },
+  "62f484d224f5": {
+    "mark": "not",
+    "sentence": "guild#93 laid out three ways: keep Guild whole and add a way to install a role elsewhere; split roles out of Guild; or leave roles Guild-only.",
+    "source": "docs/adr/0001-roles-leave-guild-and-people-schedule-their-drafting-and-distilling.md:13",
+    "why": "rationale, history or advice to the reader (what core.md is for, where task-specific rules go, why roles left Guild), not a promise a run of rolesmith could break"
+  },
+  "6e26740927af": {
+    "mark": "promise",
+    "sentence": "`skills/<skill>/SKILL.md` with YAML front matter `name` (equal to the directory name) and `description` (required, at most 1,024 characters, saying when to use it). Other files beside `SKILL.md` (scripts, references) are copied with it.",
+    "source": "SPEC.md:96"
+  },
+  "78e2e586ce50": {
+    "mark": "not",
+    "sentence": "It is the role's standing memory: rules that hold for every task of the role.",
+    "source": "SPEC.md:81",
+    "why": "rationale, history or advice to the reader (what core.md is for, where task-specific rules go, why roles left Guild), not a promise a run of rolesmith could break"
+  },
+  "7cbd55230cd5": {
+    "mark": "promise",
+    "sentence": "**It never holds a secret.**",
+    "source": "SPEC.md:24"
+  },
+  "7d8702e407a4": {
+    "mark": "promise",
+    "sentence": "`rolesmith doctor` reads only whether each entry exists (`mytokens list`), never its value.",
+    "source": "SPEC.md:211"
+  },
+  "801134361951": {
+    "mark": "promise",
+    "sentence": "Every generated `SKILL.md` carries a first-line comment naming the source, role and rev it came from and saying it is generated.",
+    "source": "SPEC.md:147"
+  },
+  "8ca8268993a3": {
+    "mark": "promise",
+    "sentence": "A role is drafted when someone runs `rolesmith new`; lessons are distilled when someone runs `rolesmith distill`. Every change to a library lands as a pull request a person merges.",
+    "source": "SPEC.md:21"
+  },
+  "99b069916e96": {
+    "mark": "not",
+    "sentence": "A role is therefore usable only as a Guild instance, on a Mac with guildd, a Forgejo Hub and the tailnet: not in a Claude Code session, not in Orca on a phone, not by someone who runs no Hub.",
+    "source": "docs/adr/0001-roles-leave-guild-and-people-schedule-their-drafting-and-distilling.md:9",
+    "why": "rationale, history or advice to the reader (what core.md is for, where task-specific rules go, why roles left Guild), not a promise a run of rolesmith could break"
+  },
+  "a817da97ef8c": {
+    "mark": "promise",
+    "sentence": "validate a library working copy (default: the current directory) or one role (§2, §3, §7.2); prints every problem, not the first, each with its file, line where there is one, and rule; exits 1 if there is any, and with `--json` lists them as `error.problems`",
+    "source": "SPEC.md:245"
+  },
+  "bcfc0a476caa": {
+    "mark": "promise",
+    "sentence": "`rolesmith agent-context` prints every command, flag and JSON shape as one JSON document, generated from the same definitions the parser uses.",
+    "source": "SPEC.md:225"
+  },
+  "c3c40e8eb4c9": {
+    "mark": "promise",
+    "sentence": "Drafting a role and distilling lessons are started by a person, never by a timer or a scheduler.",
+    "source": "docs/adr/0001-roles-leave-guild-and-people-schedule-their-drafting-and-distilling.md:22"
+  },
+  "c62881a40ed1": {
+    "mark": "promise",
+    "sentence": "fetch and fast-forward each source's clone; never force",
+    "source": "SPEC.md:241"
+  },
+  "ca13bb45a866": {
+    "mark": "promise",
+    "sentence": "one **core skill**, `rolesmith-<role>`, whose `SKILL.md` is `core.md` followed by the prohibitions, with the description \"Always in force in this project: <role description>\".",
+    "source": "SPEC.md:144"
+  },
+  "d4de9bb26d97": {
+    "mark": "promise",
+    "sentence": "`rolesmith env <role>` prints `export NAME='value'` lines for every variable of the credentials of the role's `services` and of its programs' `[credential]`, read from mytokens at that moment, for `eval \"$(rolesmith env <role>)\"`. `rolesmith env <role> -- <command> [args]` runs the command with them set instead of printing.",
+    "source": "SPEC.md:208"
+  },
+  "d612422d5689": {
+    "mark": "promise",
+    "sentence": "Every change to a library is a pull request a person merges.",
+    "source": "docs/adr/0001-roles-leave-guild-and-people-schedule-their-drafting-and-distilling.md:25"
+  },
+  "da3627fe75b5": {
+    "mark": "promise",
+    "sentence": "Markdown, at most 8,000 characters.",
+    "source": "SPEC.md:81"
+  },
+  "e412303d6edd": {
+    "mark": "promise",
+    "sentence": "Every command is non-interactive, takes `--json` (one JSON document on stdout; human text otherwise), writes diagnostics to stderr, and exits 0 on success, 1 when it refused or something failed, 2 on a usage error.",
+    "source": "SPEC.md:223"
+  },
+  "fa021e72cfbe": {
+    "mark": "promise",
+    "sentence": "**It never calls a model.**",
+    "source": "SPEC.md:17"
+  }
+}
