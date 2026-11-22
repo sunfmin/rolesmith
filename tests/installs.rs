@@ -239,3 +239,30 @@ fn a_file_rolesmith_cannot_delete_or_read_fails_the_command() {
     assert!(stderr(&o).contains("cannot read"), "{}", stderr(&o));
     assert!(m.path("data/rolesmith/sources/felix").is_dir());
 }
+
+#[test]
+fn a_prohibitions_consumer_sub_table_changes_nothing_use_renders_and_show_shows_it() {
+    let (m, lib, first, project) = setup();
+    let p = project.to_str().unwrap();
+    use_role(&m, &project, &[]);
+    let before = std::fs::read_to_string(project.join(CORE)).unwrap();
+
+    lib.write(
+        "roles/app-store-releaser/prohibitions.toml",
+        "[[prohibition]]\nrule = \"Never revoke a certificate\"\nwhy = \"It breaks other machines\"\n\
+         [prohibition.guild]\nid = \"no-revoke\"\nguards = \"signing\"\n",
+    );
+    let second = m.publish(&lib, "guild keys");
+    m.json(&["source", "update"]);
+    m.json(&["update", "app-store-releaser", "--project", p]);
+    let after = std::fs::read_to_string(project.join(CORE)).unwrap();
+    assert_eq!(after.replace(&second, &first), before, "only the rev moved");
+    assert!(!after.contains("no-revoke"));
+
+    let shown = m.json(&["show", "app-store-releaser"]);
+    assert_eq!(
+        shown["prohibitions"][0],
+        json!({ "rule": "Never revoke a certificate", "why": "It breaks other machines",
+                "guild": { "id": "no-revoke", "guards": "signing" } })
+    );
+}

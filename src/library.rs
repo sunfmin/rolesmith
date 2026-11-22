@@ -13,8 +13,9 @@ use yaml_rust2::YamlLoader;
 use crate::problem::{Problem, Rule};
 use crate::secrets;
 
-/// Top-level tables of `role.toml` that belong to another consumer: rolesmith keeps them untouched
-/// and ignores them (§3.1). The one place they are listed.
+/// Tables that belong to another consumer: top-level in `role.toml` (§3.1) and sub-tables of a
+/// `[[prohibition]]` (§3.3). rolesmith keeps them untouched and ignores them. The one place they
+/// are listed.
 pub const CONSUMER_TABLES: &[&str] = &["guild"];
 
 /// At most this many characters in a role's `description` (§3.1).
@@ -99,19 +100,28 @@ pub struct Contains {
     pub text: String,
 }
 
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ProhibitionsToml {
-    #[serde(default)]
-    prohibition: Vec<Prohibition>,
-}
-
 /// One `[[prohibition]]` (§3.3).
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug)]
 pub struct Prohibition {
     pub rule: String,
     pub why: String,
+    /// The consumer sub-tables present (one of [`CONSUMER_TABLES`] each), carried untouched.
+    pub consumers: BTreeMap<String, toml::Value>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawProhibitionsToml {
+    #[serde(default)]
+    prohibition: Vec<RawProhibition>,
+}
+
+#[derive(Deserialize)]
+struct RawProhibition {
+    rule: String,
+    why: String,
+    #[serde(flatten)]
+    rest: toml::Table,
 }
 
 /// `skills/<skill>/` of a role (§3.4).
@@ -311,11 +321,7 @@ impl Checker<'_> {
 
         let prohibitions_file = format!("{dir}/prohibitions.toml");
         let prohibitions = if self.root.join(&prohibitions_file).exists() {
-            let text = self.read(&prohibitions_file, Rule::Prohibitions);
-            text.and_then(|t| {
-                self.parse::<ProhibitionsToml>(&prohibitions_file, &t, Rule::Prohibitions)
-            })
-            .map(|p| p.prohibition)
+            self.prohibitions(&prohibitions_file)
         } else {
             Some(Vec::new())
         };
@@ -332,6 +338,40 @@ impl Checker<'_> {
             prohibitions: prohibitions?,
             skills: skills.into_iter().collect::<Option<_>>()?,
         })
+    }
+
+    fn prohibitions(&mut self, file: &str) -> Option<Vec<Prohibition>> {
+        let text = self.read(file, Rule::Prohibitions)?;
+        let raw: RawProhibitionsToml = self.parse(file, &text, Rule::Prohibitions)?;
+        let mut ok = true;
+        let mut prohibitions = Vec::new();
+        for (i, p) in raw.prohibition.into_iter().enumerate() {
+            let mut consumers = BTreeMap::new();
+            for (key, value) in p.rest {
+                if CONSUMER_TABLES.contains(&key.as_str()) && value.is_table() {
+                    consumers.insert(key, value);
+                    continue;
+                }
+                ok = false;
+                let line = nth_prohibition_line(&text, i, &key);
+                self.problem(
+                    file,
+                    line,
+                    Rule::Prohibitions,
+                    format!(
+                        "prohibition {}: unknown key `{key}` (consumer sub-tables: {})",
+                        i + 1,
+                        CONSUMER_TABLES.join(", ")
+                    ),
+                );
+            }
+            prohibitions.push(Prohibition {
+                rule: p.rule,
+                why: p.why,
+                consumers,
+            });
+        }
+        ok.then_some(prohibitions)
     }
 
     fn role_toml(&mut self, file: &str) -> Option<RoleToml> {
@@ -564,6 +604,24 @@ pub fn split_front_matter(text: &str) -> Option<(&str, &str)> {
             return Some((&rest[..offset], &rest[offset + line.len()..]));
         }
         offset += line.len();
+    }
+    None
+}
+
+/// The line of `key` inside the `n`th (from 0) `[[prohibition]]` of `text`, if it can be found.
+fn nth_prohibition_line(text: &str, n: usize, key: &str) -> Option<usize> {
+    let mut seen = None;
+    for (i, l) in text.lines().enumerate() {
+        let l = l.trim_start();
+        if l.starts_with("[[prohibition]]") {
+            seen = Some(seen.map_or(0, |s| s + 1));
+        } else if seen == Some(n)
+            && (l.starts_with(&format!("[prohibition.{key}]"))
+                || l.starts_with(&format!("[prohibition.{key}."))
+                || l.split(['=', '.']).next().map(str::trim) == Some(key))
+        {
+            return Some(i + 1);
+        }
     }
     None
 }
