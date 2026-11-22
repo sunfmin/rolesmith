@@ -1,0 +1,29 @@
+{
+  "tip": "1398bab6a8069afafd3a06fa53cb186ec61f37ca",
+  "from": "47cffd931da87f3107656a086cd23e445c8b6dbb",
+  "pool": 345,
+  "drawn": {
+    "rust": [
+      {
+        "name": "src/project.rs:270:5: replace renamed_skill -> Option<Vec<u8>> with Some(vec![0])",
+        "outcome": "killed"
+      },
+      {
+        "name": "src/commands/lesson.rs:414:17: replace - with + in parse_time",
+        "outcome": "killed"
+      },
+      {
+        "name": "src/project.rs:382:33: replace < with == in update_gitignore",
+        "outcome": "killed"
+      },
+      {
+        "name": "src/sources.rs:71:23: replace match guard e.kind() == std::io::ErrorKind::NotFound with false in Sources::load",
+        "outcome": "killed"
+      },
+      {
+        "name": "src/github.rs:52:9: replace Repo::gh -> Result<String, Failure> with Ok(String::new())",
+        "outcome": "killed"
+      }
+    ]
+  }
+}
