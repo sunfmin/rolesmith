@@ -1,8 +1,17 @@
-# How factorium gates rolesmith (factorium SPEC.md §5). No [cut] yet: the release script and the
-# Homebrew formula come with their own issue, which adds [cut] here.
+# How factorium gates and cuts rolesmith (factorium SPEC.md §5).
 
 [gate]
 fast = "./gate.sh"
 fast_limit = 900
 slow = "./gate.sh"
 slow_limit = 900
+
+# packaging/release.sh cut builds for Apple Silicon and publishes the archive
+# and the formula sunfmin/tap/rolesmith. Measured on rolesmith#18 (its
+# comment): a cold release build 2.9s, the tap's clone and a release lookup
+# 1s, the archive ~0.5 MB to upload. 600 leaves room for a cold crate download
+# and a slow upload, and still stops a hung `gh` within ten minutes.
+[cut]
+steps = ["packaging/release.sh cut $FACTORIUM_VERSION"]
+formula = "sunfmin/tap/rolesmith"
+limit = 600
