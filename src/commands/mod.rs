@@ -7,14 +7,16 @@
 
 use serde_json::Value;
 
-use crate::problem::Problem;
-
 pub mod agent_context;
 pub mod check;
+pub mod doctor;
 pub mod lesson;
 pub mod list;
+pub mod new;
+pub mod prompt;
 pub mod show;
 pub mod source;
+pub mod tool;
 
 /// What a successful command produced, in both of its forms.
 pub struct Output {
@@ -27,16 +29,34 @@ pub struct Output {
 /// Why a command refused or failed: printed on stderr, exit 1.
 pub struct Failure {
     pub message: String,
-    /// When the refusal is a list of problems (`check`), each of them; with `--json` they are
-    /// `error.problems`.
-    pub problems: Vec<Problem>,
+    /// When the refusal is a list (`check`'s problems, `doctor`'s missing things), its key under
+    /// `error` and the items; with `--json` they are `error.<key>`.
+    pub list: Option<(&'static str, Value)>,
 }
 
 impl Failure {
     pub fn new(message: impl Into<String>) -> Self {
         Failure {
             message: message.into(),
-            problems: Vec::new(),
+            list: None,
+        }
+    }
+
+    /// A refusal that is a list: `header`, then each item on its own indented line, and the
+    /// items as JSON under `error.<key>`.
+    pub fn listing<T: std::fmt::Display>(
+        header: String,
+        key: &'static str,
+        items: &[T],
+        to_json: fn(&T) -> Value,
+    ) -> Self {
+        let mut message = header;
+        for item in items {
+            message.push_str(&format!("\n  {item}"));
+        }
+        Failure {
+            message,
+            list: Some((key, items.iter().map(to_json).collect())),
         }
     }
 }
@@ -84,8 +104,12 @@ macro_rules! registry {
 registry! {
     AgentContext => agent_context,
     Check => check,
+    Doctor => doctor,
     Lesson => lesson,
     List => list,
+    New => new,
+    Prompt => prompt,
     Show => show,
     Source => source,
+    Tool => tool,
 }

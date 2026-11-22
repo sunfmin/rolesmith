@@ -7,6 +7,7 @@ use serde_json::{Value, json};
 
 use super::{Command, Failure, Output};
 use crate::library;
+use crate::problem::Problem;
 
 /// Validate a library working copy or one role; print every problem.
 #[derive(clap::Args)]
@@ -55,16 +56,18 @@ impl Command for Args {
                 })
             }
             Err(problems) => {
-                let mut message = format!(
+                let header = format!(
                     "{} {} in {}:",
                     problems.len(),
                     plural(problems.len(), "problem"),
                     self.library.display()
                 );
-                for p in &problems {
-                    message.push_str(&format!("\n  {p}"));
-                }
-                Err(Failure { message, problems })
+                Err(Failure::listing(
+                    header,
+                    "problems",
+                    &problems,
+                    Problem::to_json,
+                ))
             }
         }
     }

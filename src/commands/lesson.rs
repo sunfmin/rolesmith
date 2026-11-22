@@ -181,7 +181,7 @@ fn add(address: &str, evidence: &str, by: By, text: &str) -> Result<Output, Fail
             )
         });
 
-    let role_label = format!("role:{}", found.role);
+    let role_label = format!("role:{}", found.name);
     ensure_labels(&repo, &[LESSON, &role_label])?;
 
     let mut body = String::new();
@@ -227,7 +227,7 @@ fn add(address: &str, evidence: &str, by: By, text: &str) -> Result<Output, Fail
     Ok(Output {
         json: json!({
             "opened": {
-                "source": found.source, "repo": repo.0, "role": found.role, "number": number,
+                "source": found.source, "repo": repo.0, "role": found.name, "number": number,
                 "url": url, "title": title, "by": by.as_str(),
             },
             "reminder": reminder,
@@ -271,7 +271,7 @@ fn list(address: Option<&str>) -> Result<Output, Failure> {
     let asked: Vec<(String, Option<String>)> = match address {
         Some(address) => {
             let found = sources::resolve(&record, address, None)?;
-            vec![(found.source, Some(format!("role:{}", found.role)))]
+            vec![(found.source, Some(format!("role:{}", found.name)))]
         }
         None => record.source.keys().map(|s| (s.clone(), None)).collect(),
     };
