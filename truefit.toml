@@ -146,3 +146,31 @@ name = "library-changes-only-as-merged-prs"
 says = '''Every change to a library is a pull request a person merges.'''
 source = "docs/adr/0001-roles-leave-guild-and-people-schedule-their-drafting-and-distilling.md:25"
 kept = '''not built yet: nothing writes to a library yet (the CLI's frame (rolesmith#1) and `rolesmith check` (rolesmith#2) are all that is built); the issue that opens library pull requests adds the test against the gh stand-in and sets check = ["test"]'''
+
+# tests/sources.rs list_and_show_never_read_the_working_tree_and_show_refuses_what_check_refuses, show_prints_the_role_and_reads_it_at_a_rev
+[[promise]]
+name = "list-and-show-read-a-commit-and-refuse-what-check-refuses"
+says = '''`list` and `show` read roles from a commit of the clone (its local `main`, or `show --rev`), never from its working tree, so they print what an install at that commit writes; `show` refuses a role that `check` would refuse, with the same problems.'''
+source = "SPEC.md:61"
+check = ["test"]
+
+# tests/sources.rs update_off_main_moves_main_and_leaves_the_branch_checked_out, update_never_forces_a_main_that_moved_apart, add_list_update_and_remove_a_source
+[[promise]]
+name = "source-update-fast-forwards-main-never-forces"
+says = '''`source update` fetches and fast-forwards the local `main` (on whichever branch the working copy is); a `main` that moved apart from the library's is refused, never forced.'''
+source = "SPEC.md:64"
+check = ["test"]
+
+# tests/doctor.rs tool_install_* (a `sudo` stand-in fails any run that calls it; every `brew` call is asserted exactly, with no prefix or system path)
+[[promise]]
+name = "tool-install-runs-only-brew-never-sudo"
+says = '''It runs only `brew`, as the user, into brew's own prefix: never `sudo`, never a system directory.'''
+source = "SPEC.md:129"
+check = ["test"]
+
+# tests/lessons.rs close_comments_the_reason_and_closes_only_an_open_lesson, a_bare_lesson_number_needs_its_source_when_there_are_two
+[[promise]]
+name = "lesson-close-only-an-open-lesson-with-the-reason"
+says = '''`lesson close` takes `<n>` when the machine has one source and `<source>#<n>` otherwise (as `lesson list` prints them); it closes only an open issue labelled `lesson`, with the reason as its comment.'''
+source = "SPEC.md:251"
+check = ["test"]
