@@ -12,6 +12,7 @@ use crate::problem::Problem;
 pub mod agent_context;
 pub mod check;
 pub mod list;
+pub mod new;
 pub mod show;
 pub mod source;
 
@@ -84,6 +85,7 @@ registry! {
     AgentContext => agent_context,
     Check => check,
     List => list,
+    New => new,
     Show => show,
     Source => source,
 }
