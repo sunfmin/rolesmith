@@ -11,6 +11,9 @@ use crate::problem::Problem;
 
 pub mod agent_context;
 pub mod check;
+pub mod list;
+pub mod show;
+pub mod source;
 
 /// What a successful command produced, in both of its forms.
 pub struct Output {
@@ -80,4 +83,7 @@ macro_rules! registry {
 registry! {
     AgentContext => agent_context,
     Check => check,
+    List => list,
+    Show => show,
+    Source => source,
 }
