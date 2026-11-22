@@ -65,8 +65,7 @@ pub fn put_command(name: &str, fields: &[String]) -> String {
     if fields.is_empty() {
         format!("mytokens put {name}")
     } else {
-        let quoted: Vec<String> = fields.iter().map(|f| format!("\"{f}\"")).collect();
-        format!("mytokens put {name} --fields {}", quoted.join(","))
+        format!("mytokens put {name} --fields \"{}\"", fields.join("\",\""))
     }
 }
 

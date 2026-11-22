@@ -7,9 +7,6 @@
 
 use serde_json::Value;
 
-use crate::machine::Missing;
-use crate::problem::Problem;
-
 pub mod agent_context;
 pub mod check;
 pub mod doctor;
@@ -29,20 +26,34 @@ pub struct Output {
 /// Why a command refused or failed: printed on stderr, exit 1.
 pub struct Failure {
     pub message: String,
-    /// When the refusal is a list of problems (`check`), each of them; with `--json` they are
-    /// `error.problems`.
-    pub problems: Vec<Problem>,
-    /// When the refusal is what this machine lacks (`doctor`), each thing; with `--json` they are
-    /// `error.missing`.
-    pub missing: Vec<Missing>,
+    /// When the refusal is a list (`check`'s problems, `doctor`'s missing things), its key under
+    /// `error` and the items; with `--json` they are `error.<key>`.
+    pub list: Option<(&'static str, Value)>,
 }
 
 impl Failure {
     pub fn new(message: impl Into<String>) -> Self {
         Failure {
             message: message.into(),
-            problems: Vec::new(),
-            missing: Vec::new(),
+            list: None,
+        }
+    }
+
+    /// A refusal that is a list: `header`, then each item on its own indented line, and the
+    /// items as JSON under `error.<key>`.
+    pub fn listing<T: std::fmt::Display>(
+        header: String,
+        key: &'static str,
+        items: &[T],
+        to_json: fn(&T) -> Value,
+    ) -> Self {
+        let mut message = header;
+        for item in items {
+            message.push_str(&format!("\n  {item}"));
+        }
+        Failure {
+            message,
+            list: Some((key, items.iter().map(to_json).collect())),
         }
     }
 }

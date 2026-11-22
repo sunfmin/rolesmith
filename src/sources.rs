@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::commands::Failure;
 use crate::library::{self, Library};
+use crate::problem::Problem;
 
 /// The branch of a library that is its current state (§5.4).
 pub const MAIN: &str = "main";
@@ -185,14 +186,6 @@ pub enum Kind {
 }
 
 impl Kind {
-    /// The directory of a library that holds this kind.
-    fn dir(self) -> &'static str {
-        match self {
-            Kind::Role => "roles",
-            Kind::Tool => "tools",
-        }
-    }
-
     fn noun(self) -> &'static str {
         match self {
             Kind::Role => "role",
@@ -253,7 +246,7 @@ pub fn resolve_kind(
         let has = library::valid_name(name)
             && git(
                 Some(&clone),
-                &["cat-file", "-t", &format!("{sha}:{}/{name}", kind.dir())],
+                &["cat-file", "-t", &format!("{sha}:{}s/{name}", kind.noun())],
             )
             .is_ok_and(|t| t == "tree");
         Ok(has.then(|| Found {
@@ -337,20 +330,18 @@ pub fn read_role(found: &Found) -> Result<(Library, tempfile::TempDir), Failure>
     match library::load(tree.path(), Some(&found.name)) {
         Ok(lib) => Ok((lib, tree)),
         Err(problems) => {
-            let mut message = format!(
+            let header = format!(
                 "{} at {} has {} problem(s); `rolesmith check` in the library says the same:",
                 found.qualified(),
                 found.rev,
                 problems.len()
             );
-            for p in &problems {
-                message.push_str(&format!("\n  {p}"));
-            }
-            Err(Failure {
-                message,
-                problems,
-                missing: Vec::new(),
-            })
+            Err(Failure::listing(
+                header,
+                "problems",
+                &problems,
+                Problem::to_json,
+            ))
         }
     }
 }

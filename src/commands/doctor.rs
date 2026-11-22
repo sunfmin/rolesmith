@@ -47,6 +47,7 @@ impl Command for Args {
 
         let mut missing = Vec::new();
         let mut programs = Vec::new();
+        let mut human = String::new();
         // Each entry the role reads, with the fields its credentials fill variables from.
         let mut wanted: Vec<(String, Vec<String>)> = role
             .toml
@@ -70,17 +71,22 @@ impl Command for Args {
                 });
             }
             programs.push(json!({ "name": name, "check": tool.toml.check }));
+            human.push_str(&format!(
+                "- program {name}: `{}` passes
+",
+                tool.toml.check
+            ));
             if let Some(cred) = &tool.toml.credential {
-                let i = match wanted.iter().position(|(e, _)| e == &cred.mytokens) {
-                    Some(i) => i,
-                    None => {
-                        wanted.push((cred.mytokens.clone(), Vec::new()));
-                        wanted.len() - 1
-                    }
-                };
+                if !wanted.iter().any(|(e, _)| e == &cred.mytokens) {
+                    wanted.push((cred.mytokens.clone(), Vec::new()));
+                }
+                let (_, fields) = wanted
+                    .iter_mut()
+                    .find(|(e, _)| e == &cred.mytokens)
+                    .expect("pushed above");
                 for field in cred.env.values().filter(|f| !f.is_empty()) {
-                    if !wanted[i].1.contains(field) {
-                        wanted[i].1.push(field.clone());
+                    if !fields.contains(field) {
+                        fields.push(field.clone());
                     }
                 }
             }
@@ -101,31 +107,27 @@ impl Command for Args {
         }
 
         if !missing.is_empty() {
-            let mut message = format!(
+            let header = format!(
                 "{} at {} lacks {} thing(s) on this machine:",
                 found.qualified(),
                 found.rev,
                 missing.len()
             );
-            for m in &missing {
-                message.push_str(&format!("\n  {m}"));
-            }
-            return Err(Failure {
-                message,
-                problems: Vec::new(),
-                missing,
-            });
+            return Err(Failure::listing(
+                header,
+                "missing",
+                &missing,
+                Missing::to_json,
+            ));
         }
 
         let entries: Vec<&String> = wanted.iter().map(|(e, _)| e).collect();
-        let mut human = format!("{} at {}: nothing missing\n", found.qualified(), found.rev);
-        for p in &programs {
-            human.push_str(&format!(
-                "- program {}: `{}` passes\n",
-                p["name"].as_str().unwrap_or_default(),
-                p["check"].as_str().unwrap_or_default()
-            ));
-        }
+        let mut human = format!(
+            "{} at {}: nothing missing
+{human}",
+            found.qualified(),
+            found.rev
+        );
         for e in &entries {
             human.push_str(&format!("- entry {e}: present\n"));
         }

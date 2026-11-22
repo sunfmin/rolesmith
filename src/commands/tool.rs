@@ -49,25 +49,19 @@ impl Command for Args {
     }
 
     fn run(self) -> Result<Output, Failure> {
-        match self.action {
-            Action::Show { tool } => show(&tool),
-        }
-    }
-}
-
-fn show(address: &str) -> Result<Output, Failure> {
-    let record = Sources::load()?;
-    let found = sources::resolve_kind(&record, Kind::Tool, address, None)?;
-    let file = format!("tools/{}/tool.toml", found.name);
-    let clone = sources::clone_dir(&found.source)?;
-    let text = sources::file_at(&clone, &found.rev, &file).ok_or_else(|| {
-        Failure::new(format!(
-            "{} at {} has no {file}",
-            found.qualified(),
-            found.rev
-        ))
-    })?;
-    let toml: ToolToml = toml::from_str(&text).map_err(|e| {
+        let Action::Show { tool: address } = self.action;
+        let record = Sources::load()?;
+        let found = sources::resolve_kind(&record, Kind::Tool, &address, None)?;
+        let file = format!("tools/{}/tool.toml", found.name);
+        let clone = sources::clone_dir(&found.source)?;
+        let text = sources::file_at(&clone, &found.rev, &file).ok_or_else(|| {
+            Failure::new(format!(
+                "{} at {} has no {file}",
+                found.qualified(),
+                found.rev
+            ))
+        })?;
+        let toml: ToolToml = toml::from_str(&text).map_err(|e| {
         Failure::new(format!(
             "{file} of {} at {} does not parse ({}); `rolesmith check` in the library says more",
             found.source,
@@ -75,28 +69,29 @@ fn show(address: &str) -> Result<Output, Failure> {
             e.message().trim()
         ))
     })?;
-    let check = machine::check(&toml.check);
-    let human = format!(
-        "# {} ({} at {})\n\n{}\n\n## tool.toml\n\n{}\n\n## Here\n\n`{}` {}\n",
-        found.name,
-        found.source,
-        found.rev,
-        toml.description,
-        text.trim_end(),
-        toml.check,
-        check.reason
-    );
-    Ok(Output {
-        json: json!({
-            "source": found.source,
-            "tool": found.name,
-            "rev": found.rev,
-            "description": toml.description,
-            "tool_toml": text,
-            "check": toml.check,
-            "passes": check.passes,
-            "reason": check.reason,
-        }),
-        human,
-    })
+        let check = machine::check(&toml.check);
+        let human = format!(
+            "# {} ({} at {})\n\n{}\n\n## tool.toml\n\n{}\n\n## Here\n\n`{}` {}\n",
+            found.name,
+            found.source,
+            found.rev,
+            toml.description,
+            text.trim_end(),
+            toml.check,
+            check.reason
+        );
+        Ok(Output {
+            json: json!({
+                "source": found.source,
+                "tool": found.name,
+                "rev": found.rev,
+                "description": toml.description,
+                "tool_toml": text,
+                "check": toml.check,
+                "passes": check.passes,
+                "reason": check.reason,
+            }),
+            human,
+        })
+    }
 }

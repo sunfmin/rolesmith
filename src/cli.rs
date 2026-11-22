@@ -74,12 +74,8 @@ pub fn report(
             let _ = writeln!(err, "rolesmith: {}", failure.message);
             if json {
                 let mut doc = error_document("failed", &failure.message);
-                if !failure.problems.is_empty() {
-                    doc["error"]["problems"] =
-                        failure.problems.iter().map(|p| p.to_json()).collect();
-                }
-                if !failure.missing.is_empty() {
-                    doc["error"]["missing"] = failure.missing.iter().map(|m| m.to_json()).collect();
+                if let Some((key, items)) = failure.list {
+                    doc["error"][key] = items;
                 }
                 let _ = writeln!(out, "{doc}");
             }
