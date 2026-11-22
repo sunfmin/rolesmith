@@ -142,7 +142,7 @@ impl Record {
     /// The record at `place`; empty when it has none.
     pub fn load(place: &Place) -> Result<Record, Failure> {
         let file = &place.record;
-        let text = match std::fs::read_to_string(&file) {
+        let text = match std::fs::read_to_string(file) {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Record::default()),
             Err(e) => return Err(Failure::new(format!("cannot read {}: {e}", file.display()))),
             Ok(text) => text,
