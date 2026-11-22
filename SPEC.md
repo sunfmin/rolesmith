@@ -173,11 +173,14 @@ front matter: agents read front matter only from a first line `---`.)
 | `--into` | project install | `--global` install |
 | --- | --- | --- |
 | `claude-code` | `.claude/skills/` | `~/.claude/skills/` |
-| `codex` | the project skill directory Codex reads | Codex's user skill directory |
+| `codex` | `.agents/skills/` | `~/.agents/skills/` (what Codex reads) |
 | `agents` | `.agents/skills/` | `~/.agents/skills/` (what `npx skills` and Orca's agents read) |
 
 The directory each target reads is checked against that agent's documentation when the target is
-built and recorded in one table in the code. An unknown target is refused.
+built and recorded, with the page and the date it was read, in one table in the code. Targets may
+share a directory (`codex` and `agents` do); a role installed into both writes its files there once.
+An unknown `--into` is a usage error (exit 2) naming the known targets; an unknown target in a
+record is refused.
 
 A `--global` install writes nothing into any project; it is recorded in
 `$XDG_DATA_HOME/rolesmith/global.toml` with the same fields as `rolesmith.toml`, and its manifest

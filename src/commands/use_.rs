@@ -20,8 +20,8 @@ pub struct Args {
     #[arg(long, conflicts_with_all = ["rev", "global"])]
     pub auto: bool,
 
-    /// Each agent to install into (claude-code).
-    #[arg(long, value_name = "TARGET", required = true)]
+    /// Each agent to install into (claude-code, codex, agents).
+    #[arg(long, value_name = "TARGET", required = true, value_parser = known_target)]
     pub into: Vec<String>,
 
     #[command(flatten)]
@@ -33,6 +33,13 @@ pub struct Args {
     pub rev: Option<String>,
 }
 
+/// A `--into` value: a known target, or a usage error naming the known ones.
+fn known_target(target: &str) -> Result<String, String> {
+    project::target_dir(target)
+        .map(|_| target.to_owned())
+        .map_err(|f| f.message)
+}
+
 impl Command for Args {
     const NAME: &'static str = "use";
 
@@ -41,9 +48,6 @@ impl Command for Args {
     }
 
     fn run(self) -> Result<Output, Failure> {
-        for target in &self.into {
-            project::target_dir(target)?;
-        }
         let place = self.place.place()?;
         let mut record = Record::load(&place)?;
         let known = Sources::load()?;

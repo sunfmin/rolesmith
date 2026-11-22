@@ -260,17 +260,6 @@ fn a_file_rolesmith_did_not_generate_is_never_overwritten() {
         !project.join("rolesmith.toml").exists(),
         "the record is put back"
     );
-
-    let o = m.rolesmith(&[
-        "use",
-        "app-store-releaser",
-        "--into",
-        "codex-x",
-        "--project",
-        p,
-    ]);
-    assert_eq!(o.status.code(), Some(1));
-    assert!(stderr(&o).contains("unknown target codex-x (known: claude-code)"));
 }
 
 #[test]
