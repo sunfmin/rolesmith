@@ -341,7 +341,9 @@ started by people (ADR 0001). These are Guild's changes, made in Guild after rol
 Rust, one binary, no runtime dependency besides `git`, `gh` (for `propose` and lessons) and
 `mytokens` (for `env` and `doctor`). Tests run the real binary against temporary git repositories
 and stand-ins for `gh` and `mytokens` on `PATH`. Released by factorium's cut to the Homebrew tap
-`sunfmin/tap/rolesmith`: `packaging/release.sh cut <vX.Y.Z>` builds for Apple Silicon, publishes the
-binary to the tap's release `rolesmith-v<X.Y.Z>` and the formula, which installs the prebuilt binary
-and compiles nothing. `--version` says the release's version (build.rs, `ROLESMITH_RELEASE`); any
-other build says the development form `X.Y.Z+<commits>.g<commit>[.dirty]`.
+`sunfmin/tap/rolesmith` (ADR 0002): `packaging/release.sh build <vX.Y.Z> <outdir>` builds a universal
+binary (aarch64 + x86_64) and the formula, which installs the prebuilt binary and compiles nothing;
+`packaging/release.sh cut <vX.Y.Z>` pushes the tag and runs the tap's release workflow, which signs
+it with Developer ID, notarizes it and publishes it to the tap's release `rolesmith-v<X.Y.Z>` with the
+formula. rolesmith holds no signing secret. `--version` says the release's version (build.rs,
+`ROLESMITH_RELEASE`); any other build says the development form `X.Y.Z+<commits>.g<commit>[.dirty]`.
