@@ -7,7 +7,10 @@
 
 use serde_json::Value;
 
+use crate::problem::Problem;
+
 pub mod agent_context;
+pub mod check;
 
 /// What a successful command produced, in both of its forms.
 pub struct Output {
@@ -20,6 +23,18 @@ pub struct Output {
 /// Why a command refused or failed: printed on stderr, exit 1.
 pub struct Failure {
     pub message: String,
+    /// When the refusal is a list of problems (`check`), each of them; with `--json` they are
+    /// `error.problems`.
+    pub problems: Vec<Problem>,
+}
+
+impl Failure {
+    pub fn new(message: impl Into<String>) -> Self {
+        Failure {
+            message: message.into(),
+            problems: Vec::new(),
+        }
+    }
 }
 
 /// A registered command.
@@ -64,4 +79,5 @@ macro_rules! registry {
 
 registry! {
     AgentContext => agent_context,
+    Check => check,
 }
