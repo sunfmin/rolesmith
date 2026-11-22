@@ -177,9 +177,11 @@ beside it.
 
 ### 5.3 Prompt
 
-`rolesmith prompt <role>` prints the role as one Markdown document (core, prohibitions, then each
-skill's description and path) for an agent that takes instructions but reads no skills, such as a
-bot's standing instructions. It writes nothing.
+`rolesmith prompt <role> [--rev <sha>]` prints the role as one Markdown document for an agent that
+takes instructions but reads no skills, such as a bot's standing instructions: a first-line comment
+naming the source, role and rev it came from, then `core.md`, then the prohibitions, then each skill's
+name, description and the path of its `SKILL.md` in the source at that rev. It writes nothing. With
+`--json` it prints `{ "role": "<source>/<role>", "rev", "markdown" }`.
 
 ### 5.4 Updates
 
