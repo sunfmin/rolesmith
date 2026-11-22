@@ -89,6 +89,11 @@
     "source": "docs/adr/0001-roles-leave-guild-and-people-schedule-their-drafting-and-distilling.md:9",
     "why": "rationale, history or advice to the reader (what core.md is for, where task-specific rules go, why roles left Guild), not a promise a run of rolesmith could break"
   },
+  "a817da97ef8c": {
+    "mark": "promise",
+    "sentence": "validate a library working copy (default: the current directory) or one role (§2, §3, §7.2); prints every problem, not the first, each with its file, line where there is one, and rule; exits 1 if there is any, and with `--json` lists them as `error.problems`",
+    "source": "SPEC.md:245"
+  },
   "bcfc0a476caa": {
     "mark": "promise",
     "sentence": "`rolesmith agent-context` prints every command, flag and JSON shape as one JSON document, generated from the same definitions the parser uses.",
