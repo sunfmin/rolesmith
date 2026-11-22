@@ -1,0 +1,10 @@
+{
+  "tree": "9ea54f0104b5a71a2702be77cabfa46fb8bdb882+d1fba762150c532c",
+  "lines": 730,
+  "serves": "rolesmith#3",
+  "considered": "library::load and its Checker (reused whole to read and check a role at a commit, via git archive into a temp dir instead of a second reader); check's plural/problem formatting; a role reader working on the clone's working tree (rejected: list/show must read a commit, so one path through git serves both main and --rev)",
+  "reviewer": "codex:01a20288-4290-74d2-9a22-71d13bb840f6:default",
+  "author": "claude-code:b55c56bd-a065-553c-85ad-86a52a7b7545:opus",
+  "cut": "In src/commands/source.rs, use tempfile::tempdir_in for clone staging so drop handles cleanup on clone, validation, and rename failures, and move Entry into the record and borrow it for describe; in src/commands/show.rs, use one renderer for the four Markdown list sections and share the skill and program item schema; in src/commands/list.rs, render the human line alongside each JSON row from the same address and description, removing the second pass and JSON field lookups.",
+  "answer": "Made all three: add stages in tempfile::Builder::tempdir_in and lets drop clean up (no manual remove_dir_all on each failure), Entry moves into the record and describe borrows it (Clone derives dropped); show renders the four list sections through one loop and shares one name/description item schema for skills and programs; list builds each human line with its JSON row in one pass."
+}

@@ -52,6 +52,19 @@ source's clone lives in `$XDG_DATA_HOME/rolesmith/sources/<name>/` (default
 `~/.local/share/rolesmith/`). A role is addressed as `<role>` when one source has it and as
 `<source>/<role>` otherwise; an ambiguous bare name is refused and the refusal lists the choices.
 
+```toml
+# sources.toml
+[source.felix]
+url = "https://github.com/sunfminforge/lore"
+```
+
+A source name follows the role name's rule. A source's clone is of its library's `main`. `list` and
+`show` read roles from a commit of the clone (its local `main`, or `show --rev`), never from its
+working tree, so they print what an install at that commit writes; `show` refuses a role that
+`check` would refuse, with the same problems. `source update` fetches and fast-forwards the local
+`main` (on whichever branch the working copy is); a `main` that moved apart from the library's is
+refused, never forced.
+
 A role name is lowercase ASCII letters, digits and single hyphens, 2–48 characters, unique within its
 library.
 

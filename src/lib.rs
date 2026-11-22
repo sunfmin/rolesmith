@@ -9,4 +9,5 @@ pub mod commands;
 pub mod library;
 pub mod problem;
 pub mod secrets;
+pub mod sources;
 pub mod version;

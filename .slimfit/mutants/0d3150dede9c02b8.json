@@ -1,0 +1,39 @@
+{
+  "tree": "cab709eb14b1ae927f75788ae127de315c30fca5+d1fba762150c532c",
+  "picker": "codex:01a2028a-506a-7773-900a-206531304cf4:default",
+  "author": "claude-code:b55c56bd-a065-553c-85ad-86a52a7b7545:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/sources.rs:199:20: replace match guard (4..=64).contains(&r.len()) && r.bytes().all(|b| b.is_ascii_hexdigit()) with true in wanted_rev",
+        "why": "The rejected revision inputs still fail in Git or the CLI parser, so the tests miss that a resolvable branch name such as main would be accepted.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/sources.rs:57:22: replace match guard Path::new(&dir).is_absolute() with true in xdg",
+        "why": "Every fixture uses absolute XDG paths, leaving the fallback for relative XDG paths untested.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/sources.rs:70:23: replace match guard e.kind() == std::io::ErrorKind::NotFound with true in Sources::load",
+        "why": "The tests cover missing and readable records, so treating other read errors as an empty registry could survive.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/commands/source.rs:219:26: replace == with != in update",
+        "why": "The tests check JSON for both a moved source and an up-to-date source, leaving their swapped human-readable messages undetected.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/sources.rs:247:14: replace match guard sources.source.is_empty() with true in resolve",
+        "why": "The missing-role test checks only the exit code, so a false report that no sources are configured would pass.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  }
+}
