@@ -1,0 +1,39 @@
+{
+  "tree": "3762f6f411fef4ff5a4c13d4e9bead61f9bf1cd3+d1fba762150c532c",
+  "picker": "codex:01a2029c-927c-7f50-8146-7874cbe702a3:default",
+  "author": "claude-code:3b2cc3ce-8a69-5089-8ffa-41c837152a09:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/commands/use_.rs:64:28: replace match guard record.role[i].source != found.source with false in <impl Command for Args>::run",
+        "why": "Repeated installs use the same source, leaving a same-named role from a second source untested.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/project.rs:248:24: replace match guard known.url != entry.url with false in locate",
+        "why": "Sync tests cover a matching source URL and a missing source, leaving a configured source with a conflicting URL untested.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/project.rs:87:38: replace || with && in Record::load",
+        "why": "The tests load valid SHAs, so they miss a record slipping through with a short hexadecimal revision.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/project.rs:164:30: delete ! in sync",
+        "why": "The deletion test retains the core skill, so it misses a stale manifest when sync removes the final generated file.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/project.rs:362:26: replace || with && in remove_empty_parents",
+        "why": "Other skills keep the target directory populated in the deletion test, masking whether cleanup respects an empty target directory.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  }
+}

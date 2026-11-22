@@ -1,0 +1,10 @@
+{
+  "tree": "c1f200fb70c1c81b81016bb5a24360c687bd6e2d+d1fba762150c532c",
+  "lines": 124,
+  "serves": "rolesmith#13",
+  "considered": "sources::resolve/Sources::get for picking the source (get reused for --source; resolve finds roles not sources, so only_source is new); sources::roles_at reused for the existing-role refusal; sources::git reused for status/checkout",
+  "reviewer": "codex:01a20295-2970-7dc3-aed5-4546bab3d716:default",
+  "author": "claude-code:c653cbbf-6d30-59e3-ad9d-ec9dadb7733e:opus",
+  "cut": "In src/commands/new.rs, let `git checkout -b` refuse a taken branch and use `format!(include_str!(...), ...)` with explicit named arguments to replace the substitution loop. In src/briefs/new.md, put each check constraint next to the file it governs and remove the repeated checklist. In tests/sources.rs, update the taken-branch assertion for Git’s diagnostic and check for unfilled placeholders in the existing rendered-brief test so src/commands/new.rs can drop its separate template test.",
+  "answer": "Made all three: the branch check is git's own refusal, the brief is a format! string whose named arguments the compiler checks, the brief has one list of files with their limits, the unit test is gone and the integration test asserts no blank is left. What remains is the command itself (validation, refusals, scaffold, output shape)."
+}

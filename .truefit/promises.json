@@ -134,6 +134,12 @@
     "sentence": "Every command is non-interactive, takes `--json` (one JSON document on stdout; human text otherwise), writes diagnostics to stderr, and exits 0 on success, 1 when it refused or something failed, 2 on a usage error.",
     "source": "SPEC.md:223"
   },
+  "f4728c3d92dc": {
+    "mark": "not",
+    "sentence": "(On the file's first line it would hide the front matter: agents read front matter only from a first line `---`.)",
+    "source": "SPEC.md:163",
+    "why": "rationale for where the comment goes (what agents read), not a promise of rolesmith's behaviour"
+  },
   "fa021e72cfbe": {
     "mark": "promise",
     "sentence": "**It never calls a model.**",
