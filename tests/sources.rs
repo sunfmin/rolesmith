@@ -176,6 +176,19 @@ fn add_list_update_and_remove_a_source() {
     assert_eq!(listed["sources"][0]["main"], second.as_str());
     assert_eq!(listed["sources"][0]["roles"], 3);
 
+    lib.write("roles/rust-cli/core.md", "# Core\n\nAnother rule.\n");
+    m.publish(&lib, "another rule");
+    let moved = String::from_utf8(m.rolesmith(&["source", "update"]).stdout).unwrap();
+    assert!(
+        moved.contains(" -> ") && !moved.contains("up to date"),
+        "{moved}"
+    );
+    let still = String::from_utf8(m.rolesmith(&["source", "update"]).stdout).unwrap();
+    assert!(
+        still.contains("up to date") && !still.contains(" -> "),
+        "{still}"
+    );
+
     // Up to date: nothing moves.
     let again = m.json(&["source", "update", "felix"]);
     assert_eq!(again["updated"][0]["from"], again["updated"][0]["to"]);
@@ -283,6 +296,11 @@ fn a_bare_name_two_sources_have_is_refused_listing_both_addresses() {
 
     let o = m.rolesmith(&["show", "nobody"]);
     assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains("no source has a role nobody"),
+        "{}",
+        stderr(&o)
+    );
 }
 
 #[test]
@@ -336,8 +354,34 @@ fn show_prints_the_role_and_reads_it_at_a_rev() {
         assert!(text.contains(part), "{part} in:\n{text}");
     }
 
+    // A branch name is not a SHA, though git would resolve it.
+    let o = m.rolesmith(&["show", "app-store-releaser", "--rev", "main"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(stderr(&o).contains("not a commit SHA"), "{}", stderr(&o));
+
     for bad in ["--not-a-sha", "0000000000000000000000000000000000000000"] {
         let o = m.rolesmith(&["show", "app-store-releaser", "--rev", bad]);
         assert_ne!(o.status.code(), Some(0), "{bad}");
     }
+}
+
+#[test]
+fn a_relative_xdg_directory_falls_back_to_home_and_an_unreadable_record_fails() {
+    let m = Machine::new();
+    let (lib, _) = published(&m, "felix", &["rust-cli"]);
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_rolesmith"));
+    m.env(&mut cmd);
+    let o = cmd
+        .env("XDG_CONFIG_HOME", "relative/config")
+        .args(["source", "add", "felix", lib.url()])
+        .output()
+        .unwrap();
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    assert!(m.path("home/.config/rolesmith/sources.toml").is_file());
+
+    // A record that cannot be read is a failure, not an empty list.
+    std::fs::create_dir_all(m.path("config/rolesmith/sources.toml")).unwrap();
+    let o = m.rolesmith(&["source", "list"]);
+    assert_eq!(o.status.code(), Some(1), "{}", stderr(&o));
+    assert!(stderr(&o).contains("cannot read"), "{}", stderr(&o));
 }
