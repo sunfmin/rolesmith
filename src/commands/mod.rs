@@ -9,6 +9,7 @@ use serde_json::Value;
 
 pub mod agent_context;
 pub mod check;
+pub mod distill;
 pub mod doctor;
 pub mod lesson;
 pub mod list;
@@ -107,6 +108,7 @@ macro_rules! registry {
 registry! {
     AgentContext => agent_context,
     Check => check,
+    Distill => distill,
     Doctor => doctor,
     Lesson => lesson,
     List => list,

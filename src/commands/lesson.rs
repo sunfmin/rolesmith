@@ -265,6 +265,23 @@ fn ensure_labels(repo: &Repo, labels: &[&str]) -> Result<(), Failure> {
     Ok(())
 }
 
+/// The open lessons on `repo` (only those labelled `role_label` when it is given), each with the
+/// `fields` `gh issue list --json` names.
+pub fn open(repo: &Repo, role_label: Option<&str>, fields: &str) -> Result<Vec<Value>, Failure> {
+    let mut args = vec![
+        "issue", "list", "--state", "open", "--label", LESSON, "--json", fields, "--limit", "1000",
+    ];
+    if let Some(label) = role_label {
+        args.extend(["--label", label]);
+    }
+    match repo.gh_json(&args)? {
+        Value::Array(issues) => Ok(issues),
+        other => Err(Failure::new(format!(
+            "gh issue list answered {other}, not a list of issues"
+        ))),
+    }
+}
+
 fn list(address: Option<&str>) -> Result<Output, Failure> {
     let record = Sources::load()?;
     // Each source to ask, with the role label to filter by.
@@ -290,23 +307,12 @@ fn list(address: Option<&str>) -> Result<Output, Failure> {
                 continue;
             }
         };
-        let mut args = vec![
-            "issue",
-            "list",
-            "--state",
-            "open",
-            "--label",
-            LESSON,
-            "--json",
+        let issues = open(
+            &repo,
+            role_label.as_deref(),
             "number,title,labels,createdAt,url",
-            "--limit",
-            "1000",
-        ];
-        if let Some(label) = &role_label {
-            args.extend(["--label", label]);
-        }
-        let issues = repo.gh_json(&args)?;
-        for issue in issues.as_array().into_iter().flatten() {
+        )?;
+        for issue in &issues {
             let role = issue["labels"]
                 .as_array()
                 .into_iter()
