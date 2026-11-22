@@ -18,6 +18,8 @@ rolesmith lesson add app-store-releaser --evidence <url> < lesson.md
 rolesmith distill app-store-releaser               # when you decide to fold lessons in
 ```
 
+Install (Apple Silicon): `brew install sunfmin/tap/rolesmith`.
+
 Status: being built. The contract is [SPEC.md](SPEC.md); the words are in
 [GLOSSARY.md](GLOSSARY.md); the decisions in [docs/adr/](docs/adr/).
 
