@@ -4,17 +4,34 @@
 use serde_json::{Value, json};
 
 use super::{Command, Failure, Output};
-use crate::sources::{self, Sources};
+use crate::library::Library;
+use crate::sources::{self, Found, Sources};
 
 /// A role: role.toml, core, prohibitions, skills with descriptions, programs, services.
 #[derive(clap::Args)]
 pub struct Args {
+    #[command(flatten)]
+    pub at: RoleAt,
+}
+
+/// `<role> [--rev <sha>]`: the role a command reads, and at which commit.
+#[derive(clap::Args)]
+pub struct RoleAt {
     /// The role: <role> when one source has it, <source>/<role> otherwise.
     pub role: String,
 
     /// Read the role at this commit of its source instead of its local main.
     #[arg(long, value_name = "SHA")]
     pub rev: Option<String>,
+}
+
+impl RoleAt {
+    /// Resolve the role and read its library at that commit; the tree lives as long as the answer.
+    pub fn read(&self) -> Result<(Found, Library, tempfile::TempDir), Failure> {
+        let found = sources::resolve(&Sources::load()?, &self.role, self.rev.as_deref())?;
+        let (lib, tree) = sources::read_role(&found)?;
+        Ok((found, lib, tree))
+    }
 }
 
 impl Command for Args {
@@ -50,9 +67,7 @@ impl Command for Args {
     }
 
     fn run(self) -> Result<Output, Failure> {
-        let record = Sources::load()?;
-        let found = sources::resolve(&record, &self.role, self.rev.as_deref())?;
-        let (lib, _tree) = sources::read_role(&found)?;
+        let (found, lib, _tree) = self.at.read()?;
         let role = &lib.roles[0];
         let role_toml =
             std::fs::read_to_string(lib.root.join("roles").join(&role.name).join("role.toml"))
