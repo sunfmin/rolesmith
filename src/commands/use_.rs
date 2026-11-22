@@ -42,7 +42,7 @@ impl Command for Args {
 
     fn run(self) -> Result<Output, Failure> {
         for target in &self.into {
-            project::target_of(target)?;
+            project::target_dir(target)?;
         }
         let place = self.place.place()?;
         let mut record = Record::load(&place)?;

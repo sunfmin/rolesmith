@@ -28,24 +28,11 @@ pub const GLOBAL_RECORD: &str = "global.toml";
 /// The manifest of the user's global installs, beside [`GLOBAL_RECORD`].
 pub const GLOBAL_MANIFEST: &str = "global.manifest.json";
 
-/// Each target (§5.2), the directory under a project its agent reads skills from, and the one
-/// under `HOME` it reads the user's skills from; the one table of them.
+/// Each target (§5.2) and the directory its agent reads skills from, relative to the project's
+/// root and, for a global install, to `HOME`; the one table of them.
 /// claude-code: project skills are `.claude/skills/<name>/SKILL.md`, the user's
 /// `~/.claude/skills/<name>/SKILL.md` (https://code.claude.com/docs/en/skills, checked 2026-11-22).
-pub const TARGETS: &[Target] = &[Target {
-    name: "claude-code",
-    project: ".claude/skills",
-    global: ".claude/skills",
-}];
-
-/// A row of [`TARGETS`].
-pub struct Target {
-    pub name: &'static str,
-    /// Relative to the project's root.
-    pub project: &'static str,
-    /// Relative to `HOME`.
-    pub global: &'static str,
-}
+pub const TARGETS: &[(&str, &str)] = &[("claude-code", ".claude/skills")];
 
 /// Where an install lives: the directory its generated paths are relative to, its record and its
 /// manifest.
@@ -94,10 +81,9 @@ impl Place {
         if self.global { GLOBAL_RECORD } else { RECORD }
     }
 
-    /// The skill directory of `target` here, relative to [`Place::root`].
-    fn target_dir(&self, target: &str) -> Result<&'static str, Failure> {
-        let t = target_of(target)?;
-        Ok(if self.global { t.global } else { t.project })
+    /// The project's root as output names it; `None` for the global installs.
+    pub fn project_name(&self) -> Option<String> {
+        (!self.global).then(|| self.root.display().to_string())
     }
 }
 
@@ -127,15 +113,19 @@ pub struct RoleEntry {
     pub into: Vec<String>,
 }
 
-/// The target named `target`, or a refusal naming the known targets.
-pub fn target_of(target: &str) -> Result<&'static Target, Failure> {
-    TARGETS.iter().find(|t| t.name == target).ok_or_else(|| {
-        let known: Vec<&str> = TARGETS.iter().map(|t| t.name).collect();
-        Failure::new(format!(
-            "unknown target {target} (known: {})",
-            known.join(", ")
-        ))
-    })
+/// The skill directory `target` installs into, or a refusal naming the known targets.
+pub fn target_dir(target: &str) -> Result<&'static str, Failure> {
+    TARGETS
+        .iter()
+        .find(|(name, _)| *name == target)
+        .map(|(_, dir)| *dir)
+        .ok_or_else(|| {
+            let known: Vec<&str> = TARGETS.iter().map(|(name, _)| *name).collect();
+            Failure::new(format!(
+                "unknown target {target} (known: {})",
+                known.join(", ")
+            ))
+        })
 }
 
 impl Record {
@@ -164,7 +154,7 @@ impl Record {
                 )));
             }
             for target in &entry.into {
-                target_of(target)?;
+                target_dir(target)?;
             }
         }
         Ok(record)
@@ -431,7 +421,7 @@ fn generate(place: &Place, entry: &RoleEntry, into: &mut Generated) -> Result<()
     }
 
     for target in &entry.into {
-        let base = place.target_dir(target)?;
+        let base = target_dir(target)?;
         for (rel, bytes, exec) in &files {
             let path = format!("{base}/{rel}");
             if into.insert(path.clone(), (bytes.clone(), *exec)).is_some() {
@@ -565,10 +555,7 @@ fn read_manifest(file: &Path) -> Result<BTreeSet<String>, Failure> {
 /// directory.
 fn remove_empty_parents(place: &Place, file: &Path) {
     let dir = &place.root;
-    let bases: Vec<PathBuf> = TARGETS
-        .iter()
-        .map(|t| dir.join(if place.global { t.global } else { t.project }))
-        .collect();
+    let bases: Vec<PathBuf> = TARGETS.iter().map(|(_, base)| dir.join(base)).collect();
     let mut at = file.parent();
     while let Some(parent) = at {
         if parent == dir || bases.iter().any(|b| b == parent) {
@@ -603,7 +590,7 @@ fn update_gitignore(dir: &Path, generated: &Generated) -> Result<bool, Failure> 
         let skills: BTreeSet<String> = generated
             .keys()
             .filter_map(|rel| {
-                let base = TARGETS.iter().find(|t| rel.starts_with(t.project))?.project;
+                let base = TARGETS.iter().find(|(_, b)| rel.starts_with(b))?.1;
                 let skill = rel[base.len() + 1..].split('/').next()?;
                 Some(format!("/{base}/{skill}/\n"))
             })

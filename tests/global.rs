@@ -6,7 +6,6 @@ mod common;
 
 use std::collections::BTreeMap;
 use std::path::Path;
-use std::process::{Command, Output};
 
 use common::{Machine, published, stderr};
 use serde_json::{Value, json};
@@ -35,22 +34,14 @@ fn snapshot(dir: &Path) -> BTreeMap<String, Vec<u8>> {
 const CORE: &str = ".claude/skills/rolesmith-app-store-releaser/SKILL.md";
 const SKILL: &str = ".claude/skills/rolesmith-app-store-releaser-submit-build/SKILL.md";
 
-/// Run `rolesmith <args>` in the directory `cwd`.
-fn run_in(m: &Machine, cwd: &Path, args: &[&str]) -> Output {
-    let mut cmd = Command::new(env!("CARGO_BIN_EXE_rolesmith"));
-    cmd.args(args).current_dir(cwd);
-    m.env(&mut cmd);
-    cmd.output().expect("the binary runs")
-}
-
-/// Run `rolesmith --json <args>` in `cwd`, expect success, answer its document.
-fn json_in(m: &Machine, cwd: &Path, args: &[&str]) -> Value {
-    let mut all = vec!["--json"];
-    all.extend_from_slice(args);
-    let o = run_in(m, cwd, &all);
-    assert_eq!(o.status.code(), Some(0), "{args:?}: {}", stderr(&o));
-    serde_json::from_slice(&o.stdout).unwrap()
-}
+/// Installs the role for the user.
+const USE: &[&str] = &[
+    "use",
+    "app-store-releaser",
+    "--into",
+    "claude-code",
+    "--global",
+];
 
 /// A machine with source `felix` (role app-store-releaser, published at the returned rev), a skill
 /// of the user's own in `~/.claude/skills/`, and a project directory to run commands in.
@@ -74,17 +65,7 @@ fn a_global_install_goes_to_home_and_is_recorded_in_global_toml_writing_nothing_
     let home = m.path("home");
     let before = snapshot(&project);
 
-    let out = json_in(
-        &m,
-        &project,
-        &[
-            "use",
-            "app-store-releaser",
-            "--into",
-            "claude-code",
-            "--global",
-        ],
-    );
+    let out = m.json_in(Some(&project), USE);
     assert_eq!(out["project"], Value::Null);
     assert_eq!(
         out["roles"],
@@ -122,17 +103,7 @@ fn a_global_install_goes_to_home_and_is_recorded_in_global_toml_writing_nothing_
     assert!(!data.join("projects.toml").exists());
 
     // Idempotent; sync and status see the same record from anywhere.
-    let again = json_in(
-        &m,
-        &project,
-        &[
-            "use",
-            "app-store-releaser",
-            "--into",
-            "claude-code",
-            "--global",
-        ],
-    );
+    let again = m.json_in(Some(&project), USE);
     assert_eq!(
         (&again["written"], &again["removed"]),
         (&json!([]), &json!([]))
@@ -149,20 +120,10 @@ fn a_global_install_goes_to_home_and_is_recorded_in_global_toml_writing_nothing_
 fn global_status_and_update_follow_the_source_and_leave_the_project_alone() {
     let (m, lib, first, project) = setup();
     let home = m.path("home");
-    json_in(
-        &m,
-        &project,
-        &[
-            "use",
-            "app-store-releaser",
-            "--into",
-            "claude-code",
-            "--global",
-        ],
-    );
+    m.json_in(Some(&project), USE);
     let before = snapshot(&project);
 
-    let out = json_in(&m, &project, &["status", "--global"]);
+    let out = m.json_in(Some(&project), &["status", "--global"]);
     assert_eq!(
         out,
         json!({ "project": null, "roles": [{ "name": "app-store-releaser", "source": "felix",
@@ -176,13 +137,16 @@ fn global_status_and_update_follow_the_source_and_leave_the_project_alone() {
     let second = m.publish(&lib, "second");
     m.json(&["source", "update"]);
     std::fs::write(home.join(CORE), "edited by hand\n").unwrap();
-    let role = &json_in(&m, &project, &["status", "--global"])["roles"][0];
+    let role = &m.json_in(Some(&project), &["status", "--global"])["roles"][0];
     assert_eq!(
         (&role["main"], &role["behind"], &role["drift"]),
         (&json!(second), &json!(1), &json!([CORE]))
     );
 
-    let out = json_in(&m, &project, &["update", "app-store-releaser", "--global"]);
+    let out = m.json_in(
+        Some(&project),
+        &["update", "app-store-releaser", "--global"],
+    );
     assert_eq!(out["roles"][0]["rev"], second.as_str());
     assert_eq!(out["written"], json!([SKILL, CORE]));
     let core = std::fs::read_to_string(home.join(CORE)).unwrap();
@@ -192,10 +156,10 @@ fn global_status_and_update_follow_the_source_and_leave_the_project_alone() {
     );
     let record = std::fs::read_to_string(m.path("data/rolesmith/global.toml")).unwrap();
     assert!(record.contains(&format!("rev = \"{second}\"")), "{record}");
-    let role = &json_in(&m, &project, &["status", "--global"])["roles"][0];
+    let role = &m.json_in(Some(&project), &["status", "--global"])["roles"][0];
     assert_eq!((&role["behind"], &role["drift"]), (&json!(0), &json!([])));
 
-    let o = run_in(&m, &project, &["update", "rust-cli", "--global"]);
+    let o = m.rolesmith_in(Some(&project), &["update", "rust-cli", "--global"], "");
     assert_eq!(o.status.code(), Some(1));
     assert!(
         stderr(&o)
@@ -213,17 +177,7 @@ fn global_remove_leaves_home_as_it_was_and_source_remove_waits_for_it() {
     let home = m.path("home");
     let data = m.path("data/rolesmith");
     let (home_before, project_before) = (snapshot(&home), snapshot(&project));
-    json_in(
-        &m,
-        &project,
-        &[
-            "use",
-            "app-store-releaser",
-            "--into",
-            "claude-code",
-            "--global",
-        ],
-    );
+    m.json_in(Some(&project), USE);
 
     let o = m.rolesmith(&["--json", "source", "remove", "felix"]);
     assert_eq!(o.status.code(), Some(1));
@@ -241,7 +195,11 @@ fn global_remove_leaves_home_as_it_was_and_source_remove_waits_for_it() {
     );
     assert!(data.join("sources/felix").is_dir());
 
-    let o = run_in(&m, &project, &["remove", "app-store-releaser", "--global"]);
+    let o = m.rolesmith_in(
+        Some(&project),
+        &["remove", "app-store-releaser", "--global"],
+        "",
+    );
     assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
     let human = String::from_utf8(o.stdout).unwrap();
     assert!(
@@ -285,17 +243,7 @@ fn a_global_install_does_not_overwrite_a_skill_rolesmith_did_not_generate() {
     let home = m.path("home");
     std::fs::create_dir_all(home.join(CORE).parent().unwrap()).unwrap();
     std::fs::write(home.join(CORE), "the user's own\n").unwrap();
-    let o = run_in(
-        &m,
-        &project,
-        &[
-            "use",
-            "app-store-releaser",
-            "--into",
-            "claude-code",
-            "--global",
-        ],
-    );
+    let o = m.rolesmith_in(Some(&project), USE, "");
     assert_eq!(o.status.code(), Some(1));
     assert!(stderr(&o).contains("will not overwrite"), "{}", stderr(&o));
     assert_eq!(

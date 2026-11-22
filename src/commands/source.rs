@@ -233,14 +233,14 @@ impl std::fmt::Display for User {
 /// The projects rolesmith has installed into whose record still names the source `name`, then the
 /// global installs when they do; a project that is gone, or no longer records it, is not one.
 fn recorded_by(name: &str) -> Result<Vec<User>, Failure> {
-    let mut places: Vec<project::Place> = project::known_projects()?
+    let projects = project::known_projects()?
         .into_iter()
-        .filter(|dir| dir.is_dir())
-        .map(project::Place::project)
-        .collect();
-    places.push(project::Place::global()?);
+        .filter(|dir| dir.is_dir());
     let mut users = Vec::new();
-    for place in places {
+    for place in projects
+        .map(project::Place::project)
+        .chain([project::Place::global()?])
+    {
         let roles: Vec<String> = project::Record::load(&place)?
             .role
             .into_iter()
@@ -249,7 +249,7 @@ fn recorded_by(name: &str) -> Result<Vec<User>, Failure> {
             .collect();
         if !roles.is_empty() {
             users.push(User {
-                project: (!place.global).then(|| place.root.display().to_string()),
+                project: place.project_name(),
                 roles,
             });
         }

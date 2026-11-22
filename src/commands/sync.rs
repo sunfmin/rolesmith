@@ -104,15 +104,6 @@ pub fn install(place: &Place, record: &Record) -> Result<Output, Failure> {
     Ok(output(place, record, &synced))
 }
 
-/// The project a JSON document names: its root, or null for the global installs.
-pub fn project_json(place: &Place) -> Value {
-    if place.global {
-        Value::Null
-    } else {
-        json!(place.root.display().to_string())
-    }
-}
-
 /// The output of `use` and `sync`.
 pub fn output(place: &Place, record: &Record, synced: &Synced) -> Output {
     let mut human = String::new();
@@ -139,7 +130,7 @@ pub fn output(place: &Place, record: &Record, synced: &Synced) -> Output {
     }
     Output {
         json: json!({
-            "project": project_json(place),
+            "project": place.project_name(),
             "roles": record.role,
             "written": synced.written,
             "removed": synced.removed,

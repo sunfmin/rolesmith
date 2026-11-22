@@ -60,7 +60,7 @@ impl Command for Args {
             lines.concat()
         };
         Ok(Output {
-            json: json!({ "project": sync::project_json(&place), "roles": roles }),
+            json: json!({ "project": place.project_name(), "roles": roles }),
             human,
         })
     }
