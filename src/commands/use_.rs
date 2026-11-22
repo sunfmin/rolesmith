@@ -91,7 +91,6 @@ impl Command for Args {
                 }
             }
         }
-        let synced = project::install(&dir, &record)?;
-        Ok(sync::output(&dir, &record, &synced))
+        sync::install(&dir, &record)
     }
 }

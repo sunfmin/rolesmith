@@ -49,15 +49,17 @@ impl Command for Args {
     fn run(self) -> Result<Output, Failure> {
         let dir = sync::project_dir(self.project)?;
         let record = Record::load(&dir)?;
-        let roles = record
+        let (roles, lines): (Vec<Value>, Vec<String>) = record
             .role
             .iter()
             .map(|entry| role_status(&dir, entry))
-            .collect::<Result<Vec<_>, _>>()?;
-        let human = if roles.is_empty() {
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .unzip();
+        let human = if lines.is_empty() {
             "no roles in rolesmith.toml\n".to_owned()
         } else {
-            roles.iter().map(line).collect()
+            lines.concat()
         };
         Ok(Output {
             json: json!({ "project": dir.display().to_string(), "roles": roles }),
@@ -66,28 +68,43 @@ impl Command for Args {
     }
 }
 
-fn role_status(dir: &std::path::Path, entry: &RoleEntry) -> Result<Value, Failure> {
+/// A role's status as JSON, and its line of human text.
+fn role_status(dir: &std::path::Path, entry: &RoleEntry) -> Result<(Value, String), Failure> {
     // Reading what the record generates adds a missing source and fetches a missing rev, as sync.
     let drift = project::drift(dir, entry)?;
     let clone = sources::clone_dir(&entry.source)?;
     let main = sources::main_commit(&clone);
-    let (ahead, behind) = match &main {
+    let (mut ahead, mut behind) = (None, None);
+    let at = match &main {
+        None => "its source has no main".to_owned(),
         Some(main) => {
+            let range = format!("{}...{main}", entry.rev);
             let counts = sources::git(
                 Some(&clone),
-                &[
-                    "rev-list",
-                    "--left-right",
-                    "--count",
-                    &format!("{}...{main}", entry.rev),
-                ],
+                &["rev-list", "--left-right", "--count", &range],
             )?;
             let mut n = counts.split_whitespace().map(|c| c.parse::<u64>().ok());
-            (n.next().flatten(), n.next().flatten())
+            (ahead, behind) = (n.next().flatten(), n.next().flatten());
+            match (behind, ahead) {
+                (Some(0), Some(0)) => "at main".to_owned(),
+                _ => format!(
+                    "main {main}: {} behind, {} ahead",
+                    behind.unwrap_or(0),
+                    ahead.unwrap_or(0)
+                ),
+            }
         }
-        None => (None, None),
     };
-    Ok(json!({
+    let files = if drift.is_empty() {
+        "files match".to_owned()
+    } else {
+        format!("drift (run `rolesmith sync`): {}", drift.join(", "))
+    };
+    let line = format!(
+        "{}/{} at {}; {at}; {files}\n",
+        entry.source, entry.name, entry.rev
+    );
+    let json = json!({
         "name": entry.name,
         "source": entry.source,
         "rev": entry.rev,
@@ -95,36 +112,6 @@ fn role_status(dir: &std::path::Path, entry: &RoleEntry) -> Result<Value, Failur
         "behind": behind,
         "ahead": ahead,
         "drift": drift,
-    }))
-}
-
-fn line(r: &Value) -> String {
-    let main = match (
-        r["main"].as_str(),
-        r["behind"].as_u64(),
-        r["ahead"].as_u64(),
-    ) {
-        (None, ..) => "its source has no main".to_owned(),
-        (Some(_), Some(0), Some(0)) => "at main".to_owned(),
-        (Some(main), behind, ahead) => format!(
-            "main {main}: {} behind, {} ahead",
-            behind.unwrap_or_default(),
-            ahead.unwrap_or_default()
-        ),
-    };
-    let drift: Vec<&str> = r["drift"]
-        .as_array()
-        .map(|d| d.iter().filter_map(Value::as_str).collect())
-        .unwrap_or_default();
-    let files = if drift.is_empty() {
-        "files match".to_owned()
-    } else {
-        format!("drift (run `rolesmith sync`): {}", drift.join(", "))
-    };
-    format!(
-        "{}/{} at {}; {main}; {files}\n",
-        r["source"].as_str().unwrap_or_default(),
-        r["name"].as_str().unwrap_or_default(),
-        r["rev"].as_str().unwrap_or_default(),
-    )
+    });
+    Ok((json, line))
 }

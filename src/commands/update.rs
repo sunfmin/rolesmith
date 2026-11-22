@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use serde_json::Value;
 
 use super::{Command, Failure, Output, sync};
-use crate::project::{self, Record};
+use crate::project::Record;
 use crate::sources::{self, MAIN};
 
 /// Move roles (default: every role) to their source's local main and sync.
@@ -47,7 +47,6 @@ impl Command for Args {
                 ))
             })?;
         }
-        let synced = project::install(&dir, &record)?;
-        Ok(sync::output(&dir, &record, &synced))
+        sync::install(&dir, &record)
     }
 }

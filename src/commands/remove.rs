@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use serde_json::Value;
 
 use super::{Command, Failure, Output, sync};
-use crate::project::{self, Record};
+use crate::project::Record;
 
 /// Drop a role from rolesmith.toml and delete its generated files.
 #[derive(clap::Args)]
@@ -31,7 +31,6 @@ impl Command for Args {
         let mut record = Record::load(&dir)?;
         let i = record.position(&self.role)?;
         record.role.remove(i);
-        let synced = project::install(&dir, &record)?;
-        Ok(sync::output(&dir, &record, &synced))
+        sync::install(&dir, &record)
     }
 }
