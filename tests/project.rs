@@ -341,4 +341,11 @@ fn a_record_that_disagrees_with_the_machine_or_itself_is_refused() {
     refused(&["sync", "--project", p], "but this machine has it as");
     record(felix.url(), &rev[..8]);
     refused(&["sync", "--project", p], "is not a full commit SHA");
+    std::fs::write(project.join("rolesmith.toml"), "[[role]\n").unwrap();
+    refused(&["sync", "--project", p], "rolesmith.toml does not parse");
+    let missing = m.path("no-such-project");
+    refused(
+        &["sync", "--project", missing.to_str().unwrap()],
+        "is not a directory",
+    );
 }

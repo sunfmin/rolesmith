@@ -472,6 +472,50 @@ fn update_off_main_moves_main_and_leaves_the_branch_checked_out() {
 }
 
 #[test]
+fn update_refuses_a_missing_clone_saying_how_to_recover() {
+    let m = Machine::new();
+    let (lib, _) = published(&m, "felix", &["rust-cli"]);
+    m.json(&["source", "add", "felix", lib.url()]);
+    let clone = m.path("data/rolesmith/sources/felix");
+
+    // A clone gone from under the record: update says how to recover, not a git error.
+    std::fs::remove_dir_all(clone.join(".git")).unwrap();
+    let o = m.rolesmith(&["source", "update", "felix"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains("remove the source and add it again"),
+        "{}",
+        stderr(&o)
+    );
+}
+
+#[test]
+fn add_refuses_a_stray_clone_and_a_record_that_does_not_parse_names_its_file() {
+    let m = Machine::new();
+    let (lib, _) = published(&m, "felix", &["rust-cli"]);
+    let stray = m.path("data/rolesmith/sources/felix");
+    std::fs::create_dir_all(&stray).unwrap();
+    let o = m.rolesmith(&["source", "add", "felix", lib.url()]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains("already exists but no source felix is recorded"),
+        "{}",
+        stderr(&o)
+    );
+    assert!(!m.path("config/rolesmith/sources.toml").exists());
+
+    std::fs::create_dir_all(m.path("config/rolesmith")).unwrap();
+    std::fs::write(m.path("config/rolesmith/sources.toml"), "[source\n").unwrap();
+    let o = m.rolesmith(&["source", "list"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains("sources.toml does not parse"),
+        "{}",
+        stderr(&o)
+    );
+}
+
+#[test]
 fn list_and_show_never_read_the_working_tree_and_show_refuses_what_check_refuses() {
     let m = Machine::new();
     let (lib, first) = published(&m, "felix", &["rust-cli"]);
