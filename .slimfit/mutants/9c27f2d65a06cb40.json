@@ -1,0 +1,44 @@
+{
+  "tree": "0cf8149a22d8cdb0458e8851aa34f3cf729b6851+d1fba762150c532c",
+  "picker": "codex:01a202cf-f72b-71b2-bd32-b2da0133376d:default",
+  "author": "claude-code:2653d8a8-315d-591b-bd05-a100d46ea0c1:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/commands/status.rs:89:17: delete match arm (Some(0), Some(0)) in role_status",
+        "why": "The at-main case checks JSON counts, so the human output could lose its dedicated wording.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/project.rs:177:19: replace match guard e.kind() == std::io::ErrorKind::NotFound with true in known_projects",
+        "why": "A project registry read failure could look like an empty registry and let source removal proceed.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/project.rs:206:19: replace match guard e.kind() != std::io::ErrorKind::NotFound with false in remove_if_present",
+        "why": "The cleanup tests exercise successful deletion, so a filesystem error could be silently reported as success.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/project.rs:478:5: replace remove_empty_parents with ()",
+        "why": "The file snapshot and the check that the skills root survives could both pass with empty generated subdirectories left behind.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/commands/sync.rs:104:34: replace && with || in output",
+        "why": "The cleanup tests inspect JSON, so a removal-only sync could incorrectly print the human no-changes message.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  },
+  "removed_tests": {
+    "rust": [
+      "tests/project.rs:277: removing_the_last_role_empties_the_manifest_and_keeps_the_skill_directory"
+    ]
+  }
+}
