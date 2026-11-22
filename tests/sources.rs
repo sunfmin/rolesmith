@@ -398,7 +398,7 @@ fn new_branches_from_main_scaffolds_the_role_and_prints_the_brief() {
     assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
     let brief = String::from_utf8(o.stdout).unwrap();
     let template = include_str!("../src/briefs/new.md");
-    let (before_need, after_need) = template.split_once("{{need}}").unwrap();
+    let (before_need, after_need) = template.split_once("{need}").unwrap();
     assert!(
         brief.contains(&format!("## The need\n\n{need}\n")),
         "{brief}"
@@ -411,6 +411,10 @@ fn new_branches_from_main_scaffolds_the_role_and_prints_the_brief() {
         brief.lines().count(),
         before_need.lines().count() + after_need.lines().count(),
         "the brief is the template, filled in"
+    );
+    assert!(
+        !brief.replace(need, "").contains('{'),
+        "a blank left: {brief}"
     );
 
     assert_eq!(
@@ -501,7 +505,7 @@ fn new_refuses_a_dirty_working_copy_an_existing_role_and_a_taken_branch() {
     std::fs::remove_dir_all(clone.join("roles/web")).unwrap();
     refused(
         &["new", "web", "--need", "x"],
-        "already has a branch rolesmith/new-web",
+        "rolesmith/new-web' already exists",
     );
 
     let (other, _) = published(&m, "other", &[]);

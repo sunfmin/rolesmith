@@ -7,9 +7,6 @@ use super::{Command, Failure, Output};
 use crate::library;
 use crate::sources::{self, MAIN, Sources};
 
-/// The drafting brief, kept as a file so it is reviewed like code (§8.1).
-const BRIEF: &str = include_str!("../briefs/new.md");
-
 /// Scaffold roles/<role>/ on a new branch rolesmith/new-<role> and print the drafting brief.
 #[derive(clap::Args)]
 pub struct Args {
@@ -81,21 +78,6 @@ impl Command for Args {
             )));
         }
         let branch = format!("rolesmith/new-{role}");
-        if sources::git(
-            dir,
-            &[
-                "rev-parse",
-                "--verify",
-                "--quiet",
-                &format!("refs/heads/{branch}"),
-            ],
-        )
-        .is_ok()
-        {
-            return Err(Failure::new(format!(
-                "the working copy of {source} already has a branch {branch}; finish it with `rolesmith propose {role}` or delete it"
-            )));
-        }
         sources::git(dir, &["checkout", "--quiet", "-b", &branch, MAIN])?;
 
         let role_dir = clone.join("roles").join(role);
@@ -143,41 +125,19 @@ fn only_source(record: &Sources) -> Result<String, Failure> {
     }
 }
 
-/// The drafting brief with its blanks filled. The need goes in last, so text in it that looks
-/// like a blank stays as the asker wrote it.
+/// The drafting brief, kept as a file so it is reviewed like code (§8.1), its blanks filled.
 fn brief(role: &str, source: &str, branch: &str, dir: &str, need: &str) -> String {
-    [
-        ("{{role}}", role.to_owned()),
-        ("{{source}}", source.to_owned()),
-        ("{{branch}}", branch.to_owned()),
-        ("{{dir}}", dir.to_owned()),
-        ("{{max_name}}", library::MAX_NAME.to_string()),
-        (
-            "{{max_description}}",
-            library::MAX_ROLE_DESCRIPTION.to_string(),
-        ),
-        ("{{max_core}}", library::MAX_CORE.to_string()),
-        (
-            "{{max_skill_description}}",
-            library::MAX_SKILL_DESCRIPTION.to_string(),
-        ),
-        ("{{consumer_tables}}", library::CONSUMER_TABLES.join(", ")),
-        ("{{need}}", need.trim().to_owned()),
-    ]
-    .iter()
-    .fold(BRIEF.to_owned(), |text, (blank, value)| {
-        text.replace(blank, value)
-    })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn every_blank_of_the_brief_is_filled() {
-        let text = brief("r", "s", "b", "/d", "a need with {{role}} in it");
-        assert!(text.contains("a need with {{role}} in it"));
-        assert!(!text.replace("{{role}} in it", "").contains("{{"), "{text}");
-    }
+    format!(
+        include_str!("../briefs/new.md"),
+        role = role,
+        source = source,
+        branch = branch,
+        dir = dir,
+        need = need.trim(),
+        max_name = library::MAX_NAME,
+        max_description = library::MAX_ROLE_DESCRIPTION,
+        max_core = library::MAX_CORE,
+        max_skill_description = library::MAX_SKILL_DESCRIPTION,
+        consumer_tables = library::CONSUMER_TABLES.join(", "),
+    )
 }
