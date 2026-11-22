@@ -99,10 +99,115 @@ impl Record {
         Ok(record)
     }
 
-    /// Write the record to the project at `dir`, unless it already says exactly this.
+    /// Write the record to the project at `dir`, unless it already says exactly this; a record of
+    /// no roles is no file.
     pub fn save(&self, dir: &Path) -> Result<(), Failure> {
+        if self.role.is_empty() {
+            return remove_if_present(&dir.join(RECORD));
+        }
         let text = toml::to_string(self).expect("the record serializes");
         write_if_changed(&dir.join(RECORD), text.as_bytes(), false).map(|_| ())
+    }
+
+    /// The index of the role `name` in the record, or a refusal naming the roles it has.
+    pub fn position(&self, name: &str) -> Result<usize, Failure> {
+        self.role
+            .iter()
+            .position(|r| r.name == name)
+            .ok_or_else(|| {
+                let names: Vec<&str> = self.role.iter().map(|r| r.name.as_str()).collect();
+                Failure::new(format!(
+                    "{RECORD} records no role {name} (it records: {})",
+                    if names.is_empty() {
+                        "none".to_owned()
+                    } else {
+                        names.join(", ")
+                    }
+                ))
+            })
+    }
+}
+
+/// Save `record` to the project at `dir` and sync it; when the sync fails, the record file is put
+/// back as it was.
+pub fn install(dir: &Path, record: &Record) -> Result<Synced, Failure> {
+    let file = dir.join(RECORD);
+    let before = std::fs::read(&file).ok();
+    record.save(dir)?;
+    sync(dir, record).inspect_err(|_| {
+        let _ = match &before {
+            Some(bytes) => std::fs::write(&file, bytes),
+            None => std::fs::remove_file(&file),
+        };
+    })
+}
+
+/// The generated files of `entry` that differ from what it generates (a hand edit) or are
+/// missing, relative to the project at `dir`.
+pub fn drift(dir: &Path, entry: &RoleEntry) -> Result<Vec<String>, Failure> {
+    let mut generated = Generated::new();
+    generate(entry, &mut generated)?;
+    Ok(generated
+        .into_iter()
+        .filter(|(rel, (bytes, exec))| {
+            let path = dir.join(rel);
+            !(std::fs::read(&path).is_ok_and(|have| have == *bytes) && executable(&path) == *exec)
+        })
+        .map(|(rel, _)| rel)
+        .collect())
+}
+
+/// `$XDG_DATA_HOME/rolesmith/projects.toml`: each project directory rolesmith has installed into,
+/// so `source remove` can see which record a source.
+pub fn projects_file() -> Result<PathBuf, Failure> {
+    Ok(sources::data_dir()?.join("projects.toml"))
+}
+
+#[derive(Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Projects {
+    #[serde(default)]
+    projects: BTreeSet<PathBuf>,
+}
+
+/// The project directories rolesmith has installed into.
+pub fn known_projects() -> Result<BTreeSet<PathBuf>, Failure> {
+    let file = projects_file()?;
+    match std::fs::read_to_string(&file) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(BTreeSet::new()),
+        Err(e) => Err(Failure::new(format!("cannot read {}: {e}", file.display()))),
+        Ok(text) => toml::from_str::<Projects>(&text)
+            .map(|p| p.projects)
+            .map_err(|e| {
+                Failure::new(format!(
+                    "{} does not parse: {}",
+                    file.display(),
+                    e.message().trim()
+                ))
+            }),
+    }
+}
+
+/// Add the project at `dir` to the projects rolesmith has installed into.
+fn remember(dir: &Path) -> Result<(), Failure> {
+    let dir = dir
+        .canonicalize()
+        .map_err(|e| Failure::new(format!("cannot resolve {}: {e}", dir.display())))?;
+    let mut projects = known_projects()?;
+    if projects.insert(dir) {
+        let text = toml::to_string(&Projects { projects }).expect("the projects serialize");
+        write_if_changed(&projects_file()?, text.as_bytes(), false)?;
+    }
+    Ok(())
+}
+
+fn remove_if_present(path: &Path) -> Result<(), Failure> {
+    match std::fs::remove_file(path) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(Failure::new(format!(
+            "cannot delete {}: {e}",
+            path.display()
+        ))),
+        _ => Ok(()),
     }
 }
 
@@ -161,16 +266,30 @@ pub fn sync(dir: &Path, record: &Record) -> Result<Synced, Failure> {
     }
 
     let listed: Vec<&String> = generated.keys().collect();
-    if !listed.is_empty() || !old.is_empty() {
+    let manifest_path = dir.join(MANIFEST);
+    if !listed.is_empty() {
         let manifest = serde_json::to_string_pretty(&serde_json::json!({ "files": listed }))
             .expect("the manifest serializes")
             + "\n";
-        if write_if_changed(&dir.join(MANIFEST), manifest.as_bytes(), false)? {
+        if write_if_changed(&manifest_path, manifest.as_bytes(), false)? {
             synced.written.push(MANIFEST.to_owned());
         }
+    } else if manifest_path.exists() {
+        // Nothing generated: the project is left as it was before rolesmith wrote into it.
+        remove_if_present(&manifest_path)?;
+        let _ = std::fs::remove_dir(manifest_path.parent().expect("a file has a directory"));
+        synced.removed.push(MANIFEST.to_owned());
     }
     if update_gitignore(dir, &generated)? {
-        synced.written.push(GITIGNORE.to_owned());
+        let changed = if dir.join(GITIGNORE).exists() {
+            &mut synced.written
+        } else {
+            &mut synced.removed
+        };
+        changed.push(GITIGNORE.to_owned());
+    }
+    if !record.role.is_empty() {
+        remember(dir)?;
     }
     Ok(synced)
 }
@@ -410,6 +529,11 @@ fn update_gitignore(dir: &Path, generated: &Generated) -> Result<bool, Failure> 
     let new = format!("{before}{block}{after}");
     if new == text {
         return Ok(false);
+    }
+    if new.is_empty() {
+        // The file held only rolesmith's block, so rolesmith made it.
+        remove_if_present(&path)?;
+        return Ok(true);
     }
     write_if_changed(&path, new.as_bytes(), false)
 }

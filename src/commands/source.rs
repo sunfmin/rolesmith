@@ -3,6 +3,7 @@
 use serde_json::{Value, json};
 
 use super::{Command, Failure, Output};
+use crate::project;
 use crate::sources::{self, Entry, MAIN, Sources};
 
 /// Add, list, update and remove the libraries this machine knows.
@@ -215,9 +216,57 @@ fn update_one(name: &str) -> Result<Value, Failure> {
     Ok(json!({ "name": name, "from": from, "to": to }))
 }
 
+/// A project whose `rolesmith.toml` records roles of a source.
+struct User {
+    project: String,
+    roles: Vec<String>,
+}
+
+impl std::fmt::Display for User {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.project, self.roles.join(", "))
+    }
+}
+
+/// The projects rolesmith has installed into whose record still names the source `name`; a
+/// project that is gone, or no longer records it, is not one.
+fn recorded_by(name: &str) -> Result<Vec<User>, Failure> {
+    let mut users = Vec::new();
+    for dir in project::known_projects()? {
+        if !dir.is_dir() {
+            continue;
+        }
+        let roles: Vec<String> = project::Record::load(&dir)?
+            .role
+            .into_iter()
+            .filter(|r| r.source == name)
+            .map(|r| r.name)
+            .collect();
+        if !roles.is_empty() {
+            users.push(User {
+                project: dir.display().to_string(),
+                roles,
+            });
+        }
+    }
+    Ok(users)
+}
+
 fn remove(name: &str) -> Result<Output, Failure> {
     let mut record = Sources::load()?;
     record.get(name)?;
+    let users = recorded_by(name)?;
+    if !users.is_empty() {
+        return Err(Failure::listing(
+            format!(
+                "source {name} is recorded by {} project(s); `rolesmith remove` its roles there first:",
+                users.len()
+            ),
+            "projects",
+            &users,
+            |u| json!({ "project": u.project, "roles": u.roles }),
+        ));
+    }
     let clone = sources::clone_dir(name)?;
     if clone.exists() {
         std::fs::remove_dir_all(&clone)

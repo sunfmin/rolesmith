@@ -41,11 +41,14 @@ pub fn sources_file() -> Result<PathBuf, Failure> {
         .join("sources.toml"))
 }
 
-/// `$XDG_DATA_HOME/rolesmith/sources/` (default `~/.local/share/rolesmith/`).
+/// `$XDG_DATA_HOME/rolesmith/` (default `~/.local/share/rolesmith/`): what rolesmith keeps itself.
+pub fn data_dir() -> Result<PathBuf, Failure> {
+    Ok(xdg("XDG_DATA_HOME", ".local/share")?.join("rolesmith"))
+}
+
+/// `$XDG_DATA_HOME/rolesmith/sources/`.
 pub fn clones_dir() -> Result<PathBuf, Failure> {
-    Ok(xdg("XDG_DATA_HOME", ".local/share")?
-        .join("rolesmith")
-        .join("sources"))
+    Ok(data_dir()?.join("sources"))
 }
 
 /// The clone of the source `name`.

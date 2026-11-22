@@ -274,7 +274,7 @@ fn a_file_rolesmith_did_not_generate_is_never_overwritten() {
 }
 
 #[test]
-fn removing_the_last_role_empties_the_manifest_and_keeps_the_skill_directory() {
+fn emptying_the_record_deletes_the_manifest_and_gitignore_and_keeps_the_skill_directory() {
     let m = Machine::new();
     let (lib, _) = published(&m, "felix", &["app-store-releaser"]);
     m.json(&["source", "add", "felix", lib.url()]);
@@ -292,12 +292,12 @@ fn removing_the_last_role_empties_the_manifest_and_keeps_the_skill_directory() {
 
     std::fs::write(project.join("rolesmith.toml"), "").unwrap();
     let out = m.json(&["sync", "--project", p]);
-    assert_eq!(out["removed"].as_array().unwrap().len(), 2, "{out}");
-    assert_eq!(
-        text(&project, ".rolesmith/manifest.json"),
-        "{\n  \"files\": []\n}\n"
+    assert_eq!(out["removed"].as_array().unwrap().len(), 4, "{out}");
+    assert!(!project.join(".rolesmith").exists(), "{out}");
+    assert!(
+        !project.join(".gitignore").exists(),
+        "rolesmith made it, so it goes"
     );
-    assert_eq!(text(&project, ".gitignore"), "");
     let skills = project.join(".claude/skills");
     assert!(skills.is_dir(), "the target's skill directory stays");
     assert_eq!(std::fs::read_dir(&skills).unwrap().count(), 0);

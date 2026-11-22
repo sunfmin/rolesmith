@@ -91,16 +91,7 @@ impl Command for Args {
                 }
             }
         }
-        // A record whose install fails is put back as it was.
-        let file = dir.join(project::RECORD);
-        let before = std::fs::read(&file).ok();
-        record.save(&dir)?;
-        let synced = project::sync(&dir, &record).inspect_err(|_| {
-            let _ = match &before {
-                Some(bytes) => std::fs::write(&file, bytes),
-                None => std::fs::remove_file(&file),
-            };
-        })?;
+        let synced = project::install(&dir, &record)?;
         Ok(sync::output(&dir, &record, &synced))
     }
 }

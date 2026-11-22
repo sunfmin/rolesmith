@@ -188,9 +188,22 @@ name, description and the path of its `SKILL.md` in the source at that rev. It w
 
 ### 5.4 Updates
 
-`rolesmith update [<role>]` moves a project's role to its source's current `main`, rewrites
-`rolesmith.toml`'s `rev`, and syncs. `rolesmith status` says, per role, the pinned rev, the source's
-`main`, and whether the generated files match the manifest.
+`rolesmith update [<role>]` moves a project's role (default: every role) to its source's local
+`main`, rewrites `rolesmith.toml`'s `rev`, and syncs; it does not fetch, so `rolesmith source update`
+comes first. `rolesmith status` says, per role, the pinned rev, the source's local `main`, how many
+commits the rev is behind and ahead of it, and the generated files that differ from what the record
+generates or are missing (drift, which `sync` repairs). Like `sync`, it adds a source the machine
+lacks from the record's `url`.
+
+`rolesmith remove <role>` drops the role from `rolesmith.toml` and syncs, so only files its manifest
+lists are deleted. A record left with no roles is deleted, and with it the manifest and the
+`.gitignore` lines rolesmith added (the file itself when they were all it held): the project is as it
+was before `use`.
+
+Each project directory rolesmith syncs a role into is kept in `$XDG_DATA_HOME/rolesmith/projects.toml`
+(`projects = [<absolute path>...]`), since rolesmith cannot otherwise know them; `source remove` reads
+the record of each that still exists and refuses while one names the source, listing the projects
+and their roles (with `--json`, `error.projects: [{"project", "roles"}]`).
 
 ### 5.5 Suggestions
 
