@@ -18,7 +18,7 @@ pub const EXIT_USAGE: u8 = 2;
 
 /// Roles for any coding agent.
 #[derive(Parser)]
-#[command(name = "rolesmith", version, arg_required_else_help = true)]
+#[command(name = "rolesmith", version = env!("ROLESMITH_VERSION"), arg_required_else_help = true)]
 pub struct Cli {
     /// Print one JSON document on stdout instead of human text.
     #[arg(long, global = true)]
@@ -73,7 +73,12 @@ pub fn report(
         Err(failure) => {
             let _ = writeln!(err, "rolesmith: {}", failure.message);
             if json {
-                let _ = writeln!(out, "{}", error_document("failed", &failure.message));
+                let mut doc = error_document("failed", &failure.message);
+                if !failure.problems.is_empty() {
+                    doc["error"]["problems"] =
+                        failure.problems.iter().map(|p| p.to_json()).collect();
+                }
+                let _ = writeln!(out, "{doc}");
             }
             EXIT_FAILED
         }
@@ -120,9 +125,7 @@ mod tests {
     #[test]
     fn a_failure_exits_1_with_the_reason_on_stderr_and_json_on_stdout() {
         let (mut out, mut err) = (Vec::new(), Vec::new());
-        let failure = Failure {
-            message: "no such role".into(),
-        };
+        let failure = Failure::new("no such role");
         assert_eq!(report(Err(failure), true, &mut out, &mut err), EXIT_FAILED);
         assert_eq!(String::from_utf8(err).unwrap(), "rolesmith: no such role\n");
         let doc: Value = serde_json::from_slice(&out).unwrap();
@@ -133,9 +136,7 @@ mod tests {
     #[test]
     fn a_failure_without_json_prints_nothing_on_stdout() {
         let (mut out, mut err) = (Vec::new(), Vec::new());
-        let failure = Failure {
-            message: "x".into(),
-        };
+        let failure = Failure::new("x");
         assert_eq!(report(Err(failure), false, &mut out, &mut err), EXIT_FAILED);
         assert!(out.is_empty());
     }

@@ -116,7 +116,12 @@ pub fn document() -> Value {
                         "type": "object",
                         "properties": {
                             "kind": { "enum": ["failed", "usage"] },
-                            "message": { "type": "string" }
+                            "message": { "type": "string" },
+                            "problems": {
+                                "description": "present when the refusal is a list of problems (check)",
+                                "type": "array",
+                                "items": crate::problem::Problem::shape()
+                            }
                         }
                     }
                 }

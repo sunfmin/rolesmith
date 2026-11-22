@@ -89,7 +89,7 @@ rule = "Never revoke a signing certificate"
 why = "Revoking it breaks every other machine that signs with it"
 ```
 
-Installed with the core (§5), rendered as a list under the core memory.
+Installed with the core (§5), rendered as a list under the core memory. An absent file means no prohibitions.
 
 ### 3.4 Skills
 
@@ -227,7 +227,7 @@ one JSON document, generated from the same definitions the parser uses.
 
 - `--help` and `--version` print on stdout and exit 0.
 - With `--json`, a run that exits 1 or 2 still prints one JSON document on stdout,
-  `{"error": {"kind": "failed" | "usage", "message": "..."}}`, besides the diagnostic on stderr.
+  `{"error": {"kind": "failed" | "usage", "message": "..."}}`, besides the diagnostic on stderr. A refusal that is a list of problems (`check`) adds `"problems": [{"file", "line"?, "rule", "reason"}]` to `error`.
 - `agent-context` lists the global flags, then each command with its `about`, flags, positionals,
   subcommands and `output`: the JSON Schema of what its `--json` prints on success. Its human form
   is the same document, pretty-printed.
@@ -242,7 +242,7 @@ one JSON document, generated from the same definitions the parser uses.
 | `source remove <name>` | forget it and delete its clone; refuse while a project or global install records it, listing them |
 | `list [--source <name>]` | roles: address, description |
 | `show <role> [--rev <sha>]` | role.toml, core, prohibitions, skills with descriptions, programs, services |
-| `check [<role>] [--library <dir>]` | validate a library working copy or one role (§3, §7.2); prints every problem, not the first |
+| `check [<role>] [--library <dir>]` | validate a library working copy (default: the current directory) or one role (§2, §3, §7.2); prints every problem, not the first, each with its file, line where there is one, and rule; exits 1 if there is any, and with `--json` lists them as `error.problems` |
 | `use <role>... --into <target>... [--project <dir> \| --global] [--rev <sha>]` | install (§5); record in `rolesmith.toml` or `global.toml`; idempotent |
 | `use --auto --into <target>... [--project <dir>]` | install what `suggest` lists |
 | `sync [--project <dir> \| --global]` | make the generated files equal what the record says; add missing sources from `url` |
@@ -283,4 +283,7 @@ started by people (ADR 0001). These are Guild's changes, made in Guild after rol
 Rust, one binary, no runtime dependency besides `git`, `gh` (for `propose` and lessons) and
 `mytokens` (for `env` and `doctor`). Tests run the real binary against temporary git repositories
 and stand-ins for `gh` and `mytokens` on `PATH`. Released by factorium's cut to the Homebrew tap
-`sunfmin/tap/rolesmith`.
+`sunfmin/tap/rolesmith`: `packaging/release.sh cut <vX.Y.Z>` builds for Apple Silicon, publishes the
+binary to the tap's release `rolesmith-v<X.Y.Z>` and the formula, which installs the prebuilt binary
+and compiles nothing. `--version` says the release's version (build.rs, `ROLESMITH_RELEASE`); any
+other build says the development form `X.Y.Z+<commits>.g<commit>[.dirty]`.
