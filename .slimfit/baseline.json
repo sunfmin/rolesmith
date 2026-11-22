@@ -2,8 +2,8 @@
   "suites": {
     "rust": {
       "prod_lines": 4478,
-      "test_lines": 3649,
-      "tests": 96,
+      "test_lines": 4581,
+      "tests": 97,
       "failures": 0,
       "test_seconds": 0.933,
       "covered_lines": 3105,
@@ -11,12 +11,19 @@
     }
   },
   "loosened": [],
-  "kept": [],
+  "kept": [
+    {
+      "suite": "rust",
+      "test": "rolesmith::lessons::close_comments_the_reason_and_closes_only_an_open_lesson",
+      "hash": "23ce101687928dff",
+      "reason": "Its assertions check lesson close (the gh issue close call with --comment/--repo, the closed number/url, refusing non-lessons and closed issues, rejecting bad references); agent_context_lists_every_registered_command_with_its_flags_and_output_shape checks only the agent-context listing. No assertion maps, and the setups (a stubbed-gh GitHub source vs a bare run) are unrelated, so a merge would hide which behaviour failed. The overlap is shared CLI dispatch lines."
+    }
+  ],
   "mutants_from": "47cffd931da87f3107656a086cd23e445c8b6dbb",
   "measured": {
     "rust": {
       "uncovered_lines": 151,
-      "test_seconds": 28.741
+      "test_seconds": 28.72
     }
   }
 }

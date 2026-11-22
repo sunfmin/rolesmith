@@ -438,20 +438,51 @@ fn prompt_prints_the_role_as_one_document_and_writes_nothing() {
 }
 
 #[test]
-fn update_moves_main_under_a_branch_and_refuses_a_missing_clone() {
+fn update_off_main_moves_main_and_leaves_the_branch_checked_out() {
+    let m = Machine::new();
+    let (lib, first) = published(&m, "felix", &["rust-cli"]);
+    m.json(&["source", "add", "felix", lib.url()]);
+    let clone = m.path("data/rolesmith/sources/felix");
+    // As `distill` leaves it: the clone on a branch made from main.
+    m.git(
+        &clone,
+        &["checkout", "--quiet", "-b", "rolesmith/distill-rust-cli"],
+    );
+
+    lib.write("roles/rust-cli/core.md", "# Core\n\nAnother rule.\n");
+    let second = m.publish(&lib, "another rule");
+    let updated = m.json(&["source", "update"]);
+    assert_eq!(updated["updated"][0]["from"], first.as_str());
+    assert_eq!(updated["updated"][0]["to"], second.as_str());
+    assert_eq!(m.git(&clone, &["rev-parse", "main"]), second);
+    assert_eq!(
+        m.git(&clone, &["symbolic-ref", "--short", "HEAD"]),
+        "rolesmith/distill-rust-cli"
+    );
+    assert_eq!(m.git(&clone, &["rev-parse", "HEAD"]), first);
+
+    // Off main too, a main rewritten upstream is refused, never forced.
+    lib.write(
+        "library.toml",
+        "name = \"felix\"\ndescription = \"rewritten\"\n",
+    );
+    m.git(&lib.work, &["add", "-A"]);
+    m.git(
+        &lib.work,
+        &["commit", "--quiet", "--amend", "-m", "rewritten"],
+    );
+    m.git(&lib.work, &["push", "--quiet", "--force", "origin", "main"]);
+    let o = m.rolesmith(&["source", "update"]);
+    assert_eq!(o.status.code(), Some(1), "{}", stderr(&o));
+    assert_eq!(m.git(&clone, &["rev-parse", "main"]), second);
+}
+
+#[test]
+fn update_refuses_a_missing_clone_saying_how_to_recover() {
     let m = Machine::new();
     let (lib, _) = published(&m, "felix", &["rust-cli"]);
     m.json(&["source", "add", "felix", lib.url()]);
     let clone = m.path("data/rolesmith/sources/felix");
-
-    // Off main (a branch being distilled), update moves main and leaves the branch checked out.
-    m.git(&clone, &["checkout", "--quiet", "-b", "distill"]);
-    lib.role("ios-ui-tester", "Tests iOS UIs", "# Core\n");
-    let second = m.publish(&lib, "a second role");
-    let updated = m.json(&["source", "update", "felix"]);
-    assert_eq!(updated["updated"][0]["to"], second.as_str());
-    assert_eq!(m.git(&clone, &["rev-parse", "main"]), second);
-    assert_eq!(m.git(&clone, &["branch", "--show-current"]), "distill");
 
     // A clone gone from under the record: update says how to recover, not a git error.
     std::fs::remove_dir_all(clone.join(".git")).unwrap();
