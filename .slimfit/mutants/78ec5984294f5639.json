@@ -1,0 +1,21 @@
+{
+  "tree": "a3543104e9539e00838d50721b5677619f40893d+d1fba762150c532c",
+  "picker": "codex:01a20291-30d1-7642-80be-8af5d4cf0609:default",
+  "author": "claude-code:c653cbbf-6d30-59e3-ad9d-ec9dadb7733e:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/commands/new.rs:118:9: delete match arm (None, _) in only_source",
+        "why": "The tests cover one and multiple configured sources, leaving the zero-source diagnostic untested.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/commands/new.rs:29:9: replace <impl Command for Args>::output_shape -> Value with Default::default()",
+        "why": "The tests inspect the command's JSON output but never request its schema, so a null schema could pass.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  }
+}

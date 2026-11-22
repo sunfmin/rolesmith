@@ -3,6 +3,7 @@
 
 mod common;
 
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use common::{Machine, published, stderr};
@@ -250,4 +251,188 @@ fn a_relative_xdg_directory_falls_back_to_home_and_an_unreadable_record_fails() 
     let o = m.rolesmith(&["source", "list"]);
     assert_eq!(o.status.code(), Some(1), "{}", stderr(&o));
     assert!(stderr(&o).contains("cannot read"), "{}", stderr(&o));
+}
+
+#[test]
+fn new_branches_from_main_scaffolds_the_role_and_prints_the_brief() {
+    let m = Machine::new();
+    let (lib, main) = published(&m, "felix", &["rust-cli"]);
+    m.json(&["source", "add", "felix", lib.url()]);
+    let clone = m.path("data/rolesmith/sources/felix");
+    let need = "Ship iOS apps to the App Store, with \"quotes\" and {{role}}";
+
+    let o = m.rolesmith(&["new", "ios-releaser", "--need", need]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    let brief = String::from_utf8(o.stdout).unwrap();
+    let template = include_str!("../src/briefs/new.md");
+    let (before_need, after_need) = template.split_once("{need}").unwrap();
+    assert!(
+        brief.contains(&format!("## The need\n\n{need}\n")),
+        "{brief}"
+    );
+    assert!(brief.starts_with("# Draft the role `ios-releaser`\n"));
+    assert!(brief.contains("rolesmith check ios-releaser\n    rolesmith propose ios-releaser"));
+    assert!(brief.contains(clone.to_str().unwrap()));
+    assert!(brief.contains("at most 8000 characters"), "{brief}");
+    assert_eq!(
+        brief.lines().count(),
+        before_need.lines().count() + after_need.lines().count(),
+        "the brief is the template, filled in"
+    );
+    assert!(
+        !brief.replace(need, "").contains('{'),
+        "a blank left: {brief}"
+    );
+
+    assert_eq!(
+        m.git(&clone, &["symbolic-ref", "--short", "HEAD"]),
+        "rolesmith/new-ios-releaser"
+    );
+    assert_eq!(m.git(&clone, &["rev-parse", "HEAD"]), main);
+    let role = clone.join("roles/ios-releaser");
+    let role_toml = std::fs::read_to_string(role.join("role.toml")).unwrap();
+    let parsed: toml::Table = toml::from_str(&role_toml).unwrap();
+    assert_eq!(parsed["description"].as_str(), Some(need));
+    assert_eq!(parsed.len(), 1, "{role_toml}");
+    assert_eq!(std::fs::read_to_string(role.join("core.md")).unwrap(), "");
+    assert_eq!(
+        std::fs::read_to_string(role.join("prohibitions.toml")).unwrap(),
+        ""
+    );
+    assert!(!role.join("skills").exists());
+
+    // The scaffold is what `check` accepts as a role, the need standing in as its description.
+    let o = m.rolesmith(&[
+        "check",
+        "ios-releaser",
+        "--library",
+        clone.to_str().unwrap(),
+    ]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+
+    std::fs::remove_dir_all(&role).unwrap();
+    let doc = m.json(&[
+        "new",
+        "web-tester",
+        "--need",
+        "Test web UIs",
+        "--source",
+        "felix",
+    ]);
+    assert_eq!(doc["source"], "felix");
+    assert_eq!(doc["branch"], "rolesmith/new-web-tester");
+    assert!(doc["brief"].as_str().unwrap().contains("Test web UIs"));
+
+    // What --json printed is what agent-context says `new` prints.
+    let context = m.json(&["agent-context"]);
+    let new = context["commands"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "new")
+        .unwrap();
+    let required = new["output"]["required"].as_array().unwrap();
+    for key in required {
+        assert!(doc.get(key.as_str().unwrap()).is_some(), "{key}");
+    }
+    assert_eq!(required.len(), doc.as_object().unwrap().len());
+}
+
+#[test]
+fn new_refuses_a_dirty_working_copy_an_existing_role_and_a_taken_branch() {
+    let m = Machine::new();
+    let refused = |args: &[&str], why: &str| {
+        let o = m.rolesmith(args);
+        assert_eq!(o.status.code(), Some(1), "{args:?}: {}", stderr(&o));
+        assert!(stderr(&o).contains(why), "{args:?}: {}", stderr(&o));
+    };
+    refused(&["new", "web", "--need", "x"], "no sources; add one");
+    let (lib, _) = published(&m, "felix", &["rust-cli"]);
+    m.json(&["source", "add", "felix", lib.url()]);
+    let clone = m.path("data/rolesmith/sources/felix");
+
+    refused(
+        &["new", "rust-cli", "--need", "x"],
+        "already has a role rust-cli",
+    );
+    refused(&["new", "Bad_Name", "--need", "x"], "not a valid role name");
+    refused(
+        &["new", "web", "--need", "x", "--source", "nope"],
+        "no source named nope",
+    );
+
+    std::fs::write(clone.join("stray.txt"), "half done").unwrap();
+    refused(&["new", "web", "--need", "x"], "uncommitted changes");
+    assert_eq!(m.git(&clone, &["symbolic-ref", "--short", "HEAD"]), "main");
+    assert!(!clone.join("roles/web").exists());
+    std::fs::remove_file(clone.join("stray.txt")).unwrap();
+
+    m.json(&["new", "web", "--need", "x"]);
+    m.git(&clone, &["checkout", "--quiet", "-f", "main"]);
+    std::fs::remove_dir_all(clone.join("roles/web")).unwrap();
+    refused(
+        &["new", "web", "--need", "x"],
+        "rolesmith/new-web' already exists",
+    );
+
+    let (other, _) = published(&m, "other", &[]);
+    m.json(&["source", "add", "other", other.url()]);
+    refused(&["new", "api", "--need", "x"], "more than one source");
+}
+
+/// Every file under `dir` with its contents, to see that a command wrote nothing.
+fn snapshot(dir: &Path) -> Vec<(PathBuf, Vec<u8>)> {
+    let mut files = Vec::new();
+    let mut todo = vec![dir.to_path_buf()];
+    while let Some(d) = todo.pop() {
+        for entry in std::fs::read_dir(&d).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                todo.push(path);
+            } else {
+                let bytes = std::fs::read(&path).unwrap();
+                files.push((path, bytes));
+            }
+        }
+    }
+    files.sort();
+    files
+}
+
+#[test]
+fn prompt_prints_the_role_as_one_document_and_writes_nothing() {
+    let m = Machine::new();
+    let (lib, _) = published(&m, "felix", &["app-store-releaser"]);
+    lib.write(
+        "roles/app-store-releaser/skills/notarize/SKILL.md",
+        "---\nname: notarize\ndescription: Use when a macOS build needs notarizing.\n---\n\nSteps.\n",
+    );
+    let rev = m.publish(&lib, "a second skill");
+    m.json(&["source", "add", "felix", lib.url()]);
+    let project = m.path("project");
+    std::fs::create_dir_all(&project).unwrap();
+
+    let before = snapshot(m.dir.path());
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_rolesmith"));
+    cmd.args(["prompt", "app-store-releaser"])
+        .current_dir(&project);
+    m.env(&mut cmd);
+    let o = cmd.output().unwrap();
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    assert_eq!(snapshot(m.dir.path()), before, "prompt wrote a file");
+
+    let golden = include_str!("golden/prompt.md").replace("<rev>", &rev);
+    assert_eq!(String::from_utf8(o.stdout).unwrap(), golden);
+
+    let doc = m.json(&["prompt", "felix/app-store-releaser", "--rev", &rev[..12]]);
+    assert_eq!(
+        doc,
+        serde_json::json!({ "role": "felix/app-store-releaser", "rev": rev, "markdown": golden })
+    );
+    let shapes = rolesmith::commands::output_shapes();
+    let (_, shape) = shapes.iter().find(|(n, _)| *n == "prompt").unwrap();
+    assert_eq!(
+        shape["required"],
+        serde_json::json!(["role", "rev", "markdown"])
+    );
 }

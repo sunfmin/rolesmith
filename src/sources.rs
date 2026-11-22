@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::commands::Failure;
 use crate::library::{self, Library};
+use crate::problem::Problem;
 
 /// The branch of a library that is its current state (§5.4).
 pub const MAIN: &str = "main";
@@ -243,18 +244,35 @@ pub fn file_at(clone: &Path, sha: &str, path: &str) -> Option<String> {
     git(Some(clone), &["show", &format!("{sha}:{path}")]).ok()
 }
 
-/// A role found in a source at a commit.
+/// What a library holds that an address names: a role (`roles/<name>`) or a tool (`tools/<name>`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Kind {
+    Role,
+    Tool,
+}
+
+impl Kind {
+    fn noun(self) -> &'static str {
+        match self {
+            Kind::Role => "role",
+            Kind::Tool => "tool",
+        }
+    }
+}
+
+/// A role or tool found in a source at a commit.
 #[derive(Debug)]
 pub struct Found {
     pub source: String,
-    pub role: String,
+    /// The role's or tool's name.
+    pub name: String,
     /// The full SHA it was read at.
     pub rev: String,
 }
 
 impl Found {
     pub fn qualified(&self) -> String {
-        format!("{}/{}", self.source, self.role)
+        format!("{}/{}", self.source, self.name)
     }
 }
 
@@ -273,21 +291,33 @@ fn wanted_rev(rev: Option<&str>) -> Result<&str, Failure> {
 /// `rev` (default: each source's local `main`). An ambiguous bare name is refused, listing the
 /// addresses that would work.
 pub fn resolve(sources: &Sources, address: &str, rev: Option<&str>) -> Result<Found, Failure> {
+    resolve_kind(sources, Kind::Role, address, rev)
+}
+
+/// Resolve an address of `kind` as [`resolve`] does a role's: `tools/<tool>` is addressed as
+/// `<tool>` or `<source>/<tool>`, by the same rule.
+pub fn resolve_kind(
+    sources: &Sources,
+    kind: Kind,
+    address: &str,
+    rev: Option<&str>,
+) -> Result<Found, Failure> {
+    let noun = kind.noun();
     let wanted = wanted_rev(rev)?;
-    let at = |source: &str, role: &str| -> Result<Option<Found>, Failure> {
+    let at = |source: &str, name: &str| -> Result<Option<Found>, Failure> {
         let clone = clone_dir(source)?;
         let Some(sha) = commit(&clone, wanted) else {
             return Ok(None);
         };
-        let has = library::valid_name(role)
+        let has = library::valid_name(name)
             && git(
                 Some(&clone),
-                &["cat-file", "-t", &format!("{sha}:roles/{role}")],
+                &["cat-file", "-t", &format!("{sha}:{}s/{name}", kind.noun())],
             )
             .is_ok_and(|t| t == "tree");
         Ok(has.then(|| Found {
             source: source.to_owned(),
-            role: role.to_owned(),
+            name: name.to_owned(),
             rev: sha,
         }))
     };
@@ -298,8 +328,9 @@ pub fn resolve(sources: &Sources, address: &str, rev: Option<&str>) -> Result<Fo
 
     if let Some((source, role)) = address.split_once('/') {
         sources.get(source)?;
-        return at(source, role)?
-            .ok_or_else(|| Failure::new(format!("source {source} has no role {role} {at_what}")));
+        return at(source, role)?.ok_or_else(|| {
+            Failure::new(format!("source {source} has no {noun} {role} {at_what}"))
+        });
     }
 
     let mut found = Vec::new();
@@ -311,14 +342,14 @@ pub fn resolve(sources: &Sources, address: &str, rev: Option<&str>) -> Result<Fo
     match found.len() {
         1 => Ok(found.remove(0)),
         0 if sources.source.is_empty() => Err(Failure::new(format!(
-            "no role {address}: no sources ({})",
+            "no {noun} {address}: no sources ({})",
             sources.names_or_none()
         ))),
         0 => Err(Failure::new(format!(
-            "no source has a role {address} {at_what}"
+            "no source has a {noun} {address} {at_what}"
         ))),
         _ => Err(Failure::new(format!(
-            "role {address} is in more than one source; name one of: {}",
+            "{noun} {address} is in more than one source; name one of: {}",
             found
                 .iter()
                 .map(Found::qualified)
@@ -362,19 +393,21 @@ pub fn read_role(found: &Found) -> Result<(Library, tempfile::TempDir), Failure>
         )));
     }
     let _ = std::fs::remove_file(&archive);
-    match library::load(tree.path(), Some(&found.role)) {
+    match library::load(tree.path(), Some(&found.name)) {
         Ok(lib) => Ok((lib, tree)),
         Err(problems) => {
-            let mut message = format!(
+            let header = format!(
                 "{} at {} has {} problem(s); `rolesmith check` in the library says the same:",
                 found.qualified(),
                 found.rev,
                 problems.len()
             );
-            for p in &problems {
-                message.push_str(&format!("\n  {p}"));
-            }
-            Err(Failure { message, problems })
+            Err(Failure::listing(
+                header,
+                "problems",
+                &problems,
+                Problem::to_json,
+            ))
         }
     }
 }

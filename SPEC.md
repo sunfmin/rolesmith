@@ -180,9 +180,11 @@ beside it.
 
 ### 5.3 Prompt
 
-`rolesmith prompt <role>` prints the role as one Markdown document (core, prohibitions, then each
-skill's description and path) for an agent that takes instructions but reads no skills, such as a
-bot's standing instructions. It writes nothing.
+`rolesmith prompt <role> [--rev <sha>]` prints the role as one Markdown document for an agent that
+takes instructions but reads no skills, such as a bot's standing instructions: a first-line comment
+naming the source, role and rev it came from, then `core.md`, then the prohibitions, then each skill's
+name, description and the path of its `SKILL.md` in the source at that rev. It writes nothing. With
+`--json` it prints `{ "role": "<source>/<role>", "rev", "markdown" }`.
 
 ### 5.4 Updates
 
@@ -243,7 +245,7 @@ one JSON document, generated from the same definitions the parser uses.
 
 - `--help` and `--version` print on stdout and exit 0.
 - With `--json`, a run that exits 1 or 2 still prints one JSON document on stdout,
-  `{"error": {"kind": "failed" | "usage", "message": "..."}}`, besides the diagnostic on stderr. A refusal that is a list of problems (`check`) adds `"problems": [{"file", "line"?, "rule", "reason"}]` to `error`.
+  `{"error": {"kind": "failed" | "usage", "message": "..."}}`, besides the diagnostic on stderr. A refusal that is a list of problems (`check`) adds `"problems": [{"file", "line"?, "rule", "reason"}]` to `error`. A refusal that is what this machine lacks (`doctor`) adds `"missing": [{"kind": "program" | "entry", "name", "reason", "fix"}]`, `fix` being the command that fixes it.
 - `agent-context` lists the global flags, then each command with its `about`, flags, positionals,
   subcommands and `output`: the JSON Schema of what its `--json` prints on success. Its human form
   is the same document, pretty-printed.
@@ -267,11 +269,11 @@ one JSON document, generated from the same definitions the parser uses.
 | `remove <role> [--project <dir> \| --global]` | drop it from the record, delete its generated files |
 | `prompt <role> [--rev <sha>]` | §5.3 |
 | `suggest [--dir <dir>]` | §5.5 |
-| `doctor <role>` | for each program: tool.toml present, `check` passes; for each service and credential: mytokens entry present. Exit 1 if anything is missing, each with the command that fixes it |
-| `tool show <tool>` | the tool.toml, and whether its check passes here |
+| `doctor <role>` | for each program: tool.toml present (a role without one is refused as `show` refuses it), `check` passes (run by `sh -c`, exit 0); for each service and credential: mytokens entry present, read by `mytokens list` alone. Exit 1 if anything is missing, each with the command that fixes it (`rolesmith tool install <source>/<role>`, `mytokens put <entry> [--fields ...]`) |
+| `tool show <tool>` | the tool.toml on its source's `main`, and whether its check passes here; a tool is addressed as a role is (§2) |
 | `tool install <role> \| --tool <tool>` | install each missing program by its pinned method into the user's own prefix |
 | `env <role> [-- <command>...]` | §7.1 |
-| `new <role> --need "<text>" [--source <name>]` | scaffold `roles/<role>/` in the source's working copy on a new branch `rolesmith/new-<role>`, and print the drafting brief |
+| `new <role> --need "<text>" [--source <name>]` | scaffold `roles/<role>/` (`role.toml` with the need as its draft description, empty `core.md` and `prohibitions.toml`, no skills) in the source's working copy on a new branch `rolesmith/new-<role>` from `main`, and print the drafting brief; `--source` may be left out when there is one source; refuse a working copy with uncommitted changes, a role `main` has, and a branch that exists |
 | `propose [<role>] [--source <name>] [--closes <n>...]` | run `check`, commit the working copy's changes on its branch, push it, open a pull request through `gh`; print its URL |
 | `lesson add <role> --evidence <url> [--source felix\|agent]` | §6; the lesson text on stdin |
 | `lesson list [<role>]` | open lessons: number, role, title, age |

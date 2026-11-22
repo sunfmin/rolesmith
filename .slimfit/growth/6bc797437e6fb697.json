@@ -1,0 +1,10 @@
+{
+  "tree": "c07e7c02312f7a70207c90549dc13108aed30074+d1fba762150c532c",
+  "lines": 351,
+  "serves": "rolesmith#10",
+  "considered": "sources::resolve and read_role (reused, generalized by Kind for tools rather than a second resolver); show.rs's rendering (doctor/tool show print different things, not shared); Failure.problems (replaced by one keyed list shared by check and doctor)",
+  "reviewer": "codex:01a20292-2268-7d52-884b-9ba1aba3c69c:default",
+  "author": "claude-code:6a7c0834-e72e-58cd-b0dd-865f921d75c3:opus",
+  "cut": "In src/commands/mod.rs, src/cli.rs, src/commands/check.rs, src/sources.rs, and src/commands/doctor.rs, replace the parallel failure vectors with one optional keyed JSON payload and share the constructor that appends indented diagnostics and serializes the items; in src/sources.rs, derive the lookup directory from the existing kind noun; in src/commands/doctor.rs, render each program from its name and check during the existing loop and use the existing entry lookup’s insertion fallback to remove the explicit match; in src/commands/tool.rs, destructure the sole action in run and inline its single-use show function; in src/machine.rs, quote the joined field names directly instead of allocating a vector of individually quoted strings.",
+  "answer": "Made every cut: Failure carries one list: Option<(key, Value)> built by Failure::listing (used by check, read_role and doctor); Kind derives its directory from its noun; doctor renders each program in the loop and inserts the entry then finds it; tool show is inlined into run with a let-destructure; put_command joins the quoted fields directly. Still 351 net lines: two new commands, the machine module and their tests."
+}

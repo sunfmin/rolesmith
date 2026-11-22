@@ -1,0 +1,15 @@
+{
+  "tree": "070d4187c7d1aeae0965ebfe2c952b4cf2658834+d1fba762150c532c",
+  "picker": "codex:01a20292-6cdd-7f10-9695-1af218f6f109:default",
+  "author": "claude-code:a4bcc455-f7e9-527d-bc2e-ebc7ccd6236d:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/commands/prompt.rs:20:9: replace <impl Command for Args>::output_shape -> Value with Default::default()",
+        "why": "The prompt test checks Markdown and JSON output but never requests the command's schema, so a null schema could survive.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  }
+}

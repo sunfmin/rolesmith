@@ -76,7 +76,7 @@ impl Command for Args {
                 }
                 None => {
                     record.role.push(RoleEntry {
-                        name: found.role,
+                        name: found.name,
                         source: found.source,
                         url,
                         rev: found.rev,

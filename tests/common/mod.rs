@@ -9,7 +9,7 @@ use serde_json::Value;
 
 /// A machine: its own HOME and XDG directories, and a place for libraries.
 pub struct Machine {
-    dir: tempfile::TempDir,
+    pub dir: tempfile::TempDir,
 }
 
 impl Machine {
