@@ -121,6 +121,11 @@ pub fn document() -> Value {
                                 "description": "present when the refusal is a list of problems (check)",
                                 "type": "array",
                                 "items": crate::problem::Problem::shape()
+                            },
+                            "missing": {
+                                "description": "present when the refusal is what this machine lacks (doctor)",
+                                "type": "array",
+                                "items": crate::machine::Missing::shape()
                             }
                         }
                     }

@@ -242,7 +242,7 @@ one JSON document, generated from the same definitions the parser uses.
 
 - `--help` and `--version` print on stdout and exit 0.
 - With `--json`, a run that exits 1 or 2 still prints one JSON document on stdout,
-  `{"error": {"kind": "failed" | "usage", "message": "..."}}`, besides the diagnostic on stderr. A refusal that is a list of problems (`check`) adds `"problems": [{"file", "line"?, "rule", "reason"}]` to `error`.
+  `{"error": {"kind": "failed" | "usage", "message": "..."}}`, besides the diagnostic on stderr. A refusal that is a list of problems (`check`) adds `"problems": [{"file", "line"?, "rule", "reason"}]` to `error`. A refusal that is what this machine lacks (`doctor`) adds `"missing": [{"kind": "program" | "entry", "name", "reason", "fix"}]`, `fix` being the command that fixes it.
 - `agent-context` lists the global flags, then each command with its `about`, flags, positionals,
   subcommands and `output`: the JSON Schema of what its `--json` prints on success. Its human form
   is the same document, pretty-printed.
@@ -266,8 +266,8 @@ one JSON document, generated from the same definitions the parser uses.
 | `remove <role> [--project <dir> \| --global]` | drop it from the record, delete its generated files |
 | `prompt <role> [--rev <sha>]` | §5.3 |
 | `suggest [--dir <dir>]` | §5.5 |
-| `doctor <role>` | for each program: tool.toml present, `check` passes; for each service and credential: mytokens entry present. Exit 1 if anything is missing, each with the command that fixes it |
-| `tool show <tool>` | the tool.toml, and whether its check passes here |
+| `doctor <role>` | for each program: tool.toml present (a role without one is refused as `show` refuses it), `check` passes (run by `sh -c`, exit 0); for each service and credential: mytokens entry present, read by `mytokens list` alone. Exit 1 if anything is missing, each with the command that fixes it (`rolesmith tool install <source>/<role>`, `mytokens put <entry> [--fields ...]`) |
+| `tool show <tool>` | the tool.toml on its source's `main`, and whether its check passes here; a tool is addressed as a role is (§2) |
 | `tool install <role> \| --tool <tool>` | install each missing program by its pinned method into the user's own prefix |
 | `env <role> [-- <command>...]` | §7.1 |
 | `new <role> --need "<text>" [--source <name>]` | scaffold `roles/<role>/` in the source's working copy on a new branch `rolesmith/new-<role>`, and print the drafting brief |
