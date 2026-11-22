@@ -1,0 +1,33 @@
+{
+  "tree": "e765979d829271bb5ccd16f5c9b075147b0e327c+d1fba762150c532c",
+  "picker": "codex:01a20296-0208-7f63-a14d-cf7e61872ed5:default",
+  "author": "claude-code:6a7c0834-e72e-58cd-b0dd-865f921d75c3:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/machine.rs:88:9: replace Missing::shape -> Value with Default::default()",
+        "why": "The doctor tests assert the missing-item payload, leaving its published schema unchecked.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/commands/doctor.rs:22:9: replace <impl Command for Args>::output_shape -> Value with Default::default()",
+        "why": "The doctor success test checks command output, so a null schema could go unnoticed.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/commands/tool.rs:31:9: replace <impl Command for Args>::output_shape -> Value with Default::default()",
+        "why": "The tool show tests check runtime output and could miss the loss of the published subcommand schema.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/sources.rs:278:14: replace match guard sources.source.is_empty() with false in resolve_kind",
+        "why": "The tool lookup failure test registers a source, leaving the empty-source diagnostic unexercised by the new tests.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  }
+}
