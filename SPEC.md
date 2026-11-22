@@ -302,7 +302,7 @@ one JSON document, generated from the same definitions the parser uses.
 | `lesson add <role> --evidence <url> [--source felix\|agent]` | §6; the lesson text on stdin |
 | `lesson list [<role>]` | open lessons: number, role, title, age |
 | `lesson close [<source>#]<n> --why "<text>"` | close a lesson that will not be absorbed |
-| `distill <role>` | print the distilling brief and the role's open lessons, and put the working copy on branch `rolesmith/distill-<role>` |
+| `distill <role>` | ask `gh` for the role's open lessons (`lesson` and `role:<role>`); with none, say so and change nothing (`branch` and `brief` null); otherwise refuse a working copy with uncommitted changes, put it on a new branch `rolesmith/distill-<role>` from `main` (refuse one that exists), and print the distilling brief: the role's current `core.md`, prohibitions and skills, each open lesson (number, title, body, evidence), where each belongs (the narrowest place; core only for rules of every task), `lesson close` for one judged wrong, and the last step `check`, then `propose --closes <n>...` |
 | `agent-context` | §8 |
 
 ### 8.1 Briefs
