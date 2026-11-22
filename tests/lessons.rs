@@ -424,3 +424,48 @@ fn a_bare_lesson_number_needs_its_source_when_there_are_two() {
     assert!(stderr(&o).contains("<source>#4"), "{}", stderr(&o));
     assert!(m.gh_calls().is_empty());
 }
+
+#[test]
+fn what_gh_fails_or_answers_amiss_is_a_failure_that_says_so() {
+    let m = on_github();
+    m.gh_answers("issue list", "not json");
+    let o = m.rolesmith(&["lesson", "list"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains("gh issue list") && stderr(&o).contains("answered what is not JSON"),
+        "{}",
+        stderr(&o)
+    );
+
+    m.gh_fails("issue list", "HTTP 401: Bad credentials");
+    let o = m.rolesmith(&["lesson", "list"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains("--repo acme/lore failed: HTTP 401: Bad credentials"),
+        "{}",
+        stderr(&o)
+    );
+
+    m.gh_answers("repo view", r#"{"visibility":"PRIVATE"}"#);
+    m.gh_answers(
+        "label list",
+        r#"[{"name":"lesson"},{"name":"role:app-store-releaser"}]"#,
+    );
+    m.gh_answers("issue create", "created\n");
+    let o = m.rolesmith_input(
+        &[
+            "lesson",
+            "add",
+            "app-store-releaser",
+            "--evidence",
+            EVIDENCE,
+        ],
+        LESSON,
+    );
+    assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains("gh issue create answered created, not an issue's URL"),
+        "{}",
+        stderr(&o)
+    );
+}

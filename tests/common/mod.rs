@@ -12,13 +12,14 @@ use serde_json::Value;
 /// A machine: its own HOME and XDG directories, and a place for libraries.
 /// A `gh` that records each call (`call.<n>`: one argument a line; `stdin.<n>`) in
 /// `$GH_STANDIN` and prints the answer [`Machine::gh_answers`] left for it; a call with no answer
-/// prints nothing.
+/// prints nothing; a call [`Machine::gh_fails`] left a reason for prints it on stderr and fails.
 const GH_STANDIN: &str = r#"#!/bin/sh
 n=1
 while [ -e "$GH_STANDIN/call.$n" ]; do n=$((n + 1)); done
 printf '%s\n' "$@" > "$GH_STANDIN/call.$n"
 if [ "$1 $2" = "issue create" ]; then cat > "$GH_STANDIN/stdin.$n"; fi
 answer="$GH_STANDIN/$1-$2"
+if [ -e "$answer.fails" ]; then cat "$answer.fails" >&2; exit 1; fi
 if [ -e "$answer" ]; then cat "$answer"; fi
 "#;
 
@@ -46,6 +47,16 @@ impl Machine {
     /// What the stand-in `gh` prints for `gh <subcommand> <action>` (e.g. `"issue list"`).
     pub fn gh_answers(&self, call: &str, stdout: &str) {
         std::fs::write(self.path("gh").join(call.replace(' ', "-")), stdout).unwrap();
+    }
+
+    /// The stand-in `gh` fails `gh <subcommand> <action>`, saying `why` on stderr.
+    pub fn gh_fails(&self, call: &str, why: &str) {
+        std::fs::write(
+            self.path("gh")
+                .join(format!("{}.fails", call.replace(' ', "-"))),
+            why,
+        )
+        .unwrap();
     }
 
     /// Every call the stand-in `gh` took, in order: its arguments, and what it read on stdin.

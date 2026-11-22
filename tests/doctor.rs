@@ -344,6 +344,7 @@ fn tool_show_prints_the_tool_toml_and_whether_its_check_passes_here() {
         ("tools/asc/tool.toml", &asc),
         ("tools/xcodegen/tool.toml", &xcodegen),
         ("tools/broken/tool.toml", "description = 1\n"),
+        ("tools/bare/README.md", "No tool.toml yet.\n"),
     ]);
 
     let o = m.rolesmith(&["--json", "tool", "show", "asc"]);
@@ -373,6 +374,13 @@ fn tool_show_prints_the_tool_toml_and_whether_its_check_passes_here() {
     let o = m.rolesmith(&["tool", "show", "broken"]);
     assert_eq!(o.status.code(), Some(1));
     assert!(stderr(&o).contains("does not parse"), "{}", stderr(&o));
+    let o = m.rolesmith(&["tool", "show", "bare"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains("has no tools/bare/tool.toml"),
+        "{}",
+        stderr(&o)
+    );
 }
 
 #[test]

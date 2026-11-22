@@ -436,3 +436,56 @@ fn prompt_prints_the_role_as_one_document_and_writes_nothing() {
         serde_json::json!(["role", "rev", "markdown"])
     );
 }
+
+#[test]
+fn update_moves_main_under_a_branch_and_refuses_a_missing_clone() {
+    let m = Machine::new();
+    let (lib, _) = published(&m, "felix", &["rust-cli"]);
+    m.json(&["source", "add", "felix", lib.url()]);
+    let clone = m.path("data/rolesmith/sources/felix");
+
+    // Off main (a branch being distilled), update moves main and leaves the branch checked out.
+    m.git(&clone, &["checkout", "--quiet", "-b", "distill"]);
+    lib.role("ios-ui-tester", "Tests iOS UIs", "# Core\n");
+    let second = m.publish(&lib, "a second role");
+    let updated = m.json(&["source", "update", "felix"]);
+    assert_eq!(updated["updated"][0]["to"], second.as_str());
+    assert_eq!(m.git(&clone, &["rev-parse", "main"]), second);
+    assert_eq!(m.git(&clone, &["branch", "--show-current"]), "distill");
+
+    // A clone gone from under the record: update says how to recover, not a git error.
+    std::fs::remove_dir_all(clone.join(".git")).unwrap();
+    let o = m.rolesmith(&["source", "update", "felix"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains("remove the source and add it again"),
+        "{}",
+        stderr(&o)
+    );
+}
+
+#[test]
+fn add_refuses_a_stray_clone_and_a_record_that_does_not_parse_names_its_file() {
+    let m = Machine::new();
+    let (lib, _) = published(&m, "felix", &["rust-cli"]);
+    let stray = m.path("data/rolesmith/sources/felix");
+    std::fs::create_dir_all(&stray).unwrap();
+    let o = m.rolesmith(&["source", "add", "felix", lib.url()]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains("already exists but no source felix is recorded"),
+        "{}",
+        stderr(&o)
+    );
+    assert!(!m.path("config/rolesmith/sources.toml").exists());
+
+    std::fs::create_dir_all(m.path("config/rolesmith")).unwrap();
+    std::fs::write(m.path("config/rolesmith/sources.toml"), "[source\n").unwrap();
+    let o = m.rolesmith(&["source", "list"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains("sources.toml does not parse"),
+        "{}",
+        stderr(&o)
+    );
+}
