@@ -1,0 +1,32 @@
+{
+  "tree": "901704ab3319850a965b6bd6020a1423c48e3a52+d1fba762150c532c",
+  "picker": "codex:01a20303-94c2-73a2-adc1-410734975433:default",
+  "author": "claude-code:81978dce-e4e8-52ee-b48d-fde8bd4345de:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/cli.rs:90:5: replace usage -> u8 with 1",
+        "why": "The remaining release tests assert exit code 2 for the shell script, so they could miss a change to the Rust CLI’s usage exit code.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/cli.rs:91:8: delete ! in usage",
+        "why": "Inverting the usage guard could change when the CLI emits a diagnostic, which the fake binary never exercises.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/cli.rs:111:28: replace != with == in wants_json",
+        "why": "Reversing this comparison could change which argument positions trigger JSON output, a boundary the release tests do not exercise.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  },
+  "removed_tests": {
+    "rust": [
+      "tests/release.rs:66: dry_packages_the_development_build_for_apple_silicon_and_checks_the_formula"
+    ]
+  }
+}
