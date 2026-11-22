@@ -43,22 +43,16 @@ fn add_list_update_and_remove_a_source() {
     assert_eq!(listed["sources"][0]["main"], second.as_str());
     assert_eq!(listed["sources"][0]["roles"], 3);
 
-    lib.write("roles/rust-cli/core.md", "# Core\n\nAnother rule.\n");
-    m.publish(&lib, "another rule");
-    let moved = String::from_utf8(m.rolesmith(&["source", "update"]).stdout).unwrap();
-    assert!(
-        moved.contains(" -> ") && !moved.contains("up to date"),
-        "{moved}"
-    );
-    let still = String::from_utf8(m.rolesmith(&["source", "update"]).stdout).unwrap();
-    assert!(
-        still.contains("up to date") && !still.contains(" -> "),
-        "{still}"
-    );
+    // The human form of a move, for the one named source: put the clone's main back behind
+    // origin's rather than publish again.
+    let clone = m.path("data/rolesmith/sources/felix");
+    m.git(&clone, &["reset", "--quiet", "--hard", &first]);
+    let moved = String::from_utf8(m.rolesmith(&["source", "update", "felix"]).stdout).unwrap();
+    assert_eq!(moved, format!("felix: {first} -> {second}\n"));
 
     // Up to date: nothing moves.
-    let again = m.json(&["source", "update", "felix"]);
-    assert_eq!(again["updated"][0]["from"], again["updated"][0]["to"]);
+    let still = String::from_utf8(m.rolesmith(&["source", "update"]).stdout).unwrap();
+    assert_eq!(still, format!("felix: up to date at {second}\n"));
 
     let removed = m.json(&["source", "remove", "felix"]);
     assert_eq!(removed["removed"], "felix");
