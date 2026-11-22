@@ -225,6 +225,15 @@ otherwise), writes diagnostics to stderr, and exits 0 on success, 1 when it refu
 failed, 2 on a usage error. `rolesmith agent-context` prints every command, flag and JSON shape as
 one JSON document, generated from the same definitions the parser uses.
 
+- `--help` and `--version` print on stdout and exit 0.
+- With `--json`, a run that exits 1 or 2 still prints one JSON document on stdout,
+  `{"error": {"kind": "failed" | "usage", "message": "..."}}`, besides the diagnostic on stderr.
+- `agent-context` lists the global flags, then each command with its `about`, flags, positionals,
+  subcommands and `output`: the JSON Schema of what its `--json` prints on success. Its human form
+  is the same document, pretty-printed.
+- Each command is one module of `src/commands/`, registered on one line of its `registry!`; the
+  parser, the dispatch and `agent-context` are generated from that list.
+
 | Command | What it does |
 | --- | --- |
 | `source add <name> <git-url>` | clone the library, record it; refuse a name in use or a repo without `library.toml` |
