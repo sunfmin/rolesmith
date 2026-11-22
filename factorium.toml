@@ -24,10 +24,12 @@ limit = 600
 # issues while the host is idle (SPEC §1.16). No steps: nothing is too slow for the gate. The
 # version lines come first: factorium reads the answers as one run of JSON from the first `{` line,
 # so a line between them would hide truefit's. Measured on rolesmith#17 (2026-11-22, load 13-28 on
-# 18 cores, a fresh clone as idle work runs in): the tasks line 13.8s twice (`slimfit next --all`
-# alone 3.3s, `truefit next --all` 0.03s). every: a run costs ~14s, so cost does not bound it; a
-# day's landings are what one sample draws from. limit: ~20x the measured run, for a host at load
-# 40 and a sample that draws from more changes, still far under the gate's 900.
+# 18 cores, a fresh clone as idle work runs in): the tasks line 13.8s twice with a sample that
+# built 10 mutants of the code since the root; 5.2-5.4s three times at 38 tests with nothing to
+# sample yet (`slimfit next --all` alone 5.2-5.9s, `truefit next --all` 0.04s). every: a run
+# costs ~14s, so cost does not bound it; a day's landings are what one sample draws from. limit:
+# ~20x the 13.8s run, for a host at load 40 and a sample that draws from more changes, still far
+# under the gate's 900.
 [idle]
 tasks = "slimfit --version && truefit --version && slimfit next --all --sample 5 && truefit next --all"
 every = 86400
