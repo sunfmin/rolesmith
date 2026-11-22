@@ -18,7 +18,7 @@ pub const EXIT_USAGE: u8 = 2;
 
 /// Roles for any coding agent.
 #[derive(Parser)]
-#[command(name = "rolesmith", version, arg_required_else_help = true)]
+#[command(name = "rolesmith", version = env!("ROLESMITH_VERSION"), arg_required_else_help = true)]
 pub struct Cli {
     /// Print one JSON document on stdout instead of human text.
     #[arg(long, global = true)]

@@ -105,12 +105,12 @@ fn json_output_is_exactly_one_line_document() {
 }
 
 #[test]
-fn version_exits_0_with_the_package_version_on_stdout() {
+fn version_exits_0_with_the_stamped_version_on_stdout() {
     let o = rolesmith(&["--version"]);
     assert_eq!(o.status.code(), Some(0));
     assert_eq!(
         stdout(&o),
-        format!("rolesmith {}\n", env!("CARGO_PKG_VERSION"))
+        format!("rolesmith {}\n", env!("ROLESMITH_VERSION"))
     );
     assert!(o.stderr.is_empty());
 }
