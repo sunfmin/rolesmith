@@ -14,4 +14,5 @@ pub mod problem;
 pub mod project;
 pub mod secrets;
 pub mod sources;
+pub mod suggestions;
 pub mod version;

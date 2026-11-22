@@ -16,6 +16,7 @@ pub mod new;
 pub mod prompt;
 pub mod show;
 pub mod source;
+pub mod suggest;
 pub mod sync;
 pub mod tool;
 pub mod use_;
@@ -113,6 +114,7 @@ registry! {
     Prompt => prompt,
     Show => show,
     Source => source,
+    Suggest => suggest,
     Sync => sync,
     Use => use_,
     Tool => tool,
