@@ -67,7 +67,7 @@ impl Command for Args {
 
         let mut h = format!(
             "# {} ({} at {})\n\n{}\n\n## role.toml\n\n{}\n",
-            found.role,
+            found.name,
             found.source,
             found.rev,
             role.toml.description,
@@ -111,7 +111,7 @@ impl Command for Args {
 
         let json = json!({
             "source": found.source,
-            "role": found.role,
+            "role": found.name,
             "rev": found.rev,
             "description": role.toml.description,
             "role_toml": role_toml,

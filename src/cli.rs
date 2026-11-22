@@ -78,6 +78,9 @@ pub fn report(
                     doc["error"]["problems"] =
                         failure.problems.iter().map(|p| p.to_json()).collect();
                 }
+                if !failure.missing.is_empty() {
+                    doc["error"]["missing"] = failure.missing.iter().map(|m| m.to_json()).collect();
+                }
                 let _ = writeln!(out, "{doc}");
             }
             EXIT_FAILED

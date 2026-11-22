@@ -64,7 +64,11 @@ impl Command for Args {
                 for p in &problems {
                     message.push_str(&format!("\n  {p}"));
                 }
-                Err(Failure { message, problems })
+                Err(Failure {
+                    message,
+                    problems,
+                    missing: Vec::new(),
+                })
             }
         }
     }

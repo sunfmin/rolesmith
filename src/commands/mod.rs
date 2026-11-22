@@ -7,13 +7,16 @@
 
 use serde_json::Value;
 
+use crate::machine::Missing;
 use crate::problem::Problem;
 
 pub mod agent_context;
 pub mod check;
+pub mod doctor;
 pub mod list;
 pub mod show;
 pub mod source;
+pub mod tool;
 
 /// What a successful command produced, in both of its forms.
 pub struct Output {
@@ -29,6 +32,9 @@ pub struct Failure {
     /// When the refusal is a list of problems (`check`), each of them; with `--json` they are
     /// `error.problems`.
     pub problems: Vec<Problem>,
+    /// When the refusal is what this machine lacks (`doctor`), each thing; with `--json` they are
+    /// `error.missing`.
+    pub missing: Vec<Missing>,
 }
 
 impl Failure {
@@ -36,6 +42,7 @@ impl Failure {
         Failure {
             message: message.into(),
             problems: Vec::new(),
+            missing: Vec::new(),
         }
     }
 }
@@ -83,7 +90,9 @@ macro_rules! registry {
 registry! {
     AgentContext => agent_context,
     Check => check,
+    Doctor => doctor,
     List => list,
     Show => show,
     Source => source,
+    Tool => tool,
 }
