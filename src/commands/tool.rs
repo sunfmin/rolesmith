@@ -83,9 +83,9 @@ impl Command for Args {
 
 /// The tool.toml of `found`, as text and parsed.
 fn read_tool(found: &Found) -> Result<(String, ToolToml), Failure> {
-    let file = format!("tools/{}/tool.toml", found.name);
+    let file = Kind::Tool.toml(&found.name);
     let clone = sources::clone_dir(&found.source)?;
-    let text = sources::file_at(&clone, &found.rev, &file).ok_or_else(|| {
+    let text = sources::toml_at(&clone, &found.rev, Kind::Tool, &found.name).ok_or_else(|| {
         Failure::new(format!(
             "{} at {} has no {file}",
             found.qualified(),
