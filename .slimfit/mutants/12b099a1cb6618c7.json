@@ -1,0 +1,39 @@
+{
+  "tree": "6c32b4d4ca55b1b5538145006c5555a3c1710795+d1fba762150c532c",
+  "picker": "codex:01a2029f-3a87-7082-b5c3-c77942efd58c:default",
+  "author": "claude-code:895ddb6b-3d5f-59b1-96f9-e640aff83d91:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/commands/lesson.rs:366:24: replace > with >= in close",
+        "why": "The close tests use positive IDs and invalid text, leaving issue number zero untested.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/commands/lesson.rs:317:86: replace - with + in list",
+        "why": "The list test accepts any age above 2,000 days, so adding the timestamp instead of subtracting it still passes.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/commands/lesson.rs:247:37: replace == with != in ensure_labels",
+        "why": "The tests check which labels are created but never check the descriptions sent to GitHub.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/commands/lesson.rs:402:71: replace || with && in parse_time",
+        "why": "The timestamp tests leave out a correctly sized value with a valid T separator and an invalid UTC suffix.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/commands/lesson.rs:73:9: replace <impl Command for Args>::output_shape -> Value with Default::default()",
+        "why": "The lesson tests assert command output without checking the advertised schema for add, list, or close.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  }
+}

@@ -1,6 +1,8 @@
-//! What the integration tests share: a machine of their own, and libraries as local bare git
-//! repositories; nothing reaches the network.
-#![allow(dead_code)]
+//! What the tests that run the built binary share: a machine of its own (HOME, XDG directories,
+//! a stand-in `gh` on PATH) and local bare git repositories as libraries; nothing reaches the
+//! network.
+
+#![allow(dead_code)] // each test crate uses its own part of this
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -8,23 +10,86 @@ use std::process::{Command, Output};
 use serde_json::Value;
 
 /// A machine: its own HOME and XDG directories, and a place for libraries.
+/// A `gh` that records each call (`call.<n>`: one argument a line; `stdin.<n>`) in
+/// `$GH_STANDIN` and prints the answer [`Machine::gh_answers`] left for it; a call with no answer
+/// prints nothing.
+const GH_STANDIN: &str = r#"#!/bin/sh
+n=1
+while [ -e "$GH_STANDIN/call.$n" ]; do n=$((n + 1)); done
+printf '%s\n' "$@" > "$GH_STANDIN/call.$n"
+if [ "$1 $2" = "issue create" ]; then cat > "$GH_STANDIN/stdin.$n"; fi
+answer="$GH_STANDIN/$1-$2"
+if [ -e "$answer" ]; then cat "$answer"; fi
+"#;
+
 pub struct Machine {
     pub dir: tempfile::TempDir,
 }
 
 impl Machine {
     pub fn new() -> Machine {
-        Machine {
+        let m = Machine {
             dir: tempfile::tempdir().unwrap(),
-        }
+        };
+        std::fs::create_dir_all(m.path("gh")).unwrap();
+        let gh = m.path("bin/gh");
+        std::fs::create_dir_all(gh.parent().unwrap()).unwrap();
+        std::fs::write(&gh, GH_STANDIN).unwrap();
+        std::fs::set_permissions(&gh, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
+        m
     }
 
     pub fn path(&self, rel: &str) -> PathBuf {
         self.dir.path().join(rel)
     }
 
+    /// What the stand-in `gh` prints for `gh <subcommand> <action>` (e.g. `"issue list"`).
+    pub fn gh_answers(&self, call: &str, stdout: &str) {
+        std::fs::write(self.path("gh").join(call.replace(' ', "-")), stdout).unwrap();
+    }
+
+    /// Every call the stand-in `gh` took, in order: its arguments, and what it read on stdin.
+    pub fn gh_calls(&self) -> Vec<(Vec<String>, String)> {
+        let mut calls = Vec::new();
+        for i in 1.. {
+            let Ok(args) = std::fs::read_to_string(self.path(&format!("gh/call.{i}"))) else {
+                break;
+            };
+            let stdin =
+                std::fs::read_to_string(self.path(&format!("gh/stdin.{i}"))).unwrap_or_default();
+            calls.push((args.lines().map(str::to_owned).collect(), stdin));
+        }
+        calls
+    }
+
+    /// Run `rolesmith <args>` with `input` on stdin.
+    pub fn rolesmith_input(&self, args: &[&str], input: &str) -> Output {
+        use std::io::Write;
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_rolesmith"));
+        cmd.args(args)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped());
+        self.env(&mut cmd);
+        let mut child = cmd.spawn().expect("the binary runs");
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(input.as_bytes())
+            .unwrap();
+        child.wait_with_output().unwrap()
+    }
+
     pub fn env(&self, cmd: &mut Command) {
-        cmd.env("HOME", self.path("home"))
+        let path = format!(
+            "{}:{}",
+            self.path("bin").display(),
+            std::env::var("PATH").unwrap_or_default()
+        );
+        cmd.env("PATH", path)
+            .env("GH_STANDIN", self.path("gh"))
+            .env("HOME", self.path("home"))
             .env("XDG_CONFIG_HOME", self.path("config"))
             .env("XDG_DATA_HOME", self.path("data"))
             .env("GIT_CONFIG_GLOBAL", "/dev/null")
@@ -37,10 +102,7 @@ impl Machine {
     }
 
     pub fn rolesmith(&self, args: &[&str]) -> Output {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_rolesmith"));
-        cmd.args(args);
-        self.env(&mut cmd);
-        cmd.output().expect("the binary runs")
+        self.rolesmith_input(args, "")
     }
 
     /// Run `rolesmith --json <args>`, expect success, answer its document.

@@ -10,6 +10,7 @@ use serde_json::Value;
 pub mod agent_context;
 pub mod check;
 pub mod doctor;
+pub mod lesson;
 pub mod list;
 pub mod new;
 pub mod prompt;
@@ -106,6 +107,7 @@ registry! {
     AgentContext => agent_context,
     Check => check,
     Doctor => doctor,
+    Lesson => lesson,
     List => list,
     New => new,
     Prompt => prompt,
