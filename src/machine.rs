@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 use crate::brew;
 use crate::commands::Failure;
 use crate::host::Host;
-use crate::library::{Method, ToolToml, Version};
+use crate::library::{Method, STABLE, ToolToml};
 
 /// What running a tool's `check` here answered.
 pub struct Check {
@@ -28,12 +28,10 @@ pub fn check_tool(host: &Host, tool: &ToolToml) -> Result<Check, Failure> {
     let o = host.sh(&tool.check)?;
     let (passes, reason) = if o.status.success() {
         match tool.install.pinned() {
-            Ok((Method::Script(_), Version::Exact(v)))
-                if !String::from_utf8_lossy(&o.stdout).contains(v) =>
-            {
+            Ok((Method::Script(_), v)) if !String::from_utf8_lossy(&o.stdout).contains(v) => {
                 (false, format!("does not show the pinned version {v}"))
             }
-            Ok((Method::Brew(formula), Version::Stable)) => brew::at_stable(host, formula)?,
+            Ok((Method::Brew(formula), STABLE)) => brew::at_stable(host, formula)?,
             _ => (true, "passes".to_owned()),
         }
     } else {

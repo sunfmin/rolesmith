@@ -7,7 +7,7 @@
 use crate::brew;
 use crate::commands::Failure;
 use crate::host::Host;
-use crate::library::{Method, ToolToml, Version};
+use crate::library::{Method, STABLE, ToolToml};
 use crate::machine;
 
 /// What installing one tool did.
@@ -61,15 +61,15 @@ pub fn install(host: &Host, name: &str, tool: &ToolToml) -> Result<Done, Failure
     let (method, version) = tool.install.pinned().map_err(|(_, reason)| {
         Failure::new(format!("tool {name} cannot be installed: {reason}"))
     })?;
-    match (method, version) {
-        (Method::Brew(formula), version) => {
-            let (verb, target) = match version {
-                Version::Exact(v) => ("install", pinned_formula(host, formula, v)?),
+    match method {
+        Method::Brew(formula) => {
+            let (verb, target) = if version == STABLE {
                 // Installed but older than stable: upgraded; not installed: installed.
-                Version::Stable if brew::info(host, formula)?.installed.is_empty() => {
-                    ("install", formula.to_owned())
-                }
-                Version::Stable => ("upgrade", formula.to_owned()),
+                let installed = !brew::info(host, formula)?.installed.is_empty();
+                let verb = if installed { "upgrade" } else { "install" };
+                (verb, formula.to_owned())
+            } else {
+                ("install", pinned_formula(host, formula, version)?)
             };
             brew::change(host, verb, &target)?;
             let after = machine::check_tool(host, tool)?;
@@ -83,7 +83,7 @@ pub fn install(host: &Host, name: &str, tool: &ToolToml) -> Result<Done, Failure
             }
             Ok(done(Some(Installed::Brew(target))))
         }
-        (Method::Script(script), _) => {
+        Method::Script(script) => {
             let out = host.sh(script)?;
             let after = machine::check_tool(host, tool)?;
             if out.status.success() && after.passes {

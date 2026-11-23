@@ -183,16 +183,8 @@ pub struct Install {
     pub version: Option<String>,
 }
 
-/// The version a tool's `[install]` pins.
-pub enum Version<'a> {
-    /// One version.
-    Exact(&'a str),
-    /// Whatever its brew formula's stable version is now (`version = "stable"`, brew only).
-    Stable,
-}
-
-/// The `version` that follows a brew formula's stable version.
-const STABLE: &str = "stable";
+/// The `version` of a brew tool that follows its formula's stable version (ADR 0005, amended).
+pub const STABLE: &str = "stable";
 
 /// How a tool is installed, as its `[install]` pins it.
 pub enum Method<'a> {
@@ -205,7 +197,7 @@ pub enum Method<'a> {
 impl Install {
     /// The method and the pinned version, or the rule it breaks and why: exactly one method, a
     /// version that is not blank (`stable` only for brew), and a script that never runs `sudo`.
-    pub fn pinned(&self) -> Result<(Method<'_>, Version<'_>), (Rule, &'static str)> {
+    pub fn pinned(&self) -> Result<(Method<'_>, &str), (Rule, &'static str)> {
         let unpinned = |reason| Err((Rule::ToolUnpinned, reason));
         let method = match (&self.brew, &self.script) {
             (Some(formula), None) => Method::Brew(formula),
@@ -222,10 +214,9 @@ impl Install {
             Some(v) if v.trim().is_empty() => {
                 return unpinned("[install] is not pinned: its `version` is empty");
             }
-            Some(STABLE) => Version::Stable,
-            Some(v) => Version::Exact(v),
+            Some(v) => v,
         };
-        if let (Method::Script(_), Version::Stable) = (&method, &version) {
+        if let (Method::Script(_), STABLE) = (&method, version) {
             return unpinned(
                 "[install] script follows `stable`; a script pins its version, since rolesmith cannot see what it installed",
             );

@@ -96,27 +96,19 @@ pub fn at_stable(host: &Host, formula: &str) -> Result<(bool, String), Failure> 
     let (passes, mut reason) = match info(host, formula) {
         Err(f) => (false, format!("passes, but {}", f.message)),
         Ok(info) if info.at_stable() => (true, "passes".to_owned()),
-        Ok(Info { stable: None, .. }) => (
-            false,
-            format!("passes, but brew offers {formula} at no stable version"),
-        ),
-        Ok(Info {
-            stable: Some(s),
-            installed,
-        }) if installed.is_empty() => (
-            false,
-            format!("passes, but brew has no {formula} installed; its stable is {s}"),
-        ),
-        Ok(Info {
-            stable: Some(s),
-            installed,
-        }) => (
-            false,
-            format!(
-                "passes, but brew has {formula} {} installed, not its stable {s}",
-                installed.join(", ")
-            ),
-        ),
+        Ok(Info { stable, installed }) => {
+            let has = match installed.as_slice() {
+                [] => format!("no {formula}"),
+                _ => format!("{formula} {}", installed.join(", ")),
+            };
+            let stable = stable.map_or("no stable version".to_owned(), |s| {
+                format!("its stable {s}")
+            });
+            (
+                false,
+                format!("passes, but brew has {has} installed, not {stable}"),
+            )
+        }
     };
     if let Some(note) = note {
         reason.push_str("; ");
