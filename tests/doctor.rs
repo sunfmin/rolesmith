@@ -1575,8 +1575,10 @@ fn doctor_runs_a_mapped_services_check_never_its_command_and_lists_one_without_a
     assert_eq!(
         doc["services"],
         serde_json::json!([
-            { "name": "signing", "command": "signing-env", "state": "checked" },
-            { "name": "notary", "command": "notary-env", "state": "unchecked" }
+            { "name": "signing", "command": "signing-env", "state": "checked",
+              "asks_for": "unknown", "probe": { "outcome": "unchecked" } },
+            { "name": "notary", "command": "notary-env", "state": "unchecked",
+              "asks_for": "unknown", "probe": { "outcome": "unchecked" } }
         ])
     );
     assert_eq!(m.ran("signing-check"), "run\n");
@@ -1620,4 +1622,311 @@ fn env_and_doctor_fail_on_a_services_toml_they_cannot_read_rather_than_use_mytok
         assert_eq!(o.status.code(), Some(1), "{args:?}");
         assert!(stderr(&o).contains("cannot read"), "{}", stderr(&o));
     }
+}
+
+impl Machine {
+    /// Run `rolesmith <args>` with `vars` set (`Some`) or removed (`None`) on top of the machine's
+    /// environment.
+    fn rolesmith_with(&self, args: &[&str], vars: &[(&str, Option<&str>)]) -> Output {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_rolesmith"));
+        cmd.args(args);
+        self.env(&mut cmd);
+        for (name, value) in vars {
+            match value {
+                Some(v) => cmd.env(name, v),
+                None => cmd.env_remove(name),
+            };
+        }
+        cmd.output().expect("the binary runs")
+    }
+
+    /// A stand-in `name` on `PATH` that notes each run in `<name>-ran`, reading no stdin, then
+    /// runs `body`.
+    fn counting(&self, name: &str, body: &str) {
+        let ran = self.path(&format!("{name}-ran"));
+        self.program(name, &format!("echo run >> '{}'\n{body}", ran.display()));
+    }
+
+    /// Every file under the machine's directory whose text holds `needle`.
+    fn files_holding(&self, needle: &str) -> Vec<PathBuf> {
+        let mut found = Vec::new();
+        let mut dirs = vec![self.dir.path().to_path_buf()];
+        while let Some(dir) = dirs.pop() {
+            for e in std::fs::read_dir(&dir).unwrap() {
+                let p = e.unwrap().path();
+                if p.ends_with("bin") || p.ends_with("lore") || p.ends_with("lore.git") {
+                    continue; // the stand-ins and the library: the test's own
+                }
+                if p.is_dir() {
+                    dirs.push(p);
+                } else if std::fs::read(&p)
+                    .is_ok_and(|b| String::from_utf8_lossy(&b).contains(needle))
+                {
+                    found.push(p);
+                }
+            }
+        }
+        found
+    }
+}
+
+const NO_TOKEN: &[(&str, Option<&str>)] = &[("OP_SERVICE_ACCOUNT_TOKEN", None)];
+const OP_HINT: &str = "1Password asks for Touch ID or your password on each read; an unattended worker stalls on it. Use a service account token to read without a person";
+
+fn signer(m: &Machine, services: &[&str]) {
+    m.source(&[
+        ("roles/signer/role.toml", &role(&[], services)),
+        ("roles/signer/core.md", "Core.\n"),
+    ]);
+}
+
+#[test]
+fn doctor_and_env_name_what_a_mapped_command_asks_for_from_the_table() {
+    let m = Machine::new(&[]);
+    signer(&m, &["vault", "tokens", "root", "script"]);
+    m.noting("op", "echo A=1\n");
+    m.map_service("vault", "op inject -i ~/vault.env", None);
+    m.map_service("tokens", "mytokens env tokens", None);
+    m.map_service("root", "sudo cat /etc/secret.env", None);
+    m.map_service("script", "~/bin/script-env", None);
+
+    let o = m.rolesmith_with(&["--json", "doctor", "signer"], NO_TOKEN);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    let doc = json(&o);
+    conforms(&doc, &shape("doctor"));
+    let asks: Vec<(Value, Value)> = doc["services"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| (s["asks_for"].clone(), s["hint"].clone()))
+        .collect();
+    assert_eq!(
+        asks,
+        [
+            (Value::from("a person"), Value::from(OP_HINT)),
+            (Value::from("nothing"), Value::Null),
+            (
+                Value::from("a person"),
+                Value::from("sudo asks for a password")
+            ),
+            (Value::from("unknown"), Value::Null),
+        ]
+    );
+    let out = String::from_utf8(m.rolesmith_with(&["doctor", "signer"], NO_TOKEN).stdout).unwrap();
+    assert!(out.contains(OP_HINT), "{out}");
+    assert!(out.contains("sudo asks for a password"), "{out}");
+
+    // With a service account token, in rolesmith's environment or in the command, op asks for nothing.
+    let token = [("OP_SERVICE_ACCOUNT_TOKEN", Some("ops_x"))];
+    let doc = json(&m.rolesmith_with(&["--json", "doctor", "signer"], &token));
+    assert_eq!(doc["services"][0]["asks_for"], "nothing");
+    assert!(doc["services"][0].get("hint").is_none(), "{doc}");
+    let out = String::from_utf8(m.rolesmith_with(&["doctor", "signer"], &token).stdout).unwrap();
+    assert!(!out.contains("Touch ID"), "{out}");
+    m.map_service(
+        "vault",
+        "OP_SERVICE_ACCOUNT_TOKEN=\"$(cat ~/t)\" op inject -i ~/vault.env",
+        None,
+    );
+    let doc = json(&m.rolesmith_with(&["--json", "doctor", "signer"], NO_TOKEN));
+    assert_eq!(doc["services"][0]["asks_for"], "nothing");
+
+    // env, which runs the command, says so on stderr before it does.
+    let only_vault = Machine::new(&[]);
+    signer(&only_vault, &["vault"]);
+    only_vault.noting("op", "echo A=1\n");
+    only_vault.map_service("vault", "op inject -i ~/vault.env", None);
+    let o = only_vault.rolesmith_with(&["env", "signer"], NO_TOKEN);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    assert!(
+        stderr(&o).contains(&format!("service vault: {OP_HINT}")),
+        "{}",
+        stderr(&o)
+    );
+    let o = only_vault.rolesmith_with(&["env", "signer"], &token);
+    assert!(!stderr(&o).contains("Touch ID"), "{}", stderr(&o));
+}
+
+/// A value no answer and no file rolesmith writes may hold.
+const SECRET: &str = "s3cret-value-never-shown";
+
+#[test]
+fn doctor_probe_reads_each_source_once_and_answers_how_it_went_without_a_value() {
+    let m = Machine::new(&[]);
+    m.source(&[
+        (
+            "roles/signer/role.toml",
+            &role(&["asc"], &["fast", "slow", "reader", "failing"]),
+        ),
+        ("roles/signer/core.md", "Core.\n"),
+        ("tools/asc/tool.toml", &tool("true", ASC_CREDENTIAL)),
+    ]);
+    m.counting("fast-env", &format!("echo A={SECRET}\n"));
+    let pid = m.path("slow-child");
+    m.program(
+        "slow-env",
+        &format!(
+            "sleep 30 &\necho $! > '{}'\nsleep 30\necho A={SECRET}\n",
+            pid.display()
+        ),
+    );
+    m.program("reader-env", "read v\necho \"A=$v\"\n");
+    m.program("failing-env", "echo 'vault is locked' >&2\nexit 1\n");
+    m.map_service("fast", "fast-env", None);
+    m.map_service("slow", "slow-env", None);
+    m.map_service("reader", "reader-env", None);
+    m.map_service("failing", "failing-env", None);
+    m.program("asc-env", &format!("echo ASC_KEY_ID={SECRET}\n"));
+    m.map_service("asc-api-key", "asc-env", None);
+
+    let started = std::time::Instant::now();
+    let o = m.rolesmith(&["--json", "doctor", "signer", "--probe", "--timeout", "1"]);
+    assert!(
+        started.elapsed().as_secs() < 10,
+        "bounded: {:?}",
+        started.elapsed()
+    );
+    assert_eq!(o.status.code(), Some(1), "{}", stderr(&o));
+    let out = String::from_utf8(o.stdout.clone()).unwrap();
+    let err = stderr(&o);
+    for text in [&out, &err] {
+        assert!(!text.contains(SECRET), "{text}");
+    }
+    let missing = json(&o)["error"]["missing"].clone();
+    let by_name = |name: &str| -> Value {
+        missing
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|i| i["name"] == name)
+            .cloned()
+            .unwrap_or(Value::Null)
+    };
+    assert_eq!(by_name("fast"), Value::Null, "unattended is not missing");
+    for name in ["slow", "reader"] {
+        let reason = by_name(name)["reason"].as_str().unwrap().to_owned();
+        assert!(reason.starts_with("needs a person"), "{name}: {reason}");
+        assert!(reason.contains("within 1s"), "{name}: {reason}");
+    }
+    let reason = by_name("failing")["reason"].as_str().unwrap().to_owned();
+    assert!(reason.starts_with("refused"), "{reason}");
+    assert!(reason.contains("exits 1: vault is locked"), "{reason}");
+    let reason = by_name("asc-api-key")["reason"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert!(reason.starts_with("incomplete"), "{reason}");
+    assert!(reason.contains("ASC_ISSUER_ID"), "{reason}");
+    assert!(!reason.contains("ASC_KEY_ID"), "{reason}");
+
+    // The slow source was killed with everything it started.
+    let child = std::fs::read_to_string(&pid).unwrap();
+    let alive = Command::new("kill")
+        .args(["-0", child.trim()])
+        .output()
+        .unwrap();
+    assert!(!alive.status.success(), "its child {child} still runs");
+    assert_eq!(m.ran("fast-env"), "run\n", "read once");
+    assert_eq!(m.files_holding(SECRET), Vec::<PathBuf>::new());
+
+    // Each outcome is kept: plain doctor answers it without running a source.
+    std::fs::remove_file(m.path("fast-env-ran")).unwrap();
+    let o = m.rolesmith(&["--json", "doctor", "signer"]);
+    assert_eq!(o.status.code(), Some(1), "needs a person refuses");
+    assert_eq!(m.ran("fast-env"), "", "plain doctor runs no source");
+    let missing = json(&o)["error"]["missing"].clone();
+    let names: Vec<&str> = missing
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| i["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        ["slow", "reader"],
+        "only needs a person refuses: {missing}"
+    );
+    let item = &missing[0];
+    assert_eq!(item["kind"], "service");
+    let reason = item["reason"].as_str().unwrap();
+    assert!(reason.starts_with("needs a person (probed "), "{reason}");
+    assert!(
+        item["fix"]
+            .as_str()
+            .unwrap()
+            .contains("service account token"),
+        "{item}"
+    );
+}
+
+#[test]
+fn doctor_reports_a_kept_probe_until_the_command_changes() {
+    let m = Machine::new(&[]);
+    signer(&m, &["fast", "slow"]);
+    m.counting("fast-env", "echo A=1\n");
+    m.map_service("fast", "fast-env", None);
+    m.map_service("slow", "sleep 5", None);
+
+    let doc = json(&m.rolesmith(&["--json", "doctor", "signer"]));
+    assert_eq!(
+        doc["services"][0]["probe"],
+        serde_json::json!({ "outcome": "unchecked" })
+    );
+    let out = String::from_utf8(m.rolesmith(&["doctor", "signer"]).stdout).unwrap();
+    assert!(out.contains("rolesmith doctor --probe signer"), "{out}");
+
+    let o = m.rolesmith(&["doctor", "signer", "--probe", "--timeout", "1"]);
+    assert_eq!(o.status.code(), Some(1));
+    let err = stderr(&o);
+    assert!(err.contains("slow: needs a person"), "{err}");
+
+    let o = m.rolesmith(&["--json", "doctor", "signer"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains("slow: needs a person (probed "),
+        "{}",
+        stderr(&o)
+    );
+
+    // A changed command is another source: its old outcome no longer counts.
+    m.map_service("slow", "echo A=2", None);
+    let o = m.rolesmith(&["--json", "doctor", "signer"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    let doc = json(&o);
+    conforms(&doc, &shape("doctor"));
+    assert_eq!(
+        doc["services"][1]["probe"],
+        serde_json::json!({ "outcome": "unchecked" })
+    );
+    let fast = &doc["services"][0]["probe"];
+    assert_eq!(fast["outcome"], "unattended");
+    assert!(fast["seconds"].as_f64().unwrap() < 1.0, "{fast}");
+    assert!(fast["at"].as_str().unwrap().ends_with('Z'), "{fast}");
+    assert_eq!(m.ran("fast-env"), "run\n", "only the probe ran it");
+}
+
+#[test]
+fn doctor_help_tables_what_each_source_asks_for() {
+    let m = Machine::new(&[]);
+    let help = String::from_utf8(m.rolesmith(&["doctor", "--help"]).stdout).unwrap();
+    for row in [
+        "| mytokens | nothing |",
+        "| `op` with `OP_SERVICE_ACCOUNT_TOKEN` | nothing |",
+        "| `op` without it | Touch ID or your password, on each read |",
+        "| `sudo` | a password |",
+        "| any other command | unknown: probe it |",
+    ] {
+        assert!(help.contains(row), "{row}\n{help}");
+    }
+    for (program, _, _) in rolesmith::service_map::KNOWN {
+        let row = |p: &str| format!("| {p} |");
+        assert!(
+            help.contains(&row(program)) || help.contains(&format!("| `{program}`")),
+            "the table rolesmith reads has {program}; the help's table does not:\n{help}"
+        );
+    }
+    assert!(
+        help.contains("the prompt appearing is the answer"),
+        "{help}"
+    );
 }

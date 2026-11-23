@@ -436,13 +436,47 @@ comments between them. `mytokens env <entry>` and `op inject` over a template of
 - A command that cannot run or exits non-zero is refused with its exit and its stderr; a statement
   that is not a variable is refused by its line number, never its text. Nothing is exported, and
   after `--` the command is not run.
-- `doctor` never runs `command`. A mapped service is not looked for in mytokens: its `check` runs
-  on this machine (with `--host` too, as values are read only here); exit 0 is present, anything
-  else is missing (`kind` `service`). One without a `check` is answered `unchecked` and does not
-  make doctor refuse. `doctor`'s answer lists the mapped services as `services` (`name`, `command`,
-  `state` `checked` or `unchecked`, and `from` with `--project`).
+- `doctor` runs `command` only with `--probe` (§7.4). A mapped service is not looked for in
+  mytokens: its `check` runs on this machine (with `--host` too, as values are read only here);
+  exit 0 is present, anything else is missing (`kind` `service`). One without a `check` is answered
+  `unchecked` and does not make doctor refuse. `doctor`'s answer lists the mapped services as
+  `services` (`name`, `command`, `state` `checked` or `unchecked`, `asks_for`, `hint`, `probe`, and
+  `from` with `--project`).
 - A library never holds this setting: `rolesmith check` refuses a `services.toml` at a library's root
   and a `[service]` table in `library.toml`, `role.toml` or `tool.toml` (`host-only`).
+
+### 7.4 What a source asks for
+
+A source that waits on a person (Touch ID, a password, a prompt) stalls an unattended worker. A
+person learns which of theirs do before any unattended run.
+
+- **From the mapping.** One table in the code names what a command asks for by the program its
+  first word names (after `env` and `NAME=value` assignments). `doctor` answers it per mapped
+  service as `asks_for` (`nothing`, `a person` with a `hint`, or `unknown`), and `env` writes the
+  hint on stderr before it runs a command that asks for a person.
+
+  | source | asks for |
+  | --- | --- |
+  | mytokens | nothing |
+  | `op` with `OP_SERVICE_ACCOUNT_TOKEN` (in rolesmith's environment or assigned in the command) | nothing |
+  | `op` without it | Touch ID or your password, on each read |
+  | `sudo` | a password |
+  | any other command | unknown: probe it |
+
+- **Measured.** `rolesmith doctor --probe <role> | --project <dir> [--timeout <seconds>]` reads
+  each mapped service's command once as `env` does, but in a session of its own (no controlling
+  terminal) with stdin a pipe nothing writes to, for at most the bound (default 20 s), and never
+  prints or keeps a value. `probe.outcome` is `unattended` (finished, every variable the role's
+  `[credential]`s expect printed; `seconds`), `needs a person` (not finished within the bound, then
+  killed with its whole session; or failed saying it needs a terminal), `refused` (exited non-zero,
+  with its stderr; or printed a line that is not a variable) or `incomplete` (`missing` names the
+  expected variables it did not print). A probe may itself raise a Touch ID prompt; the prompt
+  appearing is the answer. With `--probe` any outcome but `unattended` is missing.
+- **Kept.** Each outcome is kept in `$XDG_DATA_HOME/rolesmith/probes.json` by service, with the
+  command probed and when (`at`, UTC), written whole under a lock. Plain `doctor` runs no source and
+  answers the kept outcome while the service maps to the same command; a kept `needs a person` is
+  missing (`kind` `service`), naming when, with the fix (a service account token, or a source that
+  needs no person). A service never probed, or probed with another command, is `unchecked`.
 
 ## 8. Commands
 
