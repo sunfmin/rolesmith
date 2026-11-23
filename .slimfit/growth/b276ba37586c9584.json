@@ -1,0 +1,10 @@
+{
+  "tree": "45370f5b011996018663592dc67ad75d42ec9b9c+d1fba762150c532c",
+  "lines": 237,
+  "serves": "rolesmith#29",
+  "considered": "Reusing Record/RoleEntry for required roles (rejected: the record must stay what a person named); reusing the existing generate loop per role (kept: factored into role_files, called per role in the closure); Library::requires vs the BFS order of the one-role load (both kept: the load order serves the named role, requires() the per-role core pointers)",
+  "reviewer": "codex:01a2061e-e37a-7cf3-9545-84c070ce6fa7:default",
+  "author": "claude-code:bb7ab73a-de0e-5b6b-ad8a-f56d9b14fd9f:opus",
+  "cut": "In src/library.rs, validate required names in Checker::role_toml before saving the parsed requirements, and delete the separate unknown-name pass and its temporary vector. In src/commands/prompt.rs and src/project.rs, use the already ordered lib.roles tail from the single-role load for the requested role’s transitive requirements, keeping Library::requires for each generated core’s own pointers. In src/project.rs, reuse the original insert-and-check loop and reject only when the displaced bytes or executable bit differ.",
+  "answer": "Made all three: unknown names are checked in role_toml (the separate pass and its vector are gone); prompt and generate use lib.roles[1..]; generate uses one insert loop refusing only when the displaced file differs. Commit 8122429; the change went from 245 to 237 net lines, the rest being the required-role checks, installs and output the issue asks for."
+}

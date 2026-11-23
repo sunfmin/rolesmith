@@ -5,7 +5,7 @@
 use serde_json::Value;
 
 use super::{Command, Failure, Output, sync};
-use crate::project::Record;
+use crate::project::{self, Record};
 use crate::sources::{self, MAIN};
 
 /// Move roles (default: every role) to their source's local main and sync.
@@ -31,7 +31,7 @@ impl Command for Args {
         let only = self
             .role
             .as_deref()
-            .map(|r| record.position(&place, r))
+            .map(|r| project::named_position(&place, &record, r))
             .transpose()?;
         for (i, entry) in record.role.iter_mut().enumerate() {
             if only.is_some_and(|o| o != i) {

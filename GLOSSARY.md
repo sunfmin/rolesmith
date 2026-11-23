@@ -2,6 +2,8 @@
 
 **Role**: the definition of one kind of work for an agent: a directory `roles/<role>/` of a library, with its `role.toml`, core memory, prohibitions and skills. _Avoid_: bot, persona, agent (an agent is what uses a role)
 
+**Requires**: the roles of the same library a role builds on, named in its `role.toml`'s `requires`; installing the role installs them, transitively, at the same rev, without the project's record naming them. _Avoid_: depends, extends, inherits
+
 **Library**: a git repository of roles and tools, with a `library.toml` at its root. Public or private. _Avoid_: registry, store
 
 **Source**: a library as one machine knows it: a local name, its URL, and its clone under `$XDG_DATA_HOME/rolesmith/sources/`. _Avoid_: remote

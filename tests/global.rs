@@ -127,7 +127,7 @@ fn global_status_and_update_follow_the_source_and_leave_the_project_alone() {
     assert_eq!(
         out,
         json!({ "project": null, "roles": [{ "name": "app-store-releaser", "source": "felix",
-                 "rev": first, "main": first, "behind": 0, "ahead": 0, "drift": [] }] })
+                 "rev": first, "main": first, "behind": 0, "ahead": 0, "requires": [], "drift": [] }] })
     );
 
     lib.write(

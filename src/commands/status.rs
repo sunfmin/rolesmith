@@ -28,7 +28,7 @@ impl Command for Args {
                 "project": { "type": ["string", "null"], "description": "the project's root; null for --global" },
                 "roles": { "type": "array", "items": {
                     "type": "object",
-                    "required": ["name", "source", "rev", "main", "behind", "ahead", "drift"],
+                    "required": ["name", "source", "rev", "main", "behind", "ahead", "requires", "drift"],
                     "properties": {
                         "name": { "type": "string" },
                         "source": { "type": "string" },
@@ -36,8 +36,10 @@ impl Command for Args {
                         "main": { "type": ["string", "null"], "description": "full SHA of the source clone's local main" },
                         "behind": count.clone(),
                         "ahead": count,
+                        "requires": { "type": "array", "items": { "type": "string" },
+                                      "description": "the roles it requires, transitively, installed with it at its rev" },
                         "drift": { "type": "array", "items": { "type": "string" },
-                                   "description": "generated files that differ from what the record generates, or are missing" }
+                                   "description": "generated files of it and the roles it requires that differ from what the record generates, or are missing" }
                     }
                 } }
             }
@@ -69,7 +71,10 @@ impl Command for Args {
 /// A role's status as JSON, and its line of human text.
 fn role_status(place: &Place, entry: &RoleEntry) -> Result<(Value, String), Failure> {
     // Reading what the record generates adds a missing source and fetches a missing rev, as sync.
-    let drift = project::drift(place, entry)?;
+    let project::Drift {
+        files: drift,
+        requires,
+    } = project::drift(place, entry)?;
     let clone = sources::clone_dir(&entry.source)?;
     let main = sources::main_commit(&clone);
     let (mut ahead, mut behind) = (None, None);
@@ -98,8 +103,13 @@ fn role_status(place: &Place, entry: &RoleEntry) -> Result<(Value, String), Fail
     } else {
         format!("drift (run `rolesmith sync`): {}", drift.join(", "))
     };
+    let requiring = if requires.is_empty() {
+        String::new()
+    } else {
+        format!("; requires {}", requires.join(", "))
+    };
     let line = format!(
-        "{}/{} at {}; {at}; {files}\n",
+        "{}/{} at {}{requiring}; {at}; {files}\n",
         entry.source, entry.name, entry.rev
     );
     let json = json!({
@@ -109,6 +119,7 @@ fn role_status(place: &Place, entry: &RoleEntry) -> Result<(Value, String), Fail
         "main": main,
         "behind": behind,
         "ahead": ahead,
+        "requires": requires,
         "drift": drift,
     });
     Ok((json, line))

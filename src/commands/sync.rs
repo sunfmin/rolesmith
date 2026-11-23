@@ -61,7 +61,7 @@ pub fn shape() -> Value {
     json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
-        "required": ["project", "roles", "written", "removed"],
+        "required": ["project", "roles", "required", "written", "removed"],
         "properties": {
             "project": { "type": ["string", "null"], "description": "the project's root; null for --global" },
             "roles": { "type": "array", "items": {
@@ -72,6 +72,18 @@ pub fn shape() -> Value {
                     "url": { "type": "string" },
                     "rev": { "type": "string", "description": "full SHA" },
                     "into": strings.clone()
+                }
+            } },
+            "required": { "type": "array",
+                          "description": "roles installed only because recorded roles require them, at their rev",
+                          "items": {
+                "type": "object", "required": ["name", "source", "rev", "by"],
+                "properties": {
+                    "name": { "type": "string" },
+                    "source": { "type": "string" },
+                    "rev": { "type": "string", "description": "full SHA" },
+                    "by": { "type": "array", "items": { "type": "string" },
+                            "description": "the recorded roles that require it" }
                 }
             } },
             "written": { "type": "array", "items": { "type": "string" },
@@ -116,6 +128,15 @@ pub fn output(place: &Place, record: &Record, synced: &Synced) -> Output {
             r.into.join(", ")
         ));
     }
+    for r in &synced.required {
+        human.push_str(&format!(
+            "{}/{} at {}, required by {}\n",
+            r.source,
+            r.name,
+            r.rev,
+            r.by.join(", ")
+        ));
+    }
     if record.role.is_empty() {
         human.push_str(&format!("no roles in {}\n", place.record_name()));
     }
@@ -132,6 +153,7 @@ pub fn output(place: &Place, record: &Record, synced: &Synced) -> Output {
         json: json!({
             "project": place.project_name(),
             "roles": record.role,
+            "required": synced.required,
             "written": synced.written,
             "removed": synced.removed,
         }),

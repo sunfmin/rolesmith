@@ -76,6 +76,7 @@ library.
 description = "Ships iOS and macOS apps to the App Store"   # required, one line, <= 200 chars
 programs = ["asc", "xcodegen"]          # tools of tools/ in the same library, by name
 services = ["asc-api-key"]              # mytokens entries the role's work reads (§7)
+requires = ["coder"]                    # roles of the same library this one builds on (§5.1)
 
 [match]                                 # optional: what makes a project one this role fits (§5.5)
 files = ["*.xcodeproj", "App/project.yml"]    # globs, relative to the project root
@@ -84,6 +85,13 @@ contains = [{ file = "Package.swift", text = ".iOS(" }]
 [guild]                                 # optional: Guild's own keys; rolesmith keeps and ignores them
 engine = { preferred = "claude-code", fallback = ["codex"] }
 ```
+
+`requires` names, by their names, the roles of the same library whose work this role's includes:
+an iOS app coder is also a coder. Installing a role installs every role it requires, transitively
+(§5.1). `rolesmith check` refuses a name that is not a role of the library and a cycle (a role that
+requires itself, directly or through others), naming it; checking one role checks the roles it
+requires. What a role builds on is a fact about the role, so it lives here and nowhere else (ADR
+0003).
 
 Unknown top-level keys are refused by `rolesmith check`, except tables named by another consumer
 (`[guild]`), which rolesmith carries untouched. The list of such consumer tables is in rolesmith's
@@ -171,6 +179,16 @@ For each target, a role becomes skills in the directory that agent reads:
 - one **core skill**, `rolesmith-<role>`, whose `SKILL.md` is `core.md` followed by the
   prohibitions, with the description "Always in force in this project: <role description>".
 
+A role that requires others (§3.1) installs each of them too, transitively, from the same source at
+the same rev, each with its own core skill and skills as above; a role required twice (a diamond, or
+two installed roles requiring the same one) is installed once, and one required at two revs (or a
+role name two sources would both write) is refused. The core skill of a role that requires others
+opens, before `core.md`, by naming the core skills of every role it requires, transitively, so one
+pointer to a role's core skill reaches them all. The record keeps only the roles a person named;
+what they require is derived at each install and listed in the manifest with the rest, never written
+into the record. `use` and `sync` list the roles installed only because others require them as
+`required` (`name`, `source`, `rev`, `by`: the recorded roles requiring them).
+
 Every generated `SKILL.md` carries a comment on the first line of its front matter naming the source,
 role and rev it came from and saying it is generated. (On the file's first line it would hide the
 front matter: agents read front matter only from a first line `---`.)
@@ -201,7 +219,10 @@ project, so it does not take `--global`.
 `rolesmith prompt <role> [--rev <sha>]` prints the role as one Markdown document for an agent that
 takes instructions but reads no skills, such as a bot's standing instructions: a first-line comment
 naming the source, role and rev it came from, then `core.md`, then the prohibitions, then each skill's
-name, description and the path of its `SKILL.md` in the source at that rev. It writes nothing. With
+name, description and the path of its `SKILL.md` in the source at that rev; for a role that requires
+others, a line naming them after the comment, and after its own skills each required role in turn
+(transitively, each once) under a heading `# Required role <source>/<role>: <description>`: its core,
+prohibitions and skills. It writes nothing. With
 `--json` it prints `{ "role": "<source>/<role>", "rev", "markdown" }`.
 
 ### 5.4 Updates
@@ -209,12 +230,15 @@ name, description and the path of its `SKILL.md` in the source at that rev. It w
 `rolesmith update [<role>]` moves a project's role (default: every role) to its source's local
 `main`, rewrites `rolesmith.toml`'s `rev`, and syncs; it does not fetch, so `rolesmith source update`
 comes first. `rolesmith status` says, per role, the pinned rev, the source's local `main`, how many
-commits the rev is behind and ahead of it, and the generated files that differ from what the record
-generates or are missing (drift, which `sync` repairs). Like `sync`, it adds a source the machine
+commits the rev is behind and ahead of it, the roles it requires (`requires`), and the generated
+files of it and the roles it requires that differ from what the record generates or are missing
+(drift, which `sync` repairs). The roles a role requires move with it: they are at its rev. Like `sync`, it adds a source the machine
 lacks from the record's `url`.
 
 `rolesmith remove <role>` drops the role from `rolesmith.toml` and syncs, so only files its manifest
-lists are deleted. A record left with no roles is deleted, and with it the manifest and the
+lists are deleted, and a role another remaining role requires keeps its files. `remove` and
+`update` of a role the record does not name but installs because others require it are refused,
+naming those roles. A record left with no roles is deleted, and with it the manifest and the
 `.gitignore` lines rolesmith added (the file itself when they were all it held): the project is as it
 was before `use`.
 
