@@ -10,6 +10,7 @@ agent_help::binary!("rolesmith");
 
 pub mod cli;
 pub mod commands;
+pub mod entry_file;
 pub mod github;
 pub mod help;
 pub mod install;

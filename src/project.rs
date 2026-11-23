@@ -15,6 +15,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::commands::Failure;
+use crate::entry_file;
 use crate::library;
 use crate::sources::{self, Found, Sources};
 
@@ -28,22 +29,45 @@ pub const GLOBAL_RECORD: &str = "global.toml";
 /// The manifest of the user's global installs, beside [`GLOBAL_RECORD`].
 pub const GLOBAL_MANIFEST: &str = "global.manifest.json";
 
-/// Each target (§5.2) and the directory its agent reads skills from, relative to the project's
-/// root and, for a global install, to `HOME`; the one table of them.
+/// A target (§5.2): the agent's name, the directory it reads skills from (relative to the
+/// project's root and, for a global install, to `HOME`), and the entry file it reads first in a
+/// project, where rolesmith writes its managed section (§4).
+pub struct Target {
+    pub name: &'static str,
+    pub skills: &'static str,
+    pub entry: &'static str,
+}
+
+/// Each target; the one table of them.
 /// - claude-code: project skills are `.claude/skills/<name>/SKILL.md`, the user's
-///   `~/.claude/skills/<name>/SKILL.md` (https://code.claude.com/docs/en/skills, read 2026-11-22).
+///   `~/.claude/skills/<name>/SKILL.md` (https://code.claude.com/docs/en/skills, read 2026-11-22);
+///   it reads `CLAUDE.md` at the project's root (https://code.claude.com/docs/en/memory, read
+///   2026-11-23).
 /// - codex: Codex scans `.agents/skills` from the working directory up to the repository root, and
 ///   the user's `$HOME/.agents/skills` (https://learn.chatgpt.com/docs/build-skills, where
-///   https://developers.openai.com/codex/skills redirects; read 2026-11-22).
+///   https://developers.openai.com/codex/skills redirects; read 2026-11-22); it reads `AGENTS.md`.
 /// - agents: `.agents/skills`, and the user's `~/.agents/skills`: where `npx skills` installs and
-///   what Orca's agents read (SPEC.md §5.2).
+///   what Orca's agents read (SPEC.md §5.2); `AGENTS.md`, the file agents other than Claude Code
+///   read.
 ///
 /// Two targets may share a directory (codex and agents do); a role installed into both writes its
-/// files there once.
-pub const TARGETS: &[(&str, &str)] = &[
-    ("claude-code", ".claude/skills"),
-    ("codex", ".agents/skills"),
-    ("agents", ".agents/skills"),
+/// files there once. They may share an entry file too, which gets one section.
+pub const TARGETS: &[Target] = &[
+    Target {
+        name: "claude-code",
+        skills: ".claude/skills",
+        entry: "CLAUDE.md",
+    },
+    Target {
+        name: "codex",
+        skills: ".agents/skills",
+        entry: "AGENTS.md",
+    },
+    Target {
+        name: "agents",
+        skills: ".agents/skills",
+        entry: "AGENTS.md",
+    },
 ];
 
 /// Where an install lives: the directory its generated paths are relative to, its record and its
@@ -129,10 +153,10 @@ pub struct RoleEntry {
 pub fn target_dir(target: &str) -> Result<&'static str, Failure> {
     TARGETS
         .iter()
-        .find(|(name, _)| *name == target)
-        .map(|(_, dir)| *dir)
+        .find(|t| t.name == target)
+        .map(|t| t.skills)
         .ok_or_else(|| {
-            let known: Vec<&str> = TARGETS.iter().map(|(name, _)| *name).collect();
+            let known: Vec<&str> = TARGETS.iter().map(|t| t.name).collect();
             Failure::new(format!(
                 "unknown target {target} (known: {})",
                 known.join(", ")
@@ -438,6 +462,17 @@ pub fn sync(place: &Place, record: &Record) -> Result<Synced, Failure> {
         };
         changed.push(GITIGNORE.to_owned());
     }
+    let targets: BTreeSet<&str> = record
+        .role
+        .iter()
+        .flat_map(|r| r.into.iter().map(String::as_str))
+        .collect();
+    for change in entry_file::update(dir, &targets)? {
+        match change {
+            entry_file::Change::Written(name) => synced.written.push(name),
+            entry_file::Change::Removed(name) => synced.removed.push(name),
+        }
+    }
     if !record.role.is_empty() {
         remember(dir)?;
     }
@@ -683,7 +718,7 @@ fn read_manifest(file: &Path) -> Result<BTreeSet<String>, Failure> {
 /// directory.
 fn remove_empty_parents(place: &Place, file: &Path) {
     let dir = &place.root;
-    let bases: Vec<PathBuf> = TARGETS.iter().map(|(_, base)| dir.join(base)).collect();
+    let bases: Vec<PathBuf> = TARGETS.iter().map(|t| dir.join(t.skills)).collect();
     let mut at = file.parent();
     while let Some(parent) = at {
         if parent == dir || bases.iter().any(|b| b == parent) {
@@ -718,7 +753,7 @@ fn update_gitignore(dir: &Path, generated: &Generated) -> Result<bool, Failure> 
         let skills: BTreeSet<String> = generated
             .keys()
             .filter_map(|rel| {
-                let base = TARGETS.iter().find(|(_, b)| rel.starts_with(b))?.1;
+                let base = TARGETS.iter().find(|t| rel.starts_with(t.skills))?.skills;
                 let skill = rel[base.len() + 1..].split('/').next()?;
                 Some(format!("/{base}/{skill}/\n"))
             })

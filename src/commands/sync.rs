@@ -11,12 +11,13 @@ use crate::project::{self, Place, Record, Synced};
 
 /// Make the generated files equal what the record (`rolesmith.toml`, or `global.toml` with `--global`) says.
 ///
-/// Run it after cloning a project, after editing `rolesmith.toml` by hand, or when `rolesmith status` shows drift. It writes only the files that differ and deletes only files the manifest lists that the record no longer generates. A source the record names that this machine lacks is added from the record's `url`. A record with no roles is an answer that writes nothing.
+/// Run it after cloning a project, after editing `rolesmith.toml` by hand, or when `rolesmith status` shows drift. It writes only the files that differ and deletes only files the manifest lists that the record no longer generates. A source the record names that this machine lacks is added from the record's `url`. It writes the managed section of each target's entry file again when it differs, and takes it out of an entry file no target names. A record with no roles is an answer that writes nothing.
 ///
 /// ## Refusals
 ///
 /// - a `--project` that is not a directory, or a record that does not parse or names an unknown target;
-/// - a file in an install directory that the manifest does not list.
+/// - a file in an install directory that the manifest does not list;
+/// - an entry file whose managed section has its first line but no last line after it.
 #[derive(clap::Args)]
 #[command(verbatim_doc_comment)]
 pub struct Args {

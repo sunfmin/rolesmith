@@ -27,3 +27,7 @@
 **Distilling**: folding a role's open lessons into its core memory, skills or prohibitions, by an agent a person asked, landed as one pull request that closes them.
 
 **Brief**: the Markdown rolesmith prints for the agent that is to draft a role (`new`) or distill one (`distill`): the task, the files, the limits, the last step.
+
+**Entry file**: the file an agent reads first in a project, committed with it: `CLAUDE.md` for `claude-code`, `AGENTS.md` for `codex` and `agents`.
+
+**Managed section**: the lines rolesmith writes into a project's entry file between its fixed first and last lines, the same in every project, telling an agent on a fresh clone to install rolesmith, sync and read the roles' core skills. It names no role. _Avoid_: block, snippet

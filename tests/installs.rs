@@ -167,7 +167,9 @@ fn remove_leaves_the_project_as_it_was_before_use() {
     assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
     let human = String::from_utf8(o.stdout).unwrap();
     assert!(
-        human.starts_with("no roles in rolesmith.toml\nremoved ") && !human.contains("up to date"),
+        // CLAUDE.md is written without rolesmith's section, as it was before `use`.
+        human.starts_with("no roles in rolesmith.toml\nwrote CLAUDE.md\nremoved ")
+            && !human.contains("up to date"),
         "{human}"
     );
     assert_eq!(snapshot(&project), before);
