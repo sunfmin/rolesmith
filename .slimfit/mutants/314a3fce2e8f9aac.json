@@ -1,0 +1,6 @@
+{
+  "tree": "23bf7912693eb995932112814aa53093804ba8cb+d1fba762150c532c",
+  "picker": "codex:01a207f1-a5e7-78b2-ac89-4d0def692b61:default",
+  "author": "claude-code:4dc59738-b6e6-5c36-8cdc-08717676ed27:opus",
+  "none": "The tests require successful revision lookups to return the full SHA and unresolved bare revisions to report that no commit was found in the named source, covering every listed decision mutation that can build."
+}
