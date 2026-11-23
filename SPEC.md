@@ -57,7 +57,7 @@ source's clone lives in `$XDG_DATA_HOME/rolesmith/sources/<name>/` (default
 ```toml
 # sources.toml
 [source.felix]
-url = "https://github.com/sunfminforge/lore"
+url = "https://github.com/sunfmin/lore"
 ```
 
 A source name follows the role name's rule. A source's clone is of its library's `main`. `list` and
@@ -175,7 +175,7 @@ A project that uses roles says so in **`rolesmith.toml`** at its root, committed
 [[role]]
 name = "app-store-releaser"
 source = "felix"
-url = "https://github.com/sunfminforge/lore"     # so a fresh clone can add the source
+url = "https://github.com/sunfmin/lore"     # so a fresh clone can add the source
 rev = "3f2c9e1d..."                              # the library commit, always a full SHA
 into = ["claude-code"]                           # the targets it is installed into (§5.2)
 ```

@@ -228,6 +228,19 @@ fn an_unknown_topic_is_a_usage_error_listing_the_topics() {
 }
 
 #[test]
+fn help_names_the_library_to_add_first() {
+    let add = "`rolesmith source add felix https://github.com/sunfmin/lore`";
+    let index = stdout(&rolesmith(&["--help"])).to_owned();
+    let start = index
+        .lines()
+        .find(|l| l.contains("To start on a machine"))
+        .expect("the index says how to start on a machine");
+    assert!(start.contains(add), "{start}");
+    let sources = stdout(&rolesmith(&["help", "sources"])).to_owned();
+    assert!(sources.contains(add), "{sources}");
+}
+
+#[test]
 fn use_help_says_how_to_compose_roles() {
     let o = rolesmith(&["use", "--help"]);
     assert_eq!(o.status.code(), Some(0));

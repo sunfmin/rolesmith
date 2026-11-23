@@ -2,7 +2,7 @@ Where roles come from: a library is a git repository of roles, a source is this 
 
 ## Libraries and sources
 
-A library holds `library.toml`, `roles/<role>/` (`role.toml`, `core.md`, `prohibitions.toml`, `skills/<skill>/SKILL.md`) and `tools/<tool>/tool.toml`. `rolesmith source add <name> <git-url>` clones one and records it under a name; the clone is of the library's `main`. Sources are recorded in `$XDG_CONFIG_HOME/rolesmith/sources.toml` (default `~/.config/rolesmith/`), clones kept in `$XDG_DATA_HOME/rolesmith/sources/<name>/` (default `~/.local/share/rolesmith/`).
+A library holds `library.toml`, `roles/<role>/` (`role.toml`, `core.md`, `prohibitions.toml`, `skills/<skill>/SKILL.md`) and `tools/<tool>/tool.toml`. `rolesmith source add <name> <git-url>` clones one and records it under a name; the clone is of the library's `main`. For example, `rolesmith source add felix https://github.com/sunfmin/lore` adds Felix's library. Sources are recorded in `$XDG_CONFIG_HOME/rolesmith/sources.toml` (default `~/.config/rolesmith/`), clones kept in `$XDG_DATA_HOME/rolesmith/sources/<name>/` (default `~/.local/share/rolesmith/`).
 
 ## Addressing a role
 
