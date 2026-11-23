@@ -565,7 +565,7 @@ fn role_files(
 
 /// The role of `entry` in its source at its rev, adding the source from `url` when the machine
 /// has none of that name, and fetching it when it lacks the rev.
-fn locate(place: &Place, entry: &RoleEntry) -> Result<Found, Failure> {
+pub fn locate(place: &Place, entry: &RoleEntry) -> Result<Found, Failure> {
     let mut record = Sources::load()?;
     match record.source.get(&entry.source) {
         None => sources::add(&mut record, &entry.source, &entry.url)?,

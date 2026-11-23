@@ -3,6 +3,8 @@
 //! whose check fails, installed by its pinned method into the user's own prefix, on this machine or
 //! on `--host` over ssh (SPEC.md §3.5, §8).
 
+use std::path::PathBuf;
+
 use serde_json::{Value, json};
 
 use super::{Command, Failure, Output};
@@ -10,6 +12,7 @@ use crate::host::Host;
 use crate::install::{self, Done, Installed};
 use crate::library::ToolToml;
 use crate::machine;
+use crate::needs;
 use crate::sources::{self, Found, Kind, Sources};
 
 /// Show and install the tools of a library, as this machine has them.
@@ -49,14 +52,21 @@ pub enum Action {
     /// ## Another host
     ///
     /// With `--host <host>` every check, every `brew` command and every script runs on that machine, as `ssh -o BatchMode=yes -- <host> sh -c '<command>'`: a `brew` tool goes into the host's own brew and prefix, and the host needs `sh` and ssh access by key, not rolesmith. It runs with the `PATH` that a command run over ssh gets there, so brew must be on it. This is the fix `rolesmith doctor <role> --host <host>` names.
+    ///
+    /// ## A project's roles
+    ///
+    /// With `--project <dir>` in place of a role it installs the programs of every role the project's `rolesmith.toml` records, each at its recorded rev, and of every role each requires, at that same rev; a tool two roles name is checked and installed once. Each installed tool adds `from`, the roles that name it, and the answer names the `project` and the `roles` it read. This is the fix `rolesmith doctor --project <dir>` names. A directory without `rolesmith.toml` is refused.
     #[command(verbatim_doc_comment)]
     Install {
         /// The role whose programs to install: <role> or <source>/<role>.
-        #[arg(required_unless_present = "tool", conflicts_with = "tool")]
+        #[arg(required_unless_present_any = ["tool", "project"], conflicts_with_all = ["tool", "project"])]
         role: Option<String>,
         /// One tool instead of a role's programs: <tool> or <source>/<tool>.
-        #[arg(long)]
+        #[arg(long, conflicts_with = "project")]
         tool: Option<String>,
+        /// The programs of every role this project's rolesmith.toml records, at its rev.
+        #[arg(long, value_name = "DIR")]
+        project: Option<PathBuf>,
         /// Check and install on this host over ssh instead of on this machine.
         #[arg(long)]
         host: Option<String>,
@@ -84,10 +94,17 @@ impl Command for Args {
                     "reason": { "type": "string", "description": "\"passes\", or why it does not" }
                   } },
                 { "title": "install", "type": "object",
-                  "required": ["source", "rev", "host", "tools"],
+                  "required": ["host", "tools"],
                   "properties": {
-                    "source": { "type": "string" },
-                    "rev": { "type": "string", "description": "the full SHA the tools were read at" },
+                    "source": { "type": "string", "description": "with a role or --tool" },
+                    "rev": { "type": "string", "description": "with a role or --tool: the full SHA the tools were read at" },
+                    "project": { "type": "string", "description": "with --project: the project's root" },
+                    "roles": { "type": "array", "description": "with --project: each role read, recorded or required, at its rev",
+                               "items": {
+                        "type": "object", "required": ["source", "role", "rev"],
+                        "properties": { "source": { "type": "string" }, "role": { "type": "string" },
+                                        "rev": { "type": "string" } }
+                    } },
                     "host": { "type": ["string", "null"], "description": "the host it installed on; null for this machine" },
                     "tools": { "type": "array", "items": {
                         "type": "object", "required": ["name", "method", "formula"],
@@ -96,7 +113,9 @@ impl Command for Args {
                             "method": { "enum": ["brew", "script", null],
                                         "description": "how it was installed; null when its check already passed" },
                             "formula": { "type": ["string", "null"],
-                                         "description": "the formula brew installed; null otherwise" }
+                                         "description": "the formula brew installed; null otherwise" },
+                            "from": { "type": "array", "items": { "type": "string" },
+                                      "description": "with --project: the roles that name it, as <source>/<role>" }
                         }
                     } }
                   } }
@@ -107,7 +126,18 @@ impl Command for Args {
     fn run(self) -> Result<Output, Failure> {
         match self.action {
             Action::Show { tool } => show(&tool),
-            Action::Install { role, tool, host } => install_all(role, tool, &Host::from_arg(host)),
+            Action::Install {
+                role,
+                tool,
+                project,
+                host,
+            } => {
+                let host = Host::from_arg(host);
+                match project {
+                    Some(dir) => install_project(dir, &host),
+                    None => install_all(role, tool, &host),
+                }
+            }
         }
     }
 }
@@ -185,8 +215,55 @@ fn install_all(role: Option<String>, tool: Option<String>, host: &Host) -> Resul
         (None, None) => unreachable!("clap requires a role or --tool"),
     };
 
+    let done = install_each(host, tools.iter().map(|(name, toml)| (name.as_str(), toml)))?;
+    let header = format!("{} at {}{}:\n", found.qualified(), found.rev, host.on());
+    Ok(Output {
+        json: json!({
+            "source": found.source,
+            "rev": found.rev,
+            "host": host.name(),
+            "tools": done.iter().map(tool_json).collect::<Vec<_>>(),
+        }),
+        human: header + &lines(&done),
+    })
+}
+
+/// Install the programs of every role the project at `dir` records, and of the roles they
+/// require, each tool once.
+fn install_project(dir: PathBuf, host: &Host) -> Result<Output, Failure> {
+    let (dir, read, needs) = needs::of_project(Some(dir))?;
+    let done = install_each(
+        host,
+        needs.programs.iter().map(|p| (p.name.as_str(), &p.toml)),
+    )?;
+    let tools: Vec<Value> = done
+        .iter()
+        .zip(&needs.programs)
+        .map(|(d, p)| {
+            let mut doc = tool_json(d);
+            doc["from"] = json!(p.from);
+            doc
+        })
+        .collect();
+    let header = format!("the roles of {}{}:\n", dir.display(), host.on());
+    Ok(Output {
+        json: json!({
+            "project": dir.display().to_string(),
+            "roles": read.iter().map(|f| json!({ "source": f.source, "role": f.name, "rev": f.rev })).collect::<Vec<_>>(),
+            "host": host.name(),
+            "tools": tools,
+        }),
+        human: header + &lines(&done),
+    })
+}
+
+/// Install each tool in order; the first refusal stops it and says what was installed before it.
+fn install_each<'a>(
+    host: &Host,
+    tools: impl Iterator<Item = (&'a str, &'a ToolToml)>,
+) -> Result<Vec<Done>, Failure> {
     let mut done: Vec<Done> = Vec::new();
-    for (name, toml) in &tools {
+    for (name, toml) in tools {
         match install::install(host, name, toml) {
             Ok(d) => done.push(d),
             Err(mut f) => {
@@ -199,30 +276,27 @@ fn install_all(role: Option<String>, tool: Option<String>, host: &Host) -> Resul
             }
         }
     }
+    Ok(done)
+}
 
-    let mut human = format!("{} at {}{}:\n", found.qualified(), found.rev, host.on());
-    for d in &done {
-        match installed_what(d) {
-            Some(what) => human.push_str(&format!("- {}: installed {what}\n", d.name)),
-            None => human.push_str(&format!("- {}: its check passes, left alone\n", d.name)),
-        }
-    }
-    Ok(Output {
-        json: json!({
-            "source": found.source,
-            "rev": found.rev,
-            "host": host.name(),
-            "tools": done.iter().map(|d| {
-                let (method, formula) = match &d.installed {
-                    None => (None, None),
-                    Some(Installed::Brew(formula)) => (Some("brew"), Some(formula)),
-                    Some(Installed::Script) => (Some("script"), None),
-                };
-                json!({ "name": d.name, "method": method, "formula": formula })
-            }).collect::<Vec<_>>(),
-        }),
-        human,
-    })
+/// One line per tool: what was installed, or that it was left alone.
+fn lines(done: &[Done]) -> String {
+    done.iter()
+        .map(|d| match installed_what(d) {
+            Some(what) => format!("- {}: installed {what}\n", d.name),
+            None => format!("- {}: its check passes, left alone\n", d.name),
+        })
+        .collect()
+}
+
+/// A tool as `--json` lists it: how it was installed and the formula brew installed.
+fn tool_json(d: &Done) -> Value {
+    let (method, formula) = match &d.installed {
+        None => (None, None),
+        Some(Installed::Brew(formula)) => (Some("brew"), Some(formula)),
+        Some(Installed::Script) => (Some("script"), None),
+    };
+    json!({ "name": d.name, "method": method, "formula": formula })
 }
 
 /// What an install did, as a refusal or the human answer names it: the formula brew installed,

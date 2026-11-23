@@ -85,7 +85,7 @@ pub fn quote(value: &str) -> String {
 
 /// `word` as sh reads it back: as it is when it holds nothing sh would split or expand, quoted
 /// otherwise.
-fn quote_word(word: &str) -> String {
+pub fn quote_word(word: &str) -> String {
     let plain = !word.is_empty()
         && word
             .chars()

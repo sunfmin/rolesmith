@@ -1066,3 +1066,239 @@ fn tool_install_with_host_installs_there_with_its_own_brew_and_scripts() {
         stderr(&o)
     );
 }
+
+/// A library where `app` requires `base`, and `app` and `web` share the tool `asc`, recorded in a
+/// project by `use app web`; `asc` logs each run of its check. Answers the project directory.
+fn project_library(m: &Machine) -> PathBuf {
+    let asc = brewed("asc --version", "asc", "7.0.0", ASC_CREDENTIAL);
+    let swiftlint = brewed(
+        "rolesmith-test-swiftlint --version",
+        "swiftlint",
+        "0.57.0",
+        "",
+    );
+    let xcodegen = brewed("xcodegen --version", "xcodegen", "2.42.0", "");
+    let app = format!(
+        "{}requires = [\"base\"]\n",
+        role(&["asc", "swiftlint"], &[])
+    );
+    let web = role(&["asc"], &[]);
+    let base = role(&["xcodegen"], &["github"]);
+    m.source(&[
+        ("roles/app/role.toml", &app),
+        ("roles/app/core.md", "Core.\n"),
+        ("roles/web/role.toml", &web),
+        ("roles/web/core.md", "Core.\n"),
+        ("roles/base/role.toml", &base),
+        ("roles/base/core.md", "Core.\n"),
+        ("tools/asc/tool.toml", &asc),
+        ("tools/swiftlint/tool.toml", &swiftlint),
+        ("tools/xcodegen/tool.toml", &xcodegen),
+    ]);
+    m.program(
+        "asc",
+        &format!("echo ran >> '{}'\nexit 0\n", m.path("asc-ran").display()),
+    );
+    let dir = m.path("project");
+    std::fs::create_dir_all(&dir).unwrap();
+    let o = m.rolesmith(&[
+        "use",
+        "app",
+        "web",
+        "--into",
+        "claude-code",
+        "--project",
+        dir.to_str().unwrap(),
+    ]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    dir
+}
+
+/// How many times `asc`'s check ran.
+fn asc_runs(m: &Machine) -> usize {
+    std::fs::read_to_string(m.path("asc-ran"))
+        .unwrap_or_default()
+        .lines()
+        .count()
+}
+
+#[test]
+fn doctor_project_checks_every_recorded_and_required_role_each_tool_once_naming_its_roles() {
+    let m = Machine::new(&["github"]);
+    let dir = project_library(&m);
+    let project = dir.to_str().unwrap();
+
+    let o = m.rolesmith(&["--json", "doctor", "--project", project]);
+    assert_eq!(o.status.code(), Some(1), "{}", stderr(&o));
+    assert_eq!(
+        asc_runs(&m),
+        1,
+        "asc is shared by app and web: checked once"
+    );
+    let fix = format!("rolesmith tool install --project {project}");
+    let missing = json(&o)["error"]["missing"].clone();
+    for item in missing.as_array().unwrap() {
+        conforms(item, &rolesmith::machine::Missing::shape());
+    }
+    assert_eq!(
+        missing,
+        serde_json::json!([
+            { "kind": "program", "name": "swiftlint",
+              "reason": "check `rolesmith-test-swiftlint --version` not installed: its command is not found",
+              "fix": fix, "from": ["felix/app"] },
+            { "kind": "program", "name": "xcodegen",
+              "reason": "check `xcodegen --version` fails: exits 3",
+              "fix": fix, "from": ["felix/base"] },
+            { "kind": "entry", "name": "asc-api-key", "reason": "no mytokens entry",
+              "fix": "mytokens put asc-api-key --fields \"Issuer ID\",\"Key ID\"",
+              "from": ["felix/app", "felix/web"] },
+        ])
+    );
+    assert_eq!(m.mytokens_calls(), "list\n");
+    let err = stderr(&o);
+    assert!(err.contains("lacks 3 thing(s), on this machine:"), "{err}");
+    assert!(
+        err.contains("program xcodegen: check `xcodegen --version` fails: exits 3 (from felix/base); fix: rolesmith tool install --project"),
+        "{err}"
+    );
+
+    // With everything present it answers the shape `doctor <role>` does, with the roles it read.
+    m.program("xcodegen", "exit 0\n");
+    m.program("rolesmith-test-swiftlint", "exit 0\n");
+    std::fs::write(
+        m.path("listing"),
+        "github/default\tstatic\tx\nasc-api-key/default\tstatic\tx\n",
+    )
+    .unwrap();
+    let o = m.rolesmith(&["--json", "doctor", "--project", project]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    let doc = json(&o);
+    conforms(&doc, &shape("doctor"));
+    assert!(doc.get("role").is_none(), "{doc}");
+    assert_eq!(doc["project"], project);
+    let roles: Vec<&str> = doc["roles"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["role"].as_str().unwrap())
+        .collect();
+    assert_eq!(roles, ["app", "base", "web"]);
+    assert_eq!(
+        doc["programs"],
+        serde_json::json!([
+            { "name": "asc", "check": "asc --version", "from": ["felix/app", "felix/web"] },
+            { "name": "swiftlint", "check": "rolesmith-test-swiftlint --version", "from": ["felix/app"] },
+            { "name": "xcodegen", "check": "xcodegen --version", "from": ["felix/base"] },
+        ])
+    );
+    assert_eq!(doc["entries"], serde_json::json!(["asc-api-key", "github"]));
+}
+
+#[test]
+fn doctor_project_reads_each_role_at_its_recorded_rev_not_the_source_main() {
+    let m = Machine::new(&["github", "asc-api-key"]);
+    let dir = project_library(&m);
+    let recorded = std::fs::read_to_string(dir.join("rolesmith.toml")).unwrap();
+
+    // The library moves on: base's xcodegen check now passes, and this machine brings it in.
+    let work = m.path("lore");
+    std::fs::write(
+        work.join("tools/xcodegen/tool.toml"),
+        brewed("true", "xcodegen", "2.42.0", ""),
+    )
+    .unwrap();
+    m.git(&work, &["commit", "--quiet", "-am", "second"]);
+    m.git(
+        &work,
+        &[
+            "push",
+            "--quiet",
+            m.path("lore.git").to_str().unwrap(),
+            "main",
+        ],
+    );
+    let o = m.rolesmith(&["source", "update"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    let o = m.rolesmith(&["doctor", "felix/base"]);
+    assert_eq!(o.status.code(), Some(0), "main has the passing check");
+
+    m.program("rolesmith-test-swiftlint", "exit 0\n");
+    let o = m.rolesmith(&["--json", "doctor", "--project", dir.to_str().unwrap()]);
+    assert_eq!(o.status.code(), Some(1), "{}", stderr(&o));
+    let missing = json(&o)["error"]["missing"].clone();
+    assert_eq!(missing.as_array().unwrap().len(), 1, "{missing}");
+    assert_eq!(
+        missing[0]["name"], "xcodegen",
+        "base is read at app's recorded rev"
+    );
+    assert_eq!(
+        std::fs::read_to_string(dir.join("rolesmith.toml")).unwrap(),
+        recorded,
+        "doctor writes nothing to the record"
+    );
+}
+
+#[test]
+fn tool_install_project_installs_each_tool_of_every_role_once() {
+    let m = Machine::new(&[]);
+    let dir = project_library(&m);
+    let project = dir.to_str().unwrap();
+    m.formula("swiftlint@0.57.0", "0.57.0", "rolesmith-test-swiftlint");
+    m.formula("xcodegen", "2.42.0", "xcodegen");
+
+    let o = m.rolesmith(&["--json", "tool", "install", "--project", project]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    assert_eq!(
+        asc_runs(&m),
+        1,
+        "asc's check passes, run once for app and web"
+    );
+    let doc = json(&o);
+    let install_shape = rolesmith::commands::output_shapes()
+        .into_iter()
+        .find(|(n, _)| *n == "tool")
+        .unwrap()
+        .1["oneOf"][1]
+        .clone();
+    conforms(&doc, &install_shape);
+    assert_eq!(doc["project"], project);
+    assert_eq!(
+        doc["tools"],
+        serde_json::json!([
+            { "name": "asc", "method": null, "formula": null, "from": ["felix/app", "felix/web"] },
+            { "name": "swiftlint", "method": "brew", "formula": "swiftlint@0.57.0", "from": ["felix/app"] },
+            { "name": "xcodegen", "method": "brew", "formula": "xcodegen", "from": ["felix/base"] },
+        ])
+    );
+    let o = m.rolesmith(&["tool", "install", "--project", project]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    let human = String::from_utf8(o.stdout).unwrap();
+    assert!(
+        human.contains("- xcodegen: its check passes, left alone"),
+        "{human}"
+    );
+}
+
+#[test]
+fn doctor_and_tool_install_refuse_a_project_without_rolesmith_toml() {
+    let m = Machine::new(&[]);
+    let dir = m.path("empty");
+    std::fs::create_dir_all(&dir).unwrap();
+    let project = dir.to_str().unwrap();
+    for args in [
+        &["--json", "doctor", "--project", project][..],
+        &["--json", "tool", "install", "--project", project][..],
+    ] {
+        let o = m.rolesmith(args);
+        assert_eq!(o.status.code(), Some(1), "{args:?}: {}", stderr(&o));
+        let message = json(&o)["error"]["message"].as_str().unwrap().to_owned();
+        assert!(
+            message.contains(&format!("{project} has no rolesmith.toml")),
+            "{message}"
+        );
+    }
+    let o = m.rolesmith(&["doctor", "app", "--project", project]);
+    assert_eq!(o.status.code(), Some(2), "a role and --project together");
+    let o = m.rolesmith(&["tool", "install", "--tool", "asc", "--project", project]);
+    assert_eq!(o.status.code(), Some(2), "--tool and --project together");
+}
