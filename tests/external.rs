@@ -236,3 +236,30 @@ fn show_and_prompt_list_an_external_skill_with_its_url_and_rev() {
         "{md}"
     );
 }
+
+#[test]
+fn the_cache_keeps_a_repository_under_its_escaped_url_and_refuses_a_tree_it_cannot_write() {
+    let (m, up, up_rev, _rev, _project) = setup();
+    let key: String = up
+        .url()
+        .bytes()
+        .map(|b| match b {
+            b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'.' | b'-' => char::from(b).to_string(),
+            _ => format!("_{b:02x}"),
+        })
+        .collect();
+    let tree = m.path("data/rolesmith/skills").join(key).join(&up_rev);
+    std::fs::create_dir_all(tree.parent().unwrap()).unwrap();
+    std::fs::write(&tree, "in the way\n").unwrap();
+    let out = m.rolesmith(&["show", "coder"]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(
+        stderr(&out).contains(&format!("cannot write {}", tree.display())),
+        "{}",
+        stderr(&out)
+    );
+
+    std::fs::remove_file(&tree).unwrap();
+    m.json(&["show", "coder"]);
+    assert!(tree.join("skills/engineering/tdd/run.sh").is_file());
+}
