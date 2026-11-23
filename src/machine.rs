@@ -8,6 +8,7 @@ use std::process::{Command, Stdio};
 use serde_json::{Value, json};
 
 use crate::commands::Failure;
+use crate::library::ToolToml;
 
 /// What running a tool's `check` here answered.
 pub struct Check {
@@ -16,20 +17,28 @@ pub struct Check {
     pub reason: String,
 }
 
-/// Run `command` through `sh -c` with no input; it passes when it exits 0. Its output is not kept.
-pub fn check(command: &str) -> Check {
-    let status = Command::new("sh")
+/// Run `tool`'s check through `sh -c` with no input. It passes when it exits 0 and, for a tool
+/// that pins what its check shows (a script's version), its stdout contains that. Its output is
+/// not kept.
+pub fn check_tool(tool: &ToolToml) -> Check {
+    let out = Command::new("sh")
         .arg("-c")
-        .arg(command)
+        .arg(&tool.check)
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .status();
-    let (passes, reason) = match status {
-        Ok(s) if s.success() => (true, "passes".to_owned()),
+        .output();
+    let (passes, reason) = match out {
+        Ok(o) if o.status.success() => match tool.shows() {
+            Some(v) if !String::from_utf8_lossy(&o.stdout).contains(v) => {
+                (false, format!("does not show the pinned version {v}"))
+            }
+            _ => (true, "passes".to_owned()),
+        },
         // sh's answer for a command it cannot find
-        Ok(s) if s.code() == Some(127) => (false, "not installed: its command is not found".into()),
-        Ok(s) => match s.code() {
+        Ok(o) if o.status.code() == Some(127) => {
+            (false, "not installed: its command is not found".into())
+        }
+        Ok(o) => match o.status.code() {
             Some(code) => (false, format!("fails: exits {code}")),
             None => (false, "fails: killed by a signal".to_owned()),
         },

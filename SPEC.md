@@ -158,14 +158,32 @@ mytokens = "asc-api-key"                      # the entry
 env = { ASC_KEY_ID = "Key ID", ASC_ISSUER_ID = "Issuer ID", ASC_PRIVATE_KEY_B64 = "Key (base64 .p8)" }
 ```
 
-`rolesmith tool install` leaves a tool whose `check` passes alone. Otherwise it installs
-`<formula>@<version>` where brew offers that formula, else `<formula>` when `brew info` reports the
-pinned version as the formula's stable one, and refuses before installing anything when it reports
-another. After installing, the tool's `check` must pass, or the install is refused. It runs only
-`brew`, as the user, into brew's own prefix: never `sudo`, never a system directory. An install
-method other than `brew` (`cargo`, `uv tool`, `npm -g`, a release tarball) is added by an ADR when a
-tool needs it. `env` maps each environment variable to the field of the mytokens entry
-it is filled from; a variable mapped to `""` is filled from the entry's single value.
+`[install]` names exactly one method, `brew` or `script`, and a pinned `version` (ADR 0005); any
+other key does not parse. A `script` is a shell script rolesmith runs with `sh -c`, as the user;
+pixi, mise, `uv tool`, `npm` into `~/.local`, a checked binary and Apple's components are each
+written as one:
+
+```toml
+check = "xcrun metal --version"
+[install]
+script = "xcodebuild -downloadComponent MetalToolchain"
+version = "17C48"                             # a script's check must show it on stdout
+```
+
+A tool's check passes when it exits 0 and, for a `script`, its stdout contains `version`: a check
+that exits 0 without showing the pinned version is missing, for `doctor` and for `tool install`.
+`rolesmith check` refuses an `[install]` with no method, both methods, or no or an empty `version`
+(`tool-unpinned`), and a script that names `sudo` (`tool-sudo`).
+
+`rolesmith tool install` leaves a tool whose `check` passes alone. Otherwise, for `brew`, it
+installs `<formula>@<version>` where brew offers that formula, else `<formula>` when `brew info`
+reports the pinned version as the formula's stable one, and refuses before installing anything when
+it reports another; after installing, the tool's `check` must pass, or the install is refused. For a
+`script`, it runs the script, then the check, and refuses unless the script exits 0 and the check
+passes, naming the script's exit code and the last lines of its stderr. Everything runs as the
+user, into the user's own prefix: never `sudo`, never a system directory.
+
+`env` maps each environment variable to the field of the mytokens entry it is filled from; a variable mapped to `""` is filled from the entry's single value.
 
 ## 4. Projects
 

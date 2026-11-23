@@ -3,7 +3,7 @@ How a run ends: its exit code, what it writes on stderr, and the one JSON object
 ## Exit codes
 
 - {const:EXIT_OK}: it did what was asked. Its answer is on stdout: human text, or with `--json` one JSON object on one line, whose keys each command's `--help` lists.
-- {const:EXIT_FAILED}: it refused, or something it needed failed (`git`, `gh`, `mytokens`, `brew`, a file). Nothing it refused was half done.
+- {const:EXIT_FAILED}: it refused, or something it needed failed (`git`, `gh`, `mytokens`, `brew`, a tool's install script, a file). Nothing it refused was half done.
 - {const:EXIT_USAGE}: the command line is not one rolesmith accepts: an unknown command, flag or topic, a missing argument, an unknown `--into` target.
 
 ## stderr

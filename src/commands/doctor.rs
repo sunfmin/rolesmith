@@ -10,7 +10,7 @@ use crate::sources::{self, Sources};
 
 /// Check what a role needs on this machine: each program's `check` passes, and each service and credential has its mytokens entry.
 ///
-/// Run it before working under a role. It runs each program's `check` with `sh -c` and reads only which entries exist (`mytokens list`), never a value. It refuses when anything is missing, listing each with the command that fixes it (`rolesmith tool install <source>/<role>`, `mytokens put <entry> --fields ...`); with `--json` as `error.missing`. Do every fix, then run it again. A program without its `tool.toml` is refused as `show` refuses the role.
+/// Run it before working under a role. It runs each program's `check` with `sh -c` (a `script` tool's check must also show its pinned version on stdout) and reads only which entries exist (`mytokens list`), never a value. It refuses when anything is missing, listing each with the command that fixes it (`rolesmith tool install <source>/<role>`, `mytokens put <entry> --fields ...`); with `--json` as `error.missing`. Do every fix, then run it again. A program without its `tool.toml` is refused as `show` refuses the role.
 #[derive(clap::Args)]
 #[command(verbatim_doc_comment)]
 pub struct Args {
@@ -64,7 +64,7 @@ impl Command for Args {
                 .iter()
                 .find(|t| &t.name == name)
                 .expect("a checked role has a tool.toml for each program");
-            let check = machine::check(&tool.toml.check);
+            let check = machine::check_tool(&tool.toml);
             if !check.passes {
                 missing.push(Missing {
                     kind: "program",
