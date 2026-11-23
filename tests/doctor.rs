@@ -1955,7 +1955,8 @@ impl Machine {
     /// clone of `d/tap.git`, offering `sunfmin/tap/flux` at the version its `flux.stable` holds.
     /// Installing or upgrading copies that version into `d/cellar` (what brew has installed) and
     /// puts `rolesmith-test-flux` on `d/bin`; while `d/locked` exists, the next one fails as brew
-    /// does when another brew holds the formula's lock, and removes it. Calls go to
+    /// does when another brew holds the formula's lock, and removes it; while `d/broken` exists, each
+    /// fails as a broken install does. Calls go to
     /// `d/brew-calls`.
     fn stable_brew(&self, d: &Path, stable: &str) {
         let tap = d.join("Taps/sunfmin/homebrew-tap");
@@ -1983,6 +1984,7 @@ case "$1" in
     i=; [ -f '@D/cellar' ] && i="{\"version\":\"$(cat '@D/cellar')\"}"
     echo "{\"formulae\":[{\"versions\":{\"stable\":\"$(cat "$T/flux.stable")\"},\"installed\":[$i]}]}" ;;
   install|upgrade) [ "$2" = sunfmin/tap/flux ] || exit 1
+    if [ -f '@D/broken' ]; then echo "Error: $2: no bottle" >&2; exit 1; fi
     if [ -f '@D/locked' ]; then rm '@D/locked'; echo "Error: A \`brew $1 $2\` process has already locked @D/flux.formula.lock." >&2; exit 1; fi
     cp "$T/flux.stable" '@D/cellar'; printf '#!/bin/sh\nexit 0\n' > '@D/bin/rolesmith-test-flux'; chmod +x '@D/bin/rolesmith-test-flux' ;;
   *) exit 1 ;;
@@ -2053,8 +2055,9 @@ fn a_brew_tool_following_stable_is_missing_while_older_and_tool_install_upgrades
     );
     assert!(!m.brew_calls().contains("upgrade"), "{}", m.brew_calls());
 
-    // The tap publishes 2.0. Fetched within the day, it is not fetched again: still at stable.
+    // The tap publishes 2.0. Refreshed within the day, it is not fetched again: still at stable.
     m.publish_stable(&d, "2.0");
+    m.fetched_ago(&d, 2);
     let o = m.rolesmith(&["doctor", "fluxed"]);
     assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
 
@@ -2110,12 +2113,26 @@ fn tool_install_installs_a_stable_brew_tool_by_its_formula_alone() {
     let d = m.path("");
     m.stable_brew(&d, "2.0");
     flux_library(&m);
+    // Its program is on PATH, but not from brew.
+    m.flux_installed(&d, "");
+    std::fs::remove_file(d.join("cellar")).unwrap();
 
     let o = m.rolesmith(&["--json", "doctor", "fluxed"]);
     assert_eq!(
         json(&o)["error"]["missing"][0]["reason"],
-        "check `rolesmith-test-flux --version` not installed: its command is not found"
+        "check `rolesmith-test-flux --version` passes, but brew has no sunfmin/tap/flux installed, not its stable 2.0"
     );
+
+    // A failing install is refused at once, not tried again as a held lock is.
+    std::fs::write(d.join("broken"), "").unwrap();
+    let o = m.rolesmith(&["--json", "tool", "install", "fluxed"]);
+    assert_eq!(
+        json(&o)["error"]["message"],
+        "`brew install sunfmin/tap/flux` failed: Error: sunfmin/tap/flux: no bottle"
+    );
+    assert_eq!(m.brew_calls().matches("\ninstall ").count(), 1);
+    std::fs::remove_file(d.join("broken")).unwrap();
+
     let o = m.rolesmith(&["--json", "tool", "install", "fluxed"]);
     assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
     assert!(

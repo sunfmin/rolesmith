@@ -193,6 +193,12 @@ mod tests {
     }
 
     #[test]
+    fn an_install_waits_for_a_held_lock_as_long_as_spec_says() {
+        // SPEC.md §3.5: tried again each second for up to 30 minutes.
+        assert_eq!((LOCK_WAIT.as_secs(), LOCK_POLL.as_secs()), (30 * 60, 1));
+    }
+
+    #[test]
     fn only_a_formula_named_with_its_tap_has_one() {
         assert_eq!(tap_of("sunfmin/tap/flux"), Some("sunfmin/tap"));
         assert_eq!(tap_of("asc"), None);
