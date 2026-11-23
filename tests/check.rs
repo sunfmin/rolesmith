@@ -460,3 +460,51 @@ fn a_missing_tool_is_reported_even_when_its_role_is_broken_otherwise() {
         "tool-missing"
     ));
 }
+
+#[test]
+fn a_script_install_is_pinned_alone_and_never_runs_sudo() {
+    let file = "tools/asc/tool.toml";
+    let tool = |install: &str| {
+        format!("description = \"d\"\ncheck = \"asc --version\"\n[install]\n{install}")
+    };
+    broken(
+        file,
+        &tool("script = \"cargo install --path forge/asc\"\n"),
+        file,
+        "tool-unpinned",
+    );
+    broken(
+        file,
+        &tool("script = \"cargo install asc\"\nversion = \" \"\n"),
+        file,
+        "tool-unpinned",
+    );
+    broken(
+        file,
+        &tool("brew = \"asc\"\nscript = \"cargo install asc\"\nversion = \"1.0.0\"\n"),
+        file,
+        "tool-unpinned",
+    );
+    broken(
+        file,
+        &tool("script = \"make && sudo make install\"\nversion = \"1.0.0\"\n"),
+        file,
+        "tool-sudo",
+    );
+    broken(
+        file,
+        &tool("script = \"/usr/bin/sudo -n installer -pkg x.pkg\"\nversion = \"1.0.0\"\n"),
+        file,
+        "tool-sudo",
+    );
+
+    // A pinned script with no sudo is sound; "pseudo" is not sudo.
+    let lib = sound();
+    write(
+        lib.path(),
+        file,
+        &tool("script = \"pseudo-installer asc && mise use -g asc@1.0.0\"\nversion = \"1.0.0\"\n"),
+    );
+    let o = check(lib.path(), &[]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+}

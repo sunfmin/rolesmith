@@ -173,12 +173,86 @@ pub struct ToolToml {
     pub credential: Option<Credential>,
 }
 
-/// `[install]`: the method and the pinned version. A method besides `brew` comes with an ADR.
+/// `[install]`: the one method (`brew` or `script`, ADR 0005) and the pinned version.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Install {
     pub brew: Option<String>,
+    pub script: Option<String>,
     pub version: Option<String>,
+}
+
+/// How a tool is installed, as its `[install]` pins it.
+pub enum Method<'a> {
+    /// A Homebrew formula.
+    Brew(&'a str),
+    /// A shell script rolesmith runs with `sh -c`, as the user.
+    Script(&'a str),
+}
+
+impl Install {
+    /// The method and the pinned version, or the rule it breaks and why: exactly one method, a
+    /// version that is not blank, and a script that never runs `sudo`.
+    pub fn pinned(&self) -> Result<(Method<'_>, &str), (Rule, &'static str)> {
+        let method = match (&self.brew, &self.script) {
+            (Some(formula), None) => Method::Brew(formula),
+            (None, Some(script)) => Method::Script(script),
+            (None, None) => {
+                return Err((
+                    Rule::ToolUnpinned,
+                    "[install] names no install method (brew or script)",
+                ));
+            }
+            (Some(_), Some(_)) => {
+                return Err((
+                    Rule::ToolUnpinned,
+                    "[install] names two install methods, brew and script; it takes one",
+                ));
+            }
+        };
+        let version = match &self.version {
+            None => {
+                return Err((
+                    Rule::ToolUnpinned,
+                    "[install] is not pinned: it has no `version`",
+                ));
+            }
+            Some(v) if v.trim().is_empty() => {
+                return Err((
+                    Rule::ToolUnpinned,
+                    "[install] is not pinned: its `version` is empty",
+                ));
+            }
+            Some(v) => v.as_str(),
+        };
+        if let Method::Script(script) = method
+            && runs_sudo(script)
+        {
+            return Err((
+                Rule::ToolSudo,
+                "[install] script runs `sudo`; rolesmith installs as the user, never as root",
+            ));
+        }
+        Ok((method, version))
+    }
+}
+
+impl ToolToml {
+    /// What the check's stdout must show for the tool to count as installed: a script's pinned
+    /// version. A brew tool's version is held by its formula, so its check need only pass.
+    pub fn shows(&self) -> Option<&str> {
+        match self.install.pinned() {
+            Ok((Method::Script(_), version)) => Some(version),
+            _ => None,
+        }
+    }
+}
+
+/// Whether `script` names `sudo` as a word (`sudo`, `/usr/bin/sudo`), not inside one (`pseudo`).
+fn runs_sudo(script: &str) -> bool {
+    script
+        .split(|c: char| !(c.is_alphanumeric() || c == '_' || c == '-' || c == '.'))
+        .any(|word| word == "sudo")
 }
 
 /// `[credential]`.
@@ -674,26 +748,8 @@ impl Checker<'_> {
         }
         let text = self.read(&file, Rule::ToolToml)?;
         let toml: ToolToml = self.parse(&file, &text, Rule::ToolToml)?;
-        match (&toml.install.brew, &toml.install.version) {
-            (None, _) => self.problem(
-                &file,
-                None,
-                Rule::ToolUnpinned,
-                "[install] names no install method (brew)",
-            ),
-            (Some(_), None) => self.problem(
-                &file,
-                None,
-                Rule::ToolUnpinned,
-                "[install] is not pinned: it has no `version`",
-            ),
-            (Some(_), Some(v)) if v.trim().is_empty() => self.problem(
-                &file,
-                None,
-                Rule::ToolUnpinned,
-                "[install] is not pinned: its `version` is empty",
-            ),
-            _ => {}
+        if let Err((rule, reason)) = toml.install.pinned() {
+            self.problem(&file, None, rule, reason);
         }
         Some(Tool {
             name: name.to_owned(),

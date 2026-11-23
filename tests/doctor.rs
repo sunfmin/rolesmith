@@ -419,9 +419,9 @@ fn tool_install_installs_each_failing_program_pinned_and_leaves_a_passing_one_al
     assert_eq!(
         doc["tools"],
         serde_json::json!([
-            { "name": "asc", "formula": null },
-            { "name": "swiftlint", "formula": "swiftlint@0.57.0" },
-            { "name": "xcodegen", "formula": "xcodegen" },
+            { "name": "asc", "method": null, "formula": null },
+            { "name": "swiftlint", "method": "brew", "formula": "swiftlint@0.57.0" },
+            { "name": "xcodegen", "method": "brew", "formula": "xcodegen" },
         ])
     );
     assert_eq!(
@@ -513,7 +513,7 @@ fn tool_install_refuses_an_unpinned_tool_named_alone() {
     let o = m.rolesmith(&["tool", "install", "--tool", "loose"]);
     assert_eq!(o.status.code(), Some(1));
     assert!(
-        stderr(&o).contains("tool loose is not pinned"),
+        stderr(&o).contains("tool loose cannot be installed: [install] is not pinned"),
         "{}",
         stderr(&o)
     );
@@ -719,5 +719,153 @@ fn env_refuses_a_service_no_credential_maps_and_a_failing_read() {
         stderr(&o).contains("`mytokens get asc-api-key` failed: no get"),
         "{}",
         stderr(&o)
+    );
+}
+
+/// A tool installed by `script`, pinned at `version`; the script is a TOML literal string.
+fn scripted(check: &str, script: &str, version: &str) -> String {
+    format!(
+        "description = \"A tool\"\ncheck = \"{check}\"\n[install]\nscript = '''{script}'''\nversion = \"{version}\"\n"
+    )
+}
+
+impl Machine {
+    /// A script line that puts `name` on `PATH`, printing `says`.
+    fn provides(&self, name: &str, says: &str) -> String {
+        let p = self.path("bin").join(name);
+        format!(
+            "printf '#!/bin/sh\\necho {says}\\n' > '{p}' && chmod +x '{p}'",
+            p = p.display()
+        )
+    }
+
+    /// A `pixi` stand-in: `pixi global install <package>=<version>` puts `<package>` on `PATH`,
+    /// printing its name and that version.
+    fn pixi(&self) {
+        self.program(
+            "pixi",
+            &format!(
+                "echo \"$*\" >> '{calls}'\n[ \"$1 $2\" = 'global install' ] || exit 1\nname=${{3%%=*}}\nprintf '#!/bin/sh\\necho %s %s\\n' \"$name\" \"${{3#*=}}\" > '{bin}'/\"$name\"\nchmod +x '{bin}'/\"$name\"\n",
+                calls = self.path("pixi-calls").display(),
+                bin = self.path("bin").display(),
+            ),
+        );
+    }
+}
+
+#[test]
+fn tool_install_runs_a_script_until_the_check_shows_the_pinned_version() {
+    let m = Machine::new(&[]);
+    m.pixi();
+    // `here` is installed at the pin; `stale` is installed at another version; `rolesmith-test-av`
+    // is not installed, and comes from conda-forge with pixi.
+    m.program("rolesmith-test-here", "echo 'here 17C48'\n");
+    m.program("rolesmith-test-stale", "echo 'stale 1.0.0'\n");
+    let marker = m.path("here-script-ran");
+    let here = scripted(
+        "rolesmith-test-here --version",
+        &format!("touch '{}'", marker.display()),
+        "17C48",
+    );
+    let stale = scripted(
+        "rolesmith-test-stale --version",
+        &m.provides("rolesmith-test-stale", "stale 2.0.0"),
+        "2.0.0",
+    );
+    let av = scripted(
+        "rolesmith-test-av --version",
+        "pixi global install rolesmith-test-av=7.1.1",
+        "7.1.1",
+    );
+    let role_toml = role(&["here", "stale", "rolesmith-test-av"], &[]);
+    m.source(&[
+        ("roles/builder/role.toml", &role_toml),
+        ("roles/builder/core.md", "Core.\n"),
+        ("tools/here/tool.toml", &here),
+        ("tools/stale/tool.toml", &stale),
+        ("tools/rolesmith-test-av/tool.toml", &av),
+    ]);
+
+    // A check that passes without printing the pinned version is missing.
+    let o = m.rolesmith(&["--json", "doctor", "builder"]);
+    assert_eq!(o.status.code(), Some(1));
+    let missing = json(&o)["error"]["missing"].clone();
+    let names: Vec<&str> = missing
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|x| x["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["stale", "rolesmith-test-av"], "{missing}");
+    assert_eq!(
+        missing[0]["reason"],
+        "check `rolesmith-test-stale --version` does not show the pinned version 2.0.0"
+    );
+    let o = m.rolesmith(&["--json", "tool", "show", "stale"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    assert_eq!(json(&o)["passes"], false);
+
+    let o = m.rolesmith(&["--json", "tool", "install", "builder"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    assert_eq!(
+        json(&o)["tools"],
+        serde_json::json!([
+            { "name": "here", "formula": null, "method": null },
+            { "name": "rolesmith-test-av", "formula": null, "method": "script" },
+            { "name": "stale", "formula": null, "method": "script" },
+        ])
+    );
+    assert!(!marker.exists(), "an installed tool's script is not run");
+    assert_eq!(
+        std::fs::read_to_string(m.path("pixi-calls")).unwrap(),
+        "global install rolesmith-test-av=7.1.1\n"
+    );
+    assert_eq!(m.brew_calls(), "", "a script tool never asks brew");
+
+    let o = m.rolesmith(&["doctor", "builder"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    let o = m.rolesmith(&["tool", "install", "builder"]);
+    let human = String::from_utf8(o.stdout).unwrap();
+    assert!(
+        human.contains("- stale: its check passes, left alone"),
+        "{human}"
+    );
+}
+
+#[test]
+fn tool_install_refuses_a_script_that_fails_or_installs_another_version() {
+    let m = Machine::new(&[]);
+    let broken = scripted(
+        "rolesmith-test-broken --version",
+        "echo compiling >&2; echo 'error: linker failed' >&2; exit 4",
+        "1.0.0",
+    );
+    let wrong = scripted(
+        "rolesmith-test-wrong --version",
+        &m.provides("rolesmith-test-wrong", "wrong 1.9.0"),
+        "2.0.0",
+    );
+    m.source(&[
+        ("tools/broken/tool.toml", &broken),
+        ("tools/wrong/tool.toml", &wrong),
+    ]);
+
+    let o = m.rolesmith(&["--json", "tool", "install", "--tool", "broken"]);
+    assert_eq!(o.status.code(), Some(1));
+    let message = json(&o)["error"]["message"].as_str().unwrap().to_owned();
+    assert_eq!(
+        message,
+        "ran tool broken's script, which exits 4, and its check `rolesmith-test-broken --version` \
+         not installed: its command is not found; the script's stderr ends:\n\
+         compiling\nerror: linker failed"
+    );
+
+    let o = m.rolesmith(&["--json", "tool", "install", "--tool", "wrong"]);
+    assert_eq!(o.status.code(), Some(1));
+    let message = json(&o)["error"]["message"].as_str().unwrap().to_owned();
+    assert_eq!(
+        message,
+        "ran tool wrong's script, which exits 0, and its check `rolesmith-test-wrong --version` \
+         does not show the pinned version 2.0.0; the script's stderr is empty"
     );
 }

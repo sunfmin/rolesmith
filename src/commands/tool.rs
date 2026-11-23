@@ -5,14 +5,14 @@
 use serde_json::{Value, json};
 
 use super::{Command, Failure, Output};
-use crate::install::{self, Done};
+use crate::install::{self, Done, Installed};
 use crate::library::ToolToml;
 use crate::machine;
 use crate::sources::{self, Found, Kind, Sources};
 
 /// Show and install the tools of a library, as this machine has them.
 ///
-/// A tool is a program a role runs, described by its library's `tools/<tool>/tool.toml`: how to check it, how to install it at a pinned version, and the credential it needs. A tool is addressed as a role is.
+/// A tool is a program a role runs, described by its library's `tools/<tool>/tool.toml`: how to check it, how to install it at a pinned version (by `brew` or by a `script`), and the credential it needs. A tool is addressed as a role is.
 ///
 /// Each subcommand's `rolesmith tool <subcommand> --help` says when to run it and what it answers.
 #[derive(clap::Args)]
@@ -34,13 +34,14 @@ pub enum Action {
     },
     /// Install each program of a role (or one tool) whose check fails, by its pinned method.
     ///
-    /// Run it when `rolesmith doctor` names a program missing. A tool whose check passes is left alone. It installs with `brew`, as you, into brew's own prefix, never with `sudo`: `<formula>@<version>` where brew has it, else `<formula>` when brew's stable version is the pinned one. After installing, the tool's check must pass. Tools are installed in order; the first refusal stops it and names what was installed before it.
+    /// Run it when `rolesmith doctor` names a program missing. A tool whose check passes is left alone; a `script` tool's check passes only when its stdout shows the pinned `version`. Everything runs as you, never with `sudo`. A `brew` tool is installed into brew's own prefix: `<formula>@<version>` where brew has it, else `<formula>` when brew's stable version is the pinned one. A `script` tool's script is run with `sh -c`. After installing, the tool's check must pass. Tools are installed in order; the first refusal stops it and names what was installed before it.
     ///
     /// ## Refusals
     ///
-    /// - a tool without a pinned version or with an unknown method;
+    /// - a tool without a pinned version, with no method or with both `brew` and `script`;
     /// - a formula whose stable version is not the pinned one (before installing anything);
-    /// - a check that still fails after installing.
+    /// - a script that exits non-zero, with its exit code and the end of its stderr;
+    /// - a check that still fails, or does not show the pinned version, after installing.
     #[command(verbatim_doc_comment)]
     Install {
         /// The role whose programs to install: <role> or <source>/<role>.
@@ -78,11 +79,13 @@ impl Command for Args {
                     "source": { "type": "string" },
                     "rev": { "type": "string", "description": "the full SHA the tools were read at" },
                     "tools": { "type": "array", "items": {
-                        "type": "object", "required": ["name", "formula"],
+                        "type": "object", "required": ["name", "method", "formula"],
                         "properties": {
                             "name": { "type": "string" },
+                            "method": { "enum": ["brew", "script", null],
+                                        "description": "how it was installed; null when its check already passed" },
                             "formula": { "type": ["string", "null"],
-                                         "description": "the formula installed; null when its check already passed" }
+                                         "description": "the formula brew installed; null otherwise" }
                         }
                     } }
                   } }
@@ -124,7 +127,7 @@ fn show(address: &str) -> Result<Output, Failure> {
     let record = Sources::load()?;
     let found = sources::resolve_kind(&record, Kind::Tool, address, None)?;
     let (text, toml) = read_tool(&found)?;
-    let check = machine::check(&toml.check);
+    let check = machine::check_tool(&toml);
     let human = format!(
         "# {} ({} at {})\n\n{}\n\n## tool.toml\n\n{}\n\n## Here\n\n`{}` {}\n",
         found.name,
@@ -176,8 +179,11 @@ fn install_all(role: Option<String>, tool: Option<String>) -> Result<Output, Fai
         match install::install(name, toml) {
             Ok(d) => done.push(d),
             Err(mut f) => {
-                let installed: Vec<&str> =
-                    done.iter().filter_map(|d| d.formula.as_deref()).collect();
+                let installed: Vec<String> = done
+                    .iter()
+                    .filter(|d| d.installed.is_some())
+                    .map(installed_what)
+                    .collect();
                 if !installed.is_empty() {
                     f.message
                         .push_str(&format!("; installed before it: {}", installed.join(", ")));
@@ -189,8 +195,8 @@ fn install_all(role: Option<String>, tool: Option<String>) -> Result<Output, Fai
 
     let mut human = format!("{} at {}:\n", found.qualified(), found.rev);
     for d in &done {
-        match &d.formula {
-            Some(formula) => human.push_str(&format!("- {}: installed {formula}\n", d.name)),
+        match &d.installed {
+            Some(_) => human.push_str(&format!("- {}: installed {}\n", d.name, installed_what(d))),
             None => human.push_str(&format!("- {}: its check passes, left alone\n", d.name)),
         }
     }
@@ -198,8 +204,24 @@ fn install_all(role: Option<String>, tool: Option<String>) -> Result<Output, Fai
         json: json!({
             "source": found.source,
             "rev": found.rev,
-            "tools": done.iter().map(|d| json!({ "name": d.name, "formula": d.formula })).collect::<Vec<_>>(),
+            "tools": done.iter().map(|d| {
+                let (method, formula) = match &d.installed {
+                    None => (None, None),
+                    Some(Installed::Brew(formula)) => (Some("brew"), Some(formula)),
+                    Some(Installed::Script) => (Some("script"), None),
+                };
+                json!({ "name": d.name, "method": method, "formula": formula })
+            }).collect::<Vec<_>>(),
         }),
         human,
     })
+}
+
+/// What an install did, as a refusal or the human answer names it: the formula brew installed,
+/// or the tool by its script.
+fn installed_what(d: &Done) -> String {
+    match &d.installed {
+        Some(Installed::Brew(formula)) => formula.clone(),
+        _ => format!("{} by its script", d.name),
+    }
 }

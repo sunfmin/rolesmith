@@ -38,8 +38,10 @@ pub enum Rule {
     ToolMissing,
     /// `tool.toml` parses.
     ToolToml,
-    /// A tool's `[install]` names a known method and a pinned version.
+    /// A tool's `[install]` names one method, `brew` or `script`, and a pinned `version`.
     ToolUnpinned,
+    /// A tool's install `script` never runs `sudo`: rolesmith installs as the user.
+    ToolSudo,
     /// Nothing matches a secret pattern.
     Secret,
 }
