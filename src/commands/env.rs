@@ -4,6 +4,7 @@
 //! `export` lines or handed to a command; written nowhere (SPEC.md §7.1, ADR 0006).
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::io::Write;
 use std::os::unix::process::CommandExt;
 
 use serde_json::{Value, json};
@@ -11,7 +12,7 @@ use serde_json::{Value, json};
 use super::{Command, Failure, Output};
 use crate::library::Credential;
 use crate::machine;
-use crate::service_map::{self, ServiceMap};
+use crate::service_map::{self, Asks, ServiceMap};
 use crate::sources::{self, Sources};
 
 /// Print a role's credentials as `export NAME='value'` lines, or run a command with them set.
@@ -36,7 +37,7 @@ use crate::sources::{self, Sources};
 /// check = "test -x ~/bin/sentry-env"
 /// ```
 ///
-/// A command that exits non-zero is refused with its stderr, and a line that is not a variable is refused by its number; nothing is exported then. A `[credential]` variable the command does not print is refused, each with its service (`error.absent`). The command runs before the variables are checked against each other, so a conflict with a mapped service is found after it ran.
+/// Before it runs a command that the table of `rolesmith doctor --help` knows asks for a person (1Password's `op` without a service account token, `sudo`), it says so on stderr: an unattended run waits on that prompt. A command that exits non-zero is refused with its stderr, and a line that is not a variable is refused by its number; nothing is exported then. A `[credential]` variable the command does not print is refused, each with its service (`error.absent`). The command runs before the variables are checked against each other, so a conflict with a mapped service is found after it ran.
 ///
 /// ## Pitfall
 ///
@@ -130,6 +131,13 @@ impl Command for Args {
             if let Some(mapped) = map.get(service)
                 && !given.contains_key(service.as_str())
             {
+                if let Asks::Person(hint) = mapped.asks_for() {
+                    // Before it runs, so a run that stalls on the prompt ends saying why.
+                    let _ = writeln!(
+                        std::io::stderr().lock(),
+                        "rolesmith: service {service}: {hint}"
+                    );
+                }
                 given.insert(service, mapped.variables(service)?);
             }
         }

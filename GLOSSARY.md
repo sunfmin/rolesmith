@@ -22,6 +22,8 @@
 
 **Service mapping**: a host's own choice to read a service from a command that prints its variables (1Password's `op inject`, a script) instead of mytokens: a `[service.<name>]` of the host's `services.toml`, beside `sources.toml`. Never in a library. _Avoid_: provider, backend
 
+**Probe**: one read of a mapped service's command by `doctor --probe`, with nothing that could answer a prompt and under a bound, to learn whether it reads `unattended` or `needs a person`; its outcome is kept on the host for the command it probed. _Avoid_: test, dry run
+
 **Target**: an agent a role is installed into (`claude-code`, `codex`, `agents`), and the skill directory that agent reads.
 
 **Install**: the files rolesmith generates in a target's skill directory for a role, listed in a manifest and rewritten identically by `sync`. A **project install** is recorded in the project's `rolesmith.toml`; a **global install** in `global.toml`.

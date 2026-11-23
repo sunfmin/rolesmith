@@ -65,6 +65,13 @@ impl ServiceMap {
 }
 
 impl Mapped {
+    /// What its command asks for when read, in the environment rolesmith runs it in.
+    pub fn asks_for(&self) -> Asks {
+        asks_for(&self.command, |var| {
+            std::env::var_os(var).is_some_and(|v| !v.is_empty())
+        })
+    }
+
     /// The variables `service`'s command prints now, kept nowhere. A command that cannot be run,
     /// exits non-zero (refused with its stderr) or prints a line that is not a variable is a
     /// failure, and none of its variables is answered.
@@ -92,6 +99,69 @@ impl Mapped {
                 self.command
             ))
         })
+    }
+}
+
+/// What reading a source asks of whoever runs it, known from its command alone.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Asks {
+    /// It reads without anyone: mytokens, or 1Password with a service account token.
+    Nothing,
+    /// It waits on a person (Touch ID, a password, a prompt); what to say about it.
+    Person(&'static str),
+    /// The table does not know the command: `doctor --probe` measures it.
+    Unknown,
+}
+
+impl Asks {
+    /// Its name in `doctor`'s answer (`asks_for`).
+    pub fn name(&self) -> &'static str {
+        match self {
+            Asks::Nothing => "nothing",
+            Asks::Person(_) => "a person",
+            Asks::Unknown => "unknown",
+        }
+    }
+}
+
+/// What 1Password's `op` asks for without a service account token.
+pub const OP_HINT: &str = "1Password asks for Touch ID or your password on each read; an unattended worker stalls on it. Use a service account token to read without a person";
+
+/// The commands whose asking is known: the program a command starts with, the variable that lets
+/// it read without a person (in rolesmith's environment or assigned before it in the command),
+/// and what it asks without it (`None`: nothing). `doctor --help` tables the same rows.
+pub const KNOWN: &[(&str, Option<&str>, Option<&str>)] = &[
+    ("mytokens", None, None),
+    ("op", Some("OP_SERVICE_ACCOUNT_TOKEN"), Some(OP_HINT)),
+    ("sudo", None, Some("sudo asks for a password")),
+];
+
+/// What the shell line `command` asks for when it reads, by the program its first word names
+/// (after `env` and any `NAME=value` assignments, each one sh word: quote a value with a space),
+/// with `set` telling whether a variable is set non-empty in the environment it runs in.
+pub fn asks_for(command: &str, set: impl Fn(&str) -> bool) -> Asks {
+    let mut assigned = Vec::new();
+    let mut chars = command.char_indices().peekable();
+    let program = loop {
+        while chars.next_if(|&(_, c)| c == ' ' || c == '\t').is_some() {}
+        let Ok(word) = value(&mut chars) else {
+            return Asks::Unknown;
+        };
+        match word.split_once('=') {
+            Some((name, value)) if is_name(name) => {
+                if !value.is_empty() {
+                    assigned.push(name.to_owned());
+                }
+            }
+            _ if word == "env" && assigned.is_empty() => {}
+            _ => break word.rsplit('/').next().unwrap_or_default().to_owned(),
+        }
+    };
+    match KNOWN.iter().find(|(p, _, _)| *p == program) {
+        None => Asks::Unknown,
+        Some((_, Some(var), _)) if assigned.iter().any(|a| a == var) || set(var) => Asks::Nothing,
+        Some((_, _, None)) => Asks::Nothing,
+        Some((_, _, Some(hint))) => Asks::Person(hint),
     }
 }
 
@@ -253,6 +323,42 @@ mod tests {
             parse("A='a\\$b\\'\nB=c").unwrap(),
             vars(&[("A", r"a\$b\"), ("B", "c")])
         );
+    }
+
+    #[test]
+    fn a_command_asks_for_what_the_table_says_of_its_program() {
+        let none = |_: &str| false;
+        assert_eq!(
+            asks_for("op inject -i ~/a.env", none),
+            Asks::Person(OP_HINT)
+        );
+        assert_eq!(asks_for("/opt/bin/op read x", none), Asks::Person(OP_HINT));
+        assert_eq!(
+            asks_for("op inject", |v| v == "OP_SERVICE_ACCOUNT_TOKEN"),
+            Asks::Nothing
+        );
+        assert_eq!(
+            asks_for("OP_SERVICE_ACCOUNT_TOKEN=\"$(cat t)\" op inject", none),
+            Asks::Nothing
+        );
+        assert_eq!(
+            asks_for("env OP_SERVICE_ACCOUNT_TOKEN=x op inject", none),
+            Asks::Nothing
+        );
+        assert_eq!(
+            asks_for("OP_SERVICE_ACCOUNT_TOKEN= op inject", none),
+            Asks::Person(OP_HINT)
+        );
+        assert_eq!(asks_for("mytokens env x", none), Asks::Nothing);
+        assert_eq!(
+            asks_for("sudo cat f", none),
+            Asks::Person("sudo asks for a password")
+        );
+        assert_eq!(asks_for("~/bin/opx", none), Asks::Unknown);
+        assert_eq!(asks_for("A=1", none), Asks::Unknown);
+        // A word with `=` that does not start with a name is the program, not an assignment.
+        assert_eq!(asks_for("./a=b op", none), Asks::Unknown);
+        assert_eq!(asks_for("", none), Asks::Unknown);
     }
 
     #[test]

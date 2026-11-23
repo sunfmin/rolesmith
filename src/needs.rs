@@ -31,6 +31,8 @@ pub struct Program {
 pub struct Entry {
     pub name: String,
     pub fields: Vec<String>,
+    /// The variables its credentials export, which a command this host maps it to must print.
+    pub variables: Vec<String>,
     /// The roles that read it, as `<source>/<role>`.
     pub from: Vec<String>,
 }
@@ -41,7 +43,7 @@ impl Needs {
     pub fn add(&mut self, source: &str, lib: &Library, role: &Role) {
         let from = format!("{source}/{}", role.name);
         for service in &role.toml.services {
-            self.entry(service, &[], &from);
+            self.entry(service, &[], &[], &from);
         }
         for name in &role.toml.programs {
             let tool = lib
@@ -69,18 +71,20 @@ impl Needs {
                     .filter(|f| !f.is_empty())
                     .cloned()
                     .collect();
-                self.entry(&cred.mytokens, &fields, &from);
+                let variables: Vec<String> = cred.env.keys().cloned().collect();
+                self.entry(&cred.mytokens, &fields, &variables, &from);
             }
         }
     }
 
-    fn entry(&mut self, name: &str, fields: &[String], from: &str) {
+    fn entry(&mut self, name: &str, fields: &[String], variables: &[String], from: &str) {
         let at = match self.entries.iter().position(|e| e.name == name) {
             Some(at) => at,
             None => {
                 self.entries.push(Entry {
                     name: name.to_owned(),
                     fields: Vec::new(),
+                    variables: Vec::new(),
                     from: Vec::new(),
                 });
                 self.entries.len() - 1
@@ -90,6 +94,9 @@ impl Needs {
         push_once(&mut entry.from, from);
         for field in fields {
             push_once(&mut entry.fields, field);
+        }
+        for variable in variables {
+            push_once(&mut entry.variables, variable);
         }
     }
 }

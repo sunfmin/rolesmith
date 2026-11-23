@@ -1,0 +1,10 @@
+{
+  "tree": "a136398768f7071f5c362c004f273f3755ae5bd1+d1fba762150c532c",
+  "lines": 697,
+  "serves": "rolesmith#42",
+  "considered": "service_map::parse (reused to read a probe's stdout for names), Mapped::variables (env's read: kept apart, as it closes stdin and returns values the probe must never hold), sources::Sources::save (the whole-write pattern copied, with a lock added since keep reads then writes), Host::sh (not reused: it has no bound, session or group kill)",
+  "reviewer": "codex:01a20808-7ad6-7183-b01b-cf3007ffa77c:default",
+  "author": "claude-code:fdc4a36f-c4c6-5557-9e81-6665fcca8e76:opus",
+  "cut": "In src/probe.rs, replace the hand-written UTC calendar conversion with an RFC 3339 formatter and derive the human verdict label from the serialized outcome tag. In src/probe.rs and src/commands/doctor.rs, serialize a shared timestamp-and-outcome struct directly so doctor can drop the code that serializes the storage record and removes its command; collect fresh results into the lookup map once and pass it by reference to keep. In tests/doctor.rs, make Machine::rolesmith delegate to rolesmith_with with no overrides to reuse command setup.",
+  "answer": "Done: the label comes from the serde tag; Probed {at, outcome} is serialized as doctor's probe and Kept flattens it with the command; fresh probes are collected into the map once and keep takes it by reference; Machine::rolesmith delegates to rolesmith_with. Not done: the RFC 3339 formatter, as Cargo.lock has no date crate (no time, chrono, humantime or jiff) and adding one would replace 15 lines unit-tested against date -u."
+}
