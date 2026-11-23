@@ -1401,3 +1401,223 @@ fn env_exports_a_profile_beside_credentials_and_refuses_a_name_from_two_sources(
         "nothing is read before the refusal"
     );
 }
+
+impl Machine {
+    /// Map `service`, in this host's services.toml, to `command`, with `check` beside it, in
+    /// place of what it was mapped to.
+    fn map_service(&self, service: &str, command: &str, check: Option<&str>) {
+        let file = self.path("config/rolesmith/services.toml");
+        let text = std::fs::read_to_string(&file).unwrap_or_default();
+        let mut doc: toml::Table = text.parse().unwrap();
+        let mut mapped = toml::Table::new();
+        mapped.insert("command".into(), command.into());
+        if let Some(check) = check {
+            mapped.insert("check".into(), check.into());
+        }
+        doc.entry("service")
+            .or_insert_with(|| toml::Table::new().into())
+            .as_table_mut()
+            .unwrap()
+            .insert(service.into(), mapped.into());
+        std::fs::write(file, toml::to_string(&doc).unwrap()).unwrap();
+    }
+
+    /// A stand-in `name` on `PATH` that notes each run and what it read on stdin in `<name>-ran`,
+    /// then runs `body`.
+    fn noting(&self, name: &str, body: &str) {
+        let ran = self.path(&format!("{name}-ran"));
+        self.program(
+            name,
+            &format!("{{ echo run; cat; }} >> '{}' 2>&1\n{body}", ran.display()),
+        );
+    }
+
+    fn ran(&self, name: &str) -> String {
+        std::fs::read_to_string(self.path(&format!("{name}-ran"))).unwrap_or_default()
+    }
+}
+
+const PRINTS_A_AND_B: &str = "echo A=1\necho \"export B='two'\"\n";
+
+#[test]
+fn env_reads_a_service_this_host_maps_from_its_command_alone() {
+    let m = Machine::new(&[]);
+    m.source(&[
+        ("roles/signer/role.toml", &role(&[], &["signing"])),
+        ("roles/signer/core.md", "Core.\n"),
+    ]);
+    m.noting("signing-env", PRINTS_A_AND_B);
+    m.map_service("signing", "signing-env", None);
+
+    let o = m.rolesmith(&["env", "signer"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    assert_eq!(
+        String::from_utf8(o.stdout).unwrap(),
+        "export A='1'\nexport B='two'\n"
+    );
+    assert_eq!(
+        m.ran("signing-env"),
+        "run\n",
+        "stdin closed: it read nothing"
+    );
+
+    let o = m.rolesmith(&[
+        "env",
+        "signer",
+        "--",
+        "sh",
+        "-c",
+        "printf '%s|%s' \"$A\" \"$B\"",
+    ]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    assert_eq!(String::from_utf8(o.stdout).unwrap(), "1|two");
+
+    let o = m.rolesmith(&["--json", "env", "signer"]);
+    let doc = json(&o);
+    conforms(&doc, &shape("env"));
+    assert_eq!(
+        doc["variables"],
+        serde_json::json!({ "A": "1", "B": "two" })
+    );
+    assert_eq!(m.mytokens_calls(), "", "mytokens is never asked");
+}
+
+#[test]
+fn env_refuses_a_mapped_command_that_fails_and_exports_nothing() {
+    let m = Machine::new(&[]);
+    m.source(&[
+        ("roles/signer/role.toml", &role(&[], &["signing"])),
+        ("roles/signer/core.md", "Core.\n"),
+    ]);
+    m.map_service(
+        "signing",
+        "echo A=1; echo 'vault is locked' >&2; exit 3",
+        None,
+    );
+    let o = m.rolesmith(&["--json", "env", "signer"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(json(&o).get("variables").is_none());
+    let err = stderr(&o);
+    assert!(err.contains("exits 3: vault is locked"), "{err}");
+    assert!(err.contains("service signing"), "{err}");
+
+    let o = m.rolesmith(&["env", "signer", "--", "sh", "-c", "touch child-ran"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(o.stdout.is_empty());
+    assert!(!m.path("child-ran").exists());
+
+    m.program("signing-env", "echo A=1\necho not-a-line-secret\n");
+    m.map_service("signing", "signing-env", None);
+    let o = m.rolesmith(&["env", "signer"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(o.stdout.is_empty());
+    let err = stderr(&o);
+    assert!(err.contains("line 2 of what its command"), "{err}");
+    assert!(!err.contains("not-a-line-secret"), "never echoed: {err}");
+}
+
+#[test]
+fn env_refuses_a_credential_variable_the_mapped_command_does_not_print() {
+    let m = Machine::new(&[]);
+    m.source(&[
+        ("roles/releaser/role.toml", &role(&["asc"], &[])),
+        ("roles/releaser/core.md", "Core.\n"),
+        ("tools/asc/tool.toml", &tool("true", ASC_CREDENTIAL)),
+    ]);
+    m.map_service("asc-api-key", "echo ASC_KEY_ID=k; echo OTHER=o", None);
+    let o = m.rolesmith(&["--json", "env", "releaser"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert_eq!(
+        json(&o)["error"]["absent"],
+        serde_json::json!([{ "name": "ASC_ISSUER_ID", "service": "asc-api-key" }])
+    );
+    assert!(stderr(&o).contains("ASC_ISSUER_ID"), "{}", stderr(&o));
+
+    m.map_service(
+        "asc-api-key",
+        "echo ASC_KEY_ID=k; echo ASC_ISSUER_ID=i",
+        None,
+    );
+    let o = m.rolesmith(&["--json", "env", "releaser"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    assert_eq!(
+        json(&o)["variables"],
+        serde_json::json!({ "ASC_ISSUER_ID": "i", "ASC_KEY_ID": "k" })
+    );
+    assert_eq!(
+        m.mytokens_calls(),
+        "",
+        "a mapped credential is not read from mytokens"
+    );
+}
+
+#[test]
+fn doctor_runs_a_mapped_services_check_never_its_command_and_lists_one_without_a_check_unchecked() {
+    let m = Machine::new(&["github"]);
+    m.source(&[
+        (
+            "roles/signer/role.toml",
+            &role(&[], &["signing", "notary", "github"]),
+        ),
+        ("roles/signer/core.md", "Core.\n"),
+    ]);
+    m.noting("signing-env", PRINTS_A_AND_B);
+    m.noting("notary-env", PRINTS_A_AND_B);
+    m.noting("signing-check", "exit 0\n");
+    m.map_service("signing", "signing-env", Some("signing-check"));
+    m.map_service("notary", "notary-env", None);
+
+    let o = m.rolesmith(&["--json", "doctor", "signer"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    let doc = json(&o);
+    conforms(&doc, &shape("doctor"));
+    assert_eq!(doc["entries"], serde_json::json!(["github"]));
+    assert_eq!(
+        doc["services"],
+        serde_json::json!([
+            { "name": "signing", "command": "signing-env", "state": "checked" },
+            { "name": "notary", "command": "notary-env", "state": "unchecked" }
+        ])
+    );
+    assert_eq!(m.ran("signing-check"), "run\n");
+    assert_eq!(m.ran("signing-env"), "", "doctor never runs the command");
+    assert_eq!(m.ran("notary-env"), "");
+    let o = m.rolesmith(&["doctor", "signer"]);
+    let out = String::from_utf8(o.stdout).unwrap();
+    assert!(out.contains("- service notary: unchecked"), "{out}");
+
+    m.map_service("signing", "signing-env", Some("echo locked >&2; exit 4"));
+    let o = m.rolesmith(&["--json", "doctor", "signer"]);
+    assert_eq!(o.status.code(), Some(1));
+    let missing = &json(&o)["error"]["missing"][0];
+    let item = rolesmith::machine::Missing::shape();
+    conforms(missing, &item);
+    assert!(
+        item["properties"]["kind"]["enum"]
+            .as_array()
+            .unwrap()
+            .contains(&missing["kind"]),
+        "{item}"
+    );
+    assert_eq!(missing["kind"], "service");
+    assert_eq!(missing["name"], "signing");
+    assert!(
+        missing["reason"].as_str().unwrap().contains("exits 4"),
+        "{missing}"
+    );
+}
+
+#[test]
+fn env_and_doctor_fail_on_a_services_toml_they_cannot_read_rather_than_use_mytokens() {
+    let m = Machine::new(&["signing"]);
+    m.source(&[
+        ("roles/signer/role.toml", &role(&[], &["signing"])),
+        ("roles/signer/core.md", "Core.\n"),
+    ]);
+    std::fs::create_dir_all(m.path("config/rolesmith/services.toml")).unwrap();
+    for args in [&["env", "signer"][..], &["doctor", "signer"]] {
+        let o = m.rolesmith(args);
+        assert_eq!(o.status.code(), Some(1), "{args:?}");
+        assert!(stderr(&o).contains("cannot read"), "{}", stderr(&o));
+    }
+}

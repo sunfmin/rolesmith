@@ -192,8 +192,8 @@ another machine: each `check`, each `brew` command and each script runs there as
 `ssh -o BatchMode=yes -- <host> sh -c '<command>'` (a password prompt is never waited on), so a
 `brew` tool goes into that host's own brew and prefix. The host needs `sh` and ssh access, not
 rolesmith, and its commands see the `PATH` a command run over ssh gets there. A program's fix that
-`doctor` names then carries `--host <host>`. Services and credentials are still read only from this
-machine's mytokens: a credential never leaves it, and whoever runs work on the host brings the values
+`doctor` names then carries `--host <host>`. Services and credentials are still read only on this
+machine, from its mytokens or the commands it maps them to (§7.3): a credential never leaves it, and whoever runs work on the host brings the values
 with it. When ssh cannot reach the host (it exits 255) the command fails (`error.kind` `failed`),
 naming the host, rather than listing every program as missing.
 
@@ -393,12 +393,14 @@ variable of its programs' `[credential]` (§3.5), each read from mytokens at tha
 program's `[credential]` names is read as a mytokens **Profile** when `mytokens list` lists it with
 kind `profile`: a Profile's fields are already variable names (what `mytokens env <entry>` exports),
 so each field is exported under its own name, read with `mytokens get <entry> --field <NAME>`. A
-service that is neither has no mapping to variables: `env` refuses the role, listing each such
-service (`error.unmapped`), and reads nothing. A variable read from two different (entry, field)
-pairs — two `[credential]`s, or a `[credential]` and a Profile's field — is refused, each with both
-sources (`error.conflicting`), and nothing is read. `rolesmith env <role> -- <command> [args]` runs the
-command in rolesmith's place with them added to its environment instead of printing. Neither writes
-anything to disk. `rolesmith doctor` reads only whether each entry exists (`mytokens list`), never its value.
+service that is neither, and that this host does not map (§7.3), has no mapping to variables: `env`
+refuses the role, listing each such service (`error.unmapped`), and reads nothing. A variable read
+from two different (entry, field) pairs — two `[credential]`s, a `[credential]` and a Profile's
+field, or either and a mapped service's printed name — is refused, each with both sources
+(`error.conflicting`), and nothing is read from mytokens. `rolesmith env <role> -- <command> [args]`
+runs the command in rolesmith's place with them added to its environment instead of printing.
+Neither writes anything to disk. `rolesmith doctor` reads only whether each entry exists
+(`mytokens list`), never its value.
 
 ### 7.2 Keeping secrets out
 
@@ -406,6 +408,41 @@ anything to disk. `rolesmith doctor` reads only whether each entry exists (`myto
 the code (private key blocks, `ghp_`/`github_pat_`, `sk-`, AWS access keys, JWTs, long base64 or hex
 runs after `key`/`token`/`secret`/`password`), naming the file, line and pattern, never echoing the
 match.
+
+### 7.3 Where a host reads a service
+
+Where a service's values come from is the host's choice, never a library's (ADR 0006). A host keeps
+it in **`$XDG_CONFIG_HOME/rolesmith/services.toml`** (default `~/.config/rolesmith/`), beside
+`sources.toml`; a service it does not name is read from mytokens as in §7.1.
+
+```toml
+# services.toml
+[service.asc-api-key]                       # the service (or [credential] entry) by its name
+command = "op inject -i ~/.config/rolesmith/asc-api-key.env"
+check = "op whoami"                         # optional; doctor runs it, never the command
+```
+
+`[service.<name>]` takes `command` (required) and `check` (optional); any other key does not parse.
+`command` runs with `sh -c`, stdin closed, at the moment `env` reads; its stdout is the service's
+variables: `NAME=value` statements, each optionally after `export`, one a line, values read as sh
+reads a word (`'…'` literally and across lines, `"…"` with `\` escapes), blank lines and `#`
+comments between them. `mytokens env <entry>` and `op inject` over a template of
+`export NAME='{{ op://<vault>/<item>/<field> }}'` lines both print this; so may any script.
+
+- `env` exports every variable the command prints, under its own name. A program's `[credential]`
+  whose entry is a mapped service is not read from mytokens: its `env` names the variables the
+  command must print, and one it does not print is refused, each with its `name` and `service`
+  (`error.absent`).
+- A command that cannot run or exits non-zero is refused with its exit and its stderr; a statement
+  that is not a variable is refused by its line number, never its text. Nothing is exported, and
+  after `--` the command is not run.
+- `doctor` never runs `command`. A mapped service is not looked for in mytokens: its `check` runs
+  on this machine (with `--host` too, as values are read only here); exit 0 is present, anything
+  else is missing (`kind` `service`). One without a `check` is answered `unchecked` and does not
+  make doctor refuse. `doctor`'s answer lists the mapped services as `services` (`name`, `command`,
+  `state` `checked` or `unchecked`, and `from` with `--project`).
+- A library never holds this setting: `rolesmith check` refuses a `services.toml` at a library's root
+  and a `[service]` table in `library.toml`, `role.toml` or `tool.toml` (`host-only`).
 
 ## 8. Commands
 
@@ -430,7 +467,7 @@ one JSON document, generated from the same definitions the parser uses.
   it), `errors` (exit codes, stderr, the `--json` error object and its lists, `check`'s rules) and
   `sources` (libraries, sources, addressing, revs, external skills).
 - With `--json`, a run that exits 1 or 2 still prints one JSON document on stdout,
-  `{"error": {"kind": "failed" | "usage", "message": "..."}}`, besides the diagnostic on stderr. A refusal that is a list of problems (`check`) adds `"problems": [{"file", "line"?, "rule", "reason"}]` to `error`. A refusal that is what this machine lacks (`doctor`) adds `"missing": [{"kind": "program" | "entry", "name", "reason", "fix"}]`, `fix` being the command that fixes it.
+  `{"error": {"kind": "failed" | "usage", "message": "..."}}`, besides the diagnostic on stderr. A refusal that is a list of problems (`check`) adds `"problems": [{"file", "line"?, "rule", "reason"}]` to `error`. A refusal that is what this machine lacks (`doctor`) adds `"missing": [{"kind": "program" | "entry" | "service", "name", "reason", "fix"}]`, `fix` being the command that fixes it.
 - `agent-context` lists the global flags, then each command with its `about`, `long_help`, flags,
   positionals, subcommands and `output`: the JSON Schema of what its `--json` prints on success. Its
   `about` is the first line of the command's doc comment and its `long_help` the page its `--help`
@@ -456,7 +493,7 @@ one JSON document, generated from the same definitions the parser uses.
 | `remove <role> [--project <dir> \| --global]` | drop it from the record, delete its generated files |
 | `prompt <role> [--rev <rev>]` | §5.3 |
 | `suggest [--dir <dir>]` | §5.5 |
-| `doctor <role> \| --project <dir> [--host <host>]` | for each program: tool.toml present (a role without one is refused as `show` refuses it), `check` passes (run by `sh -c`, exit 0); for each service and credential: mytokens entry present, read by `mytokens list` alone. Exit 1 if anything is missing, each with the command that fixes it (`rolesmith tool install <source>/<role> [--host <host>]`, `mytokens put <entry> [--fields ...]`); with `--host` the checks run on that host over ssh, the entries are still read here; with `--project` every role the record names and each role it requires, at its recorded rev, each tool once (§3.5) |
+| `doctor <role> \| --project <dir> [--host <host>]` | for each program: tool.toml present (a role without one is refused as `show` refuses it), `check` passes (run by `sh -c`, exit 0); for each service and credential: mytokens entry present, read by `mytokens list` alone, or, for a service the host maps (§7.3), its `check` passes (without one it is `unchecked`, not missing). Exit 1 if anything is missing, each with the command that fixes it (`rolesmith tool install <source>/<role> [--host <host>]`, `mytokens put <entry> [--fields ...]`); with `--host` the checks run on that host over ssh, the entries are still read here; with `--project` every role the record names and each role it requires, at its recorded rev, each tool once (§3.5) |
 | `tool show <tool>` | the tool.toml on its source's `main`, and whether its check passes here; a tool is addressed as a role is (§2) |
 | `tool install <role> \| --tool <tool> \| --project <dir> [--host <host>]` | install each program whose check fails by its pinned method into the user's own prefix (§3.5), on that host over ssh with `--host`, of every role a project records and the roles they require with `--project`, each tool once, in order; the first refusal stops it and names what was installed before it |
 | `env <role> [-- <command>...]` | §7.1 |

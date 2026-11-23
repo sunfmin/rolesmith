@@ -12,6 +12,7 @@ use yaml_rust2::YamlLoader;
 
 use crate::problem::{Problem, Rule};
 use crate::secrets;
+use crate::service_map;
 use crate::upstream;
 
 /// Tables that belong to another consumer: top-level in `role.toml` (§3.1) and sub-tables of a
@@ -424,7 +425,35 @@ impl Checker<'_> {
 
     fn library_toml(&mut self) -> Option<LibraryToml> {
         let text = self.read("library.toml", Rule::LibraryToml)?;
+        if self.root.join(service_map::FILE).exists() {
+            self.problem(
+                service_map::FILE,
+                None,
+                Rule::HostOnly,
+                "maps services to where a host reads them; that is each host's own setting, kept beside its sources.toml, never in a library",
+            );
+        }
+        self.host_only("library.toml", &text);
         self.parse("library.toml", &text, Rule::LibraryToml)
+    }
+
+    /// A problem when `text` of the file `rel` has the host's own `[service]` table.
+    fn host_only(&mut self, rel: &str, text: &str) {
+        let Ok(table) = text.parse::<toml::Table>() else {
+            return;
+        };
+        if table.contains_key(service_map::TABLE) {
+            self.problem(
+                rel,
+                key_line(text, service_map::TABLE),
+                Rule::HostOnly,
+                format!(
+                    "`[{}]` maps a service to the command a host reads it with; that is each host's own setting (its {}), never a library's",
+                    service_map::TABLE,
+                    service_map::FILE
+                ),
+            );
+        }
     }
 
     fn role_names(&mut self, only: Option<&str>) -> Vec<String> {
@@ -637,6 +666,7 @@ impl Checker<'_> {
 
     fn role_toml(&mut self, name: &str, file: &str) -> Option<(RoleToml, String)> {
         let text = self.read(file, Rule::RoleToml)?;
+        self.host_only(file, &text);
         let raw: RawRoleToml = self.parse(file, &text, Rule::RoleToml)?;
         let root = self.root;
         let line = key_line(&text, "requires");
@@ -697,7 +727,7 @@ impl Checker<'_> {
         for (key, value) in raw.rest {
             if CONSUMER_TABLES.contains(&key.as_str()) {
                 consumers.insert(key, value);
-            } else {
+            } else if key != service_map::TABLE {
                 let line = key_line(&text, &key);
                 self.problem(
                     file,
@@ -747,6 +777,7 @@ impl Checker<'_> {
             return None;
         }
         let text = self.read(&file, Rule::ToolToml)?;
+        self.host_only(&file, &text);
         let toml: ToolToml = self.parse(&file, &text, Rule::ToolToml)?;
         if let Err((rule, reason)) = toml.install.pinned() {
             self.problem(&file, None, rule, reason);

@@ -13,7 +13,7 @@ brief and checks the result.
 rolesmith source add felix https://github.com/sunfmin/lore
 rolesmith suggest                                  # roles that fit this project
 rolesmith use app-store-releaser --into claude-code
-eval "$(rolesmith env app-store-releaser)"         # its credentials, from mytokens
+eval "$(rolesmith env app-store-releaser)"         # its credentials, from mytokens or this host's own command
 rolesmith lesson add app-store-releaser --evidence <url> < lesson.md
 rolesmith distill app-store-releaser               # when you decide to fold lessons in
 ```

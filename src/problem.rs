@@ -44,6 +44,8 @@ pub enum Rule {
     ToolSudo,
     /// Nothing matches a secret pattern.
     Secret,
+    /// A host's own setting is never in a library: no `services.toml`, and no `[service]` table in `library.toml`, `role.toml` or `tool.toml`. Where a service's credentials come from is each host's to say.
+    HostOnly,
 }
 
 impl Rule {

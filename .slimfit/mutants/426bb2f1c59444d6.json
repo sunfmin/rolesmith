@@ -1,0 +1,21 @@
+{
+  "tree": "ac8bc97883f2f407f03a9aa9f5919666c07d9ffa+d1fba762150c532c",
+  "picker": "codex:01a207fd-7dad-7670-add7-2b82859eb65b:default",
+  "author": "claude-code:fe6cc24e-2c5a-5fd5-ac38-2a634de43a6e:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/service_map.rs:166:35: replace match guard c == '\"' with true in value",
+        "why": "This would strip the backslash before a dollar sign inside single quotes, while the visible single-quoted fixture only puts a backslash before a space.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/machine.rs:149:9: replace Missing::shape -> Value with Default::default()",
+        "why": "The visible failure test checks the emitted service error fields, so it could pass even if the published missing-item schema becomes null.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  }
+}
