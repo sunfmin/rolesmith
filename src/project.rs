@@ -467,12 +467,7 @@ pub fn sync(place: &Place, record: &Record) -> Result<Synced, Failure> {
         .iter()
         .flat_map(|r| r.into.iter().map(String::as_str))
         .collect();
-    for change in entry_file::update(dir, &targets)? {
-        match change {
-            entry_file::Change::Written(name) => synced.written.push(name),
-            entry_file::Change::Removed(name) => synced.removed.push(name),
-        }
-    }
+    entry_file::update(dir, &targets, &mut synced)?;
     if !record.role.is_empty() {
         remember(dir)?;
     }

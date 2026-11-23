@@ -199,3 +199,23 @@ fn a_section_without_its_last_line_is_refused() {
     assert!(stderr(&o).contains(END), "{}", stderr(&o));
     assert_eq!(read(&project, "CLAUDE.md"), broken);
 }
+
+#[test]
+fn an_entry_file_or_gitignore_that_cannot_be_read_as_text_is_refused_and_left_alone() {
+    for rel in ["CLAUDE.md", ".gitignore"] {
+        let (m, project) = setup();
+        let bytes = b"# Mine \xff\n".to_vec();
+        std::fs::write(project.join(rel), &bytes).unwrap();
+        let o = m.rolesmith(&[
+            "use",
+            "app-store-releaser",
+            "--into",
+            "claude-code",
+            "--project",
+            project.to_str().unwrap(),
+        ]);
+        assert_eq!(o.status.code(), Some(1), "{rel}");
+        assert!(stderr(&o).contains("cannot read"), "{}", stderr(&o));
+        assert_eq!(std::fs::read(project.join(rel)).unwrap(), bytes, "{rel}");
+    }
+}

@@ -9,7 +9,7 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use crate::commands::Failure;
-use crate::project::TARGETS;
+use crate::project::{Synced, TARGETS};
 
 /// The line that opens the managed section.
 pub const BEGIN: &str = "<!-- rolesmith: begin. `rolesmith sync` writes this section from rolesmith.toml; edit outside it. -->";
@@ -47,17 +47,12 @@ Never run `rolesmith update` here: moving a role to another revision is a change
     )
 }
 
-/// What [`update`] did to one entry file, by its name in the project.
-pub enum Change {
-    Written(String),
-    Removed(String),
-}
-
 /// Give the entry file of each of `targets` the managed section, and take it out of every other
 /// entry file of the project at `dir`; with no targets, out of all of them. An entry file that
 /// held only the section is deleted. A target's entry file that does not exist is written into
-/// the other entry file when that one exists and imports or links it, else created.
-pub fn update(dir: &Path, targets: &BTreeSet<&str>) -> Result<Vec<Change>, Failure> {
+/// the other entry file when that one exists and imports or links it, else created. What changed
+/// is added to `synced`.
+pub fn update(dir: &Path, targets: &BTreeSet<&str>, synced: &mut Synced) -> Result<(), Failure> {
     let names: BTreeSet<&str> = TARGETS.iter().map(|t| t.entry).collect();
     let wanted: BTreeSet<PathBuf> = TARGETS
         .iter()
@@ -65,7 +60,6 @@ pub fn update(dir: &Path, targets: &BTreeSet<&str>) -> Result<Vec<Change>, Failu
         .map(|t| destination(dir, t.entry, &names))
         .collect();
     let mut seen = BTreeSet::new();
-    let mut changes = Vec::new();
     for name in names {
         let key = identity(dir, name);
         if !seen.insert(key.clone()) {
@@ -90,14 +84,14 @@ pub fn update(dir: &Path, targets: &BTreeSet<&str>) -> Result<Vec<Change>, Failu
             // The file held only the section, so rolesmith made it.
             std::fs::remove_file(&path)
                 .map_err(|e| Failure::new(format!("cannot delete {}: {e}", path.display())))?;
-            changes.push(Change::Removed(name.to_owned()));
+            synced.removed.push(name.to_owned());
         } else {
             std::fs::write(&path, new)
                 .map_err(|e| Failure::new(format!("cannot write {}: {e}", path.display())))?;
-            changes.push(Change::Written(name.to_owned()));
+            synced.written.push(name.to_owned());
         }
     }
-    Ok(changes)
+    Ok(())
 }
 
 /// The file the section for the entry file `name` goes into: `name` itself, unless it does not
@@ -138,13 +132,11 @@ fn identity(dir: &Path, name: &str) -> PathBuf {
 /// except the blank line put before a section appended to a file that had text. `None` when
 /// the section's first line has no end line after it.
 fn with_section(text: &str, wanted: bool) -> Option<String> {
-    let (before, after) = match text.find(BEGIN) {
+    let (before, after) = match text.split_once(BEGIN) {
         None => (text, ""),
-        Some(b) => {
-            let e = b + text[b..].find(END)?;
-            let end = e + END.len();
-            let end = end + usize::from(text[end..].starts_with('\n'));
-            (&text[..b], &text[end..])
+        Some((before, rest)) => {
+            let (_, after) = rest.split_once(END)?;
+            (before, after.strip_prefix('\n').unwrap_or(after))
         }
     };
     if !wanted {
