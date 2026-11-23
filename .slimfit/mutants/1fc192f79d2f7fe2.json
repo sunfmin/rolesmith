@@ -1,0 +1,15 @@
+{
+  "tree": "f9f3d0849042875fe9871944c0bd1b386b9132ae+d1fba762150c532c",
+  "picker": "codex:01a207f2-7dd7-74b0-b443-c1e38faed1e7:default",
+  "author": "claude-code:35713adb-2a4c-5781-9579-a124f28f5ceb:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/commands/env.rs:160:17: delete match arm \"\" in <impl std::fmt::Display for Conflict<'_>>::fmt",
+        "why": "The conflict test checks two named fields, leaving the diagnostic for a whole-entry credential unchecked.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  }
+}
