@@ -194,36 +194,23 @@ impl Install {
     /// The method and the pinned version, or the rule it breaks and why: exactly one method, a
     /// version that is not blank, and a script that never runs `sudo`.
     pub fn pinned(&self) -> Result<(Method<'_>, &str), (Rule, &'static str)> {
+        let unpinned = |reason| Err((Rule::ToolUnpinned, reason));
         let method = match (&self.brew, &self.script) {
             (Some(formula), None) => Method::Brew(formula),
             (None, Some(script)) => Method::Script(script),
-            (None, None) => {
-                return Err((
-                    Rule::ToolUnpinned,
-                    "[install] names no install method (brew or script)",
-                ));
-            }
+            (None, None) => return unpinned("[install] names no install method (brew or script)"),
             (Some(_), Some(_)) => {
-                return Err((
-                    Rule::ToolUnpinned,
+                return unpinned(
                     "[install] names two install methods, brew and script; it takes one",
-                ));
+                );
             }
         };
-        let version = match &self.version {
-            None => {
-                return Err((
-                    Rule::ToolUnpinned,
-                    "[install] is not pinned: it has no `version`",
-                ));
-            }
+        let version = match self.version.as_deref() {
+            None => return unpinned("[install] is not pinned: it has no `version`"),
             Some(v) if v.trim().is_empty() => {
-                return Err((
-                    Rule::ToolUnpinned,
-                    "[install] is not pinned: its `version` is empty",
-                ));
+                return unpinned("[install] is not pinned: its `version` is empty");
             }
-            Some(v) => v.as_str(),
+            Some(v) => v,
         };
         if let Method::Script(script) = method
             && runs_sudo(script)

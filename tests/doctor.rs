@@ -739,15 +739,15 @@ impl Machine {
         )
     }
 
-    /// A `pixi` stand-in: `pixi global install <package>=<version>` puts `<package>` on `PATH`,
-    /// printing its name and that version.
+    /// A `pixi` stand-in that logs its arguments and puts `rolesmith-test-av` on `PATH`,
+    /// printing version 7.1.1.
     fn pixi(&self) {
         self.program(
             "pixi",
             &format!(
-                "echo \"$*\" >> '{calls}'\n[ \"$1 $2\" = 'global install' ] || exit 1\nname=${{3%%=*}}\nprintf '#!/bin/sh\\necho %s %s\\n' \"$name\" \"${{3#*=}}\" > '{bin}'/\"$name\"\nchmod +x '{bin}'/\"$name\"\n",
-                calls = self.path("pixi-calls").display(),
-                bin = self.path("bin").display(),
+                "echo \"$*\" >> '{}'\n{}\n",
+                self.path("pixi-calls").display(),
+                self.provides("rolesmith-test-av", "av 7.1.1")
             ),
         );
     }

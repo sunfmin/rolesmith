@@ -467,36 +467,30 @@ fn a_script_install_is_pinned_alone_and_never_runs_sudo() {
     let tool = |install: &str| {
         format!("description = \"d\"\ncheck = \"asc --version\"\n[install]\n{install}")
     };
-    broken(
-        file,
-        &tool("script = \"cargo install --path forge/asc\"\n"),
-        file,
-        "tool-unpinned",
-    );
-    broken(
-        file,
-        &tool("script = \"cargo install asc\"\nversion = \" \"\n"),
-        file,
-        "tool-unpinned",
-    );
-    broken(
-        file,
-        &tool("brew = \"asc\"\nscript = \"cargo install asc\"\nversion = \"1.0.0\"\n"),
-        file,
-        "tool-unpinned",
-    );
-    broken(
-        file,
-        &tool("script = \"make && sudo make install\"\nversion = \"1.0.0\"\n"),
-        file,
-        "tool-sudo",
-    );
-    broken(
-        file,
-        &tool("script = \"/usr/bin/sudo -n installer -pkg x.pkg\"\nversion = \"1.0.0\"\n"),
-        file,
-        "tool-sudo",
-    );
+    for (install, rule) in [
+        (
+            "script = \"cargo install --path forge/asc\"\n",
+            "tool-unpinned",
+        ),
+        (
+            "script = \"cargo install asc\"\nversion = \" \"\n",
+            "tool-unpinned",
+        ),
+        (
+            "brew = \"asc\"\nscript = \"cargo install asc\"\nversion = \"1.0.0\"\n",
+            "tool-unpinned",
+        ),
+        (
+            "script = \"make && sudo make install\"\nversion = \"1.0.0\"\n",
+            "tool-sudo",
+        ),
+        (
+            "script = \"/usr/bin/sudo -n installer -pkg x.pkg\"\nversion = \"1.0.0\"\n",
+            "tool-sudo",
+        ),
+    ] {
+        broken(file, &tool(install), file, rule);
+    }
 
     // A pinned script with no sudo is sound; "pseudo" is not sudo.
     let lib = sound();

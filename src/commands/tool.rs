@@ -179,11 +179,7 @@ fn install_all(role: Option<String>, tool: Option<String>) -> Result<Output, Fai
         match install::install(name, toml) {
             Ok(d) => done.push(d),
             Err(mut f) => {
-                let installed: Vec<String> = done
-                    .iter()
-                    .filter(|d| d.installed.is_some())
-                    .map(installed_what)
-                    .collect();
+                let installed: Vec<String> = done.iter().filter_map(installed_what).collect();
                 if !installed.is_empty() {
                     f.message
                         .push_str(&format!("; installed before it: {}", installed.join(", ")));
@@ -195,8 +191,8 @@ fn install_all(role: Option<String>, tool: Option<String>) -> Result<Output, Fai
 
     let mut human = format!("{} at {}:\n", found.qualified(), found.rev);
     for d in &done {
-        match &d.installed {
-            Some(_) => human.push_str(&format!("- {}: installed {}\n", d.name, installed_what(d))),
+        match installed_what(d) {
+            Some(what) => human.push_str(&format!("- {}: installed {what}\n", d.name)),
             None => human.push_str(&format!("- {}: its check passes, left alone\n", d.name)),
         }
     }
@@ -218,10 +214,10 @@ fn install_all(role: Option<String>, tool: Option<String>) -> Result<Output, Fai
 }
 
 /// What an install did, as a refusal or the human answer names it: the formula brew installed,
-/// or the tool by its script.
-fn installed_what(d: &Done) -> String {
-    match &d.installed {
-        Some(Installed::Brew(formula)) => formula.clone(),
-        _ => format!("{} by its script", d.name),
+/// or the tool by its script; `None` when it was left alone.
+fn installed_what(d: &Done) -> Option<String> {
+    match d.installed.as_ref()? {
+        Installed::Brew(formula) => Some(formula.clone()),
+        Installed::Script => Some(format!("{} by its script", d.name)),
     }
 }

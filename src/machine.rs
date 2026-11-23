@@ -17,36 +17,28 @@ pub struct Check {
     pub reason: String,
 }
 
-/// Run `tool`'s check here: it passes when it exits 0 and, for a tool that pins what its check
-/// shows (a script's version), its stdout shows that.
+/// Run `tool`'s check through `sh -c` with no input. It passes when it exits 0 and, for a tool
+/// that pins what its check shows (a script's version), its stdout contains that. Its output is
+/// not kept.
 pub fn check_tool(tool: &ToolToml) -> Check {
-    check(&tool.check, tool.shows())
-}
-
-/// Run `command` through `sh -c` with no input; it passes when it exits 0 and its stdout contains
-/// `shows`, where given. Its output is not kept.
-fn check(command: &str, shows: Option<&str>) -> Check {
     let out = Command::new("sh")
         .arg("-c")
-        .arg(command)
+        .arg(&tool.check)
         .stdin(Stdio::null())
         .stderr(Stdio::null())
         .output();
-    let shown = |stdout: &[u8]| shows.is_none_or(|v| String::from_utf8_lossy(stdout).contains(v));
-    let (passes, reason) = match out.as_ref().map(|o| (o.status, &o.stdout)) {
-        Ok((s, stdout)) if s.success() && shown(stdout) => (true, "passes".to_owned()),
-        Ok((s, _)) if s.success() => (
-            false,
-            format!(
-                "does not show the pinned version {}",
-                shows.unwrap_or_default()
-            ),
-        ),
+    let (passes, reason) = match out {
+        Ok(o) if o.status.success() => match tool.shows() {
+            Some(v) if !String::from_utf8_lossy(&o.stdout).contains(v) => {
+                (false, format!("does not show the pinned version {v}"))
+            }
+            _ => (true, "passes".to_owned()),
+        },
         // sh's answer for a command it cannot find
-        Ok((s, _)) if s.code() == Some(127) => {
+        Ok(o) if o.status.code() == Some(127) => {
             (false, "not installed: its command is not found".into())
         }
-        Ok((s, _)) => match s.code() {
+        Ok(o) => match o.status.code() {
             Some(code) => (false, format!("fails: exits {code}")),
             None => (false, "fails: killed by a signal".to_owned()),
         },
