@@ -1,6 +1,8 @@
 # 0005. A tool installs by brew or by a pinned script
 
 Status: accepted, 2026-11-23 (control session, for Felix; rolesmith#34)
+Amended: 2026-11-23 (control session, for Felix; rolesmith#43): a `brew` tool may follow its
+formula's stable version (see Amendment).
 
 ## Context
 
@@ -120,6 +122,32 @@ version = "17C48"
 
 A tool built from source (`cargo install --git <repo> --rev <sha> <crate>`, pinned to the crate's
 version) is written the same way.
+
+## Amendment: a brew tool may follow its formula's stable version (rolesmith#43)
+
+A toolchain that publishes daily (sunfmin/flux-toolchain) cannot be kept current by a pin: the pin
+would be copied from the tap into the library every day, by a commit a day and a cross-repo write
+credential, for the same result. So a `brew` tool may write `version = "stable"`:
+
+- It counts as installed only when brew has the formula's stable version installed (`brew info
+  --json=v2 <formula>`: `versions.stable` among `installed[].version`, or a rebuild `<stable>_<n>`).
+  One installed but older is missing, for `doctor` (naming both versions) and for `tool install`,
+  which runs `brew upgrade <formula>` (or `brew install <formula>` when none is installed), then
+  the check.
+- Before comparing, the formula's own tap is refreshed with `git pull --ff-only`, at most once a day
+  (a stamp in the tap's `.git`), never with `brew update`: a host that sets
+  `HOMEBREW_NO_AUTO_UPDATE` would otherwise never see a newer stable. A failed pull compares the tap
+  as it is and says so.
+- `stable` is for `brew` only. A `script` must still pin, since rolesmith cannot see what a script
+  installed; `rolesmith check` refuses `script` with `stable` (`tool-unpinned`).
+
+The invariant becomes: a tool counts as installed only when its check shows the version it pins,
+or, for a brew tool following `stable`, when brew has its formula's stable version installed.
+
+Options were A) a fixed pin, bumped by a lore PR that each flux-toolchain release opens and merges,
+and B) `version = "stable"` for brew tools; B was chosen, because the version already has one home,
+the tap's formula. Undo: revert rolesmith#43; `stable` no longer parses as anything but a version
+named `stable`, and a library's tool goes back to a fixed pin.
 
 ## Consequences
 

@@ -183,6 +183,17 @@ pub struct Install {
     pub version: Option<String>,
 }
 
+/// The version a tool's `[install]` pins.
+pub enum Version<'a> {
+    /// One version.
+    Exact(&'a str),
+    /// Whatever its brew formula's stable version is now (`version = "stable"`, brew only).
+    Stable,
+}
+
+/// The `version` that follows a brew formula's stable version.
+const STABLE: &str = "stable";
+
 /// How a tool is installed, as its `[install]` pins it.
 pub enum Method<'a> {
     /// A Homebrew formula.
@@ -193,8 +204,8 @@ pub enum Method<'a> {
 
 impl Install {
     /// The method and the pinned version, or the rule it breaks and why: exactly one method, a
-    /// version that is not blank, and a script that never runs `sudo`.
-    pub fn pinned(&self) -> Result<(Method<'_>, &str), (Rule, &'static str)> {
+    /// version that is not blank (`stable` only for brew), and a script that never runs `sudo`.
+    pub fn pinned(&self) -> Result<(Method<'_>, Version<'_>), (Rule, &'static str)> {
         let unpinned = |reason| Err((Rule::ToolUnpinned, reason));
         let method = match (&self.brew, &self.script) {
             (Some(formula), None) => Method::Brew(formula),
@@ -211,8 +222,14 @@ impl Install {
             Some(v) if v.trim().is_empty() => {
                 return unpinned("[install] is not pinned: its `version` is empty");
             }
-            Some(v) => v,
+            Some(STABLE) => Version::Stable,
+            Some(v) => Version::Exact(v),
         };
+        if let (Method::Script(_), Version::Stable) = (&method, &version) {
+            return unpinned(
+                "[install] script follows `stable`; a script pins its version, since rolesmith cannot see what it installed",
+            );
+        }
         if let Method::Script(script) = method
             && runs_sudo(script)
         {
@@ -222,17 +239,6 @@ impl Install {
             ));
         }
         Ok((method, version))
-    }
-}
-
-impl ToolToml {
-    /// What the check's stdout must show for the tool to count as installed: a script's pinned
-    /// version. A brew tool's version is held by its formula, so its check need only pass.
-    pub fn shows(&self) -> Option<&str> {
-        match self.install.pinned() {
-            Ok((Method::Script(_), version)) => Some(version),
-            _ => None,
-        }
     }
 }
 
