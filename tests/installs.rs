@@ -116,6 +116,33 @@ fn status_shows_behind_ahead_and_a_hand_edited_file_as_drift() {
 }
 
 #[test]
+fn use_rev_main_records_the_sha_main_points_to() {
+    let (m, lib, first, project) = setup();
+    let p = project.to_str().unwrap();
+    use_role(&m, &project, &[]);
+    lib.write(
+        "roles/app-store-releaser/core.md",
+        "# Core\n\nSecond rule.\n",
+    );
+    let second = m.publish(&lib, "second");
+    m.json(&["source", "update"]);
+    assert_eq!(
+        m.json(&["status", "--project", p])["roles"][0]["rev"],
+        first.as_str()
+    );
+
+    use_role(&m, &project, &["--rev", "main"]);
+    let record = std::fs::read_to_string(project.join("rolesmith.toml")).unwrap();
+    assert!(record.contains(&format!("rev = \"{second}\"")), "{record}");
+    assert!(!record.contains("\"main\""), "{record}");
+    let role = &m.json(&["status", "--project", p])["roles"][0];
+    assert_eq!(
+        (&role["rev"], &role["main"], &role["behind"], &role["ahead"]),
+        (&json!(second), &json!(second), &json!(0), &json!(0))
+    );
+}
+
+#[test]
 fn update_moves_the_rev_and_the_files() {
     let (m, lib, first, project) = setup();
     let p = project.to_str().unwrap();

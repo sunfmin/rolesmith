@@ -215,15 +215,33 @@ fn show_prints_the_role_and_reads_it_at_a_rev() {
         assert!(text.contains(part), "{part} in:\n{text}");
     }
 
-    // A branch name is not a SHA, though git would resolve it.
-    let o = m.rolesmith(&["show", "app-store-releaser", "--rev", "main"]);
-    assert_eq!(o.status.code(), Some(1));
-    assert!(stderr(&o).contains("not a commit SHA"), "{}", stderr(&o));
-
-    for bad in ["--not-a-sha", "0000000000000000000000000000000000000000"] {
-        let o = m.rolesmith(&["show", "app-store-releaser", "--rev", bad]);
-        assert_ne!(o.status.code(), Some(0), "{bad}");
+    // Any name git resolves in the clone: a branch, a tag, HEAD; the answer is the full SHA.
+    let clone = m.path("data/rolesmith/sources/felix");
+    m.git(&clone, &["tag", "v1", &first]);
+    for (name, sha) in [("main", &second), ("HEAD", &second), ("v1", &first)] {
+        let shown = m.json(&["show", "app-store-releaser", "--rev", name]);
+        assert_eq!(shown["rev"], sha.as_str(), "{name}");
+        let prompt = m.json(&["prompt", "felix/app-store-releaser", "--rev", name]);
+        assert_eq!(prompt["rev"], sha.as_str(), "{name}");
     }
+
+    // A name the clone does not resolve is refused, naming it and the source.
+    for (role, bad) in [
+        ("felix/app-store-releaser", "no-such-branch"),
+        ("app-store-releaser", "no-such-branch"),
+        (
+            "app-store-releaser",
+            "0000000000000000000000000000000000000000",
+        ),
+    ] {
+        let o = m.rolesmith(&["show", role, "--rev", bad]);
+        assert_eq!(o.status.code(), Some(1), "{bad}");
+        let err = stderr(&o);
+        assert!(err.contains(bad) && err.contains("felix"), "{err}");
+        assert!(err.contains("names no commit"), "{err}");
+    }
+    let o = m.rolesmith(&["show", "app-store-releaser", "--rev=--not-a-rev"]);
+    assert_ne!(o.status.code(), Some(0));
 }
 
 #[test]

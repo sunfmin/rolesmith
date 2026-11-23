@@ -1,4 +1,4 @@
-//! `rolesmith show <role> [--rev <sha>]`: a role as it is on its source's local `main`, or at a
+//! `rolesmith show <role> [--rev <rev>]`: a role as it is on its source's local `main`, or at a
 //! commit (SPEC.md §2, §8).
 
 use serde_json::{Value, json};
@@ -14,7 +14,7 @@ use crate::sources::{self, Found, Sources};
 /// ## Refusals
 ///
 /// - an unknown role, or a bare name more than one source has (the refusal lists the addresses);
-/// - a `--rev` the clone does not have;
+/// - a `--rev` that names no commit in the clone (the refusal names it and the source);
 /// - a role `rolesmith check` would refuse, with the same problems (with `--json`, `error.problems`).
 #[derive(clap::Args)]
 #[command(verbatim_doc_comment)]
@@ -22,8 +22,10 @@ pub struct Args {
     /// The role: <role> when one source has it, <source>/<role> otherwise.
     pub role: String,
 
-    /// Read the role at this commit of its source instead of its local main.
-    #[arg(long, value_name = "SHA")]
+    /// Read the role at this commit of its source instead of its local main: any name git
+    /// resolves in the clone (a SHA, a branch such as main, a tag, HEAD); the answer's rev is the
+    /// full SHA it resolved to.
+    #[arg(long, value_name = "REV")]
     pub rev: Option<String>,
 }
 

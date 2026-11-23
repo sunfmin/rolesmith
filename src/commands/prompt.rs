@@ -1,4 +1,4 @@
-//! `rolesmith prompt <role> [--rev <sha>]`: a role as one Markdown document for an agent that takes
+//! `rolesmith prompt <role> [--rev <rev>]`: a role as one Markdown document for an agent that takes
 //! instructions but reads no skills (SPEC.md §5.3). It writes nothing.
 
 use serde_json::{Value, json};

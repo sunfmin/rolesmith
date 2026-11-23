@@ -62,7 +62,11 @@ url = "https://github.com/sunfmin/lore"
 
 A source name follows the role name's rule. A source's clone is of its library's `main`. `list` and
 `show` read roles from a commit of the clone (its local `main`, or `show --rev`), never from its
-working tree, so they print what an install at that commit writes; `show` refuses a role that
+working tree, so they print what an install at that commit writes. A `--rev` (of `show`, `prompt`,
+`use`) is any name git resolves to a commit in the clone: a SHA or a prefix of one, a branch such as
+`main`, a tag, `HEAD`; a name the clone does not resolve is refused, naming it and the source. What
+is answered and recorded (`rolesmith.toml`, `global.toml`, the manifest, generated headers) is always
+the full SHA it resolved to, never the name. `show` refuses a role that
 `check` would refuse, with the same problems. `source update` fetches and fast-forwards the local
 `main` (on whichever branch the working copy is); a `main` that moved apart from the library's is
 refused, never forced.
@@ -299,7 +303,7 @@ project, so it does not take `--global`.
 
 ### 5.3 Prompt
 
-`rolesmith prompt <role> [--rev <sha>]` prints the role as one Markdown document for an agent that
+`rolesmith prompt <role> [--rev <rev>]` prints the role as one Markdown document for an agent that
 takes instructions but reads no skills, such as a bot's standing instructions: a first-line comment
 naming the source, role and rev it came from, then `core.md`, then the prohibitions, then each skill's
 name, description and the path of its `SKILL.md` in the source at that rev (for an external skill,
@@ -437,15 +441,15 @@ one JSON document, generated from the same definitions the parser uses.
 | `source update [<name>]` | fetch and fast-forward each source's clone; never force |
 | `source remove <name>` | forget it and delete its clone; refuse while a project or global install records it, listing them |
 | `list [--source <name>]` | roles: address, description |
-| `show <role> [--rev <sha>]` | role.toml, core, prohibitions, skills with descriptions (an external skill with its `url`, `path` and `rev`), programs, services |
+| `show <role> [--rev <rev>]` | role.toml, core, prohibitions, skills with descriptions (an external skill with its `url`, `path` and `rev`), programs, services |
 | `check [<role>] [--library <dir>]` | validate a library working copy or one role; the library is the nearest of `--library` (default: the current directory) and its parents holding `library.toml`, as git finds its repository, so run in a role or a skill it checks the whole library as from the root, and outside any library it refuses as a directory with no `library.toml`, naming the directory it started from (§2, §3, §7.2); prints every problem, not the first, each with its file, line where there is one, and rule; exits 1 if there is any, and with `--json` lists them as `error.problems` |
-| `use <role>... --into <target>... [--project <dir> \| --global] [--rev <sha>]` | install (§5); record in `rolesmith.toml` or `global.toml`; idempotent: a role already recorded keeps its rev unless `--rev` is given (`update` moves it) |
+| `use <role>... --into <target>... [--project <dir> \| --global] [--rev <rev>]` | install (§5); record in `rolesmith.toml` or `global.toml`, always with the full SHA `--rev` resolved to; idempotent: a role already recorded keeps its rev unless `--rev` is given (`update` moves it) |
 | `use --auto --into <target>... [--project <dir>]` | install what `suggest` lists |
 | `sync [--project <dir> \| --global]` | make the generated files equal what the record says; add missing sources from `url` |
 | `status [--project <dir> \| --global]` | §5.4 |
 | `update [<role>] [--project <dir> \| --global]` | §5.4 |
 | `remove <role> [--project <dir> \| --global]` | drop it from the record, delete its generated files |
-| `prompt <role> [--rev <sha>]` | §5.3 |
+| `prompt <role> [--rev <rev>]` | §5.3 |
 | `suggest [--dir <dir>]` | §5.5 |
 | `doctor <role> \| --project <dir> [--host <host>]` | for each program: tool.toml present (a role without one is refused as `show` refuses it), `check` passes (run by `sh -c`, exit 0); for each service and credential: mytokens entry present, read by `mytokens list` alone. Exit 1 if anything is missing, each with the command that fixes it (`rolesmith tool install <source>/<role> [--host <host>]`, `mytokens put <entry> [--fields ...]`); with `--host` the checks run on that host over ssh, the entries are still read here; with `--project` every role the record names and each role it requires, at its recorded rev, each tool once (§3.5) |
 | `tool show <tool>` | the tool.toml on its source's `main`, and whether its check passes here; a tool is addressed as a role is (§2) |
