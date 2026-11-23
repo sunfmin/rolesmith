@@ -216,20 +216,81 @@ pub fn install(place: &Place, record: &Record) -> Result<Synced, Failure> {
     })
 }
 
-/// The generated files of `entry` that differ from what it generates (a hand edit) or are
-/// missing, relative to `place`'s root.
-pub fn drift(place: &Place, entry: &RoleEntry) -> Result<Vec<String>, Failure> {
+/// What one recorded role installs that is not as generated.
+pub struct Drift {
+    /// The generated files of the role and the roles it requires that differ from what it
+    /// generates (a hand edit) or are missing, relative to the place's root.
+    pub files: Vec<String>,
+    /// The roles it requires, transitively.
+    pub requires: Vec<String>,
+}
+
+/// The drift of `entry` at `place`.
+pub fn drift(place: &Place, entry: &RoleEntry) -> Result<Drift, Failure> {
     let dir = &place.root;
     let mut generated = Generated::new();
-    generate(place, entry, &mut generated)?;
-    Ok(generated
+    let requires = generate(place, entry, &mut generated)?;
+    let files = generated
         .into_iter()
         .filter(|(rel, (bytes, exec))| {
             let path = dir.join(rel);
             !(std::fs::read(&path).is_ok_and(|have| have == *bytes) && executable(&path) == *exec)
         })
         .map(|(rel, _)| rel)
-        .collect())
+        .collect();
+    Ok(Drift { files, requires })
+}
+
+/// A role installed only because roles of the record require it (§3.1): from the source and at
+/// the rev of the roles that require it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Required {
+    pub name: String,
+    pub source: String,
+    pub rev: String,
+    /// The recorded roles that require it, directly or through others.
+    pub by: Vec<String>,
+}
+
+/// Every file the record at `place` generates, and the roles it installs that it does not name.
+fn plan(place: &Place, record: &Record) -> Result<(Generated, Vec<Required>), Failure> {
+    let mut generated = Generated::new();
+    let mut required: Vec<Required> = Vec::new();
+    for entry in &record.role {
+        for name in generate(place, entry, &mut generated)? {
+            if record.role.iter().any(|r| r.name == name) {
+                continue;
+            }
+            match required.iter_mut().find(|r| r.name == name) {
+                Some(r) => r.by.push(entry.name.clone()),
+                None => required.push(Required {
+                    name,
+                    source: entry.source.clone(),
+                    rev: entry.rev.clone(),
+                    by: vec![entry.name.clone()],
+                }),
+            }
+        }
+    }
+    Ok((generated, required))
+}
+
+/// The index of the role `name` in `record`, or a refusal naming the roles it has and, when `name`
+/// is installed only because others require it, those roles.
+pub fn named_position(place: &Place, record: &Record, name: &str) -> Result<usize, Failure> {
+    record.position(place, name).map_err(|refusal| {
+        let by = plan(place, record)
+            .ok()
+            .and_then(|(_, required)| required.into_iter().find(|r| r.name == name).map(|r| r.by));
+        match by {
+            Some(by) => Failure::new(format!(
+                "{} does not name {name}; it is installed because {} requires it",
+                place.record_name(),
+                by.join(", ")
+            )),
+            None => refusal,
+        }
+    })
 }
 
 /// `$XDG_DATA_HOME/rolesmith/projects.toml`: each project directory rolesmith has installed into,
@@ -292,6 +353,8 @@ fn remove_if_present(path: &Path) -> Result<(), Failure> {
 pub struct Synced {
     pub written: Vec<String>,
     pub removed: Vec<String>,
+    /// The roles installed only because recorded roles require them.
+    pub required: Vec<Required>,
 }
 
 /// A generated file: its bytes, and whether it is executable.
@@ -301,10 +364,7 @@ type Generated = BTreeMap<String, (Vec<u8>, bool)>;
 /// lacks from the record's `url`.
 pub fn sync(place: &Place, record: &Record) -> Result<Synced, Failure> {
     let dir = &place.root;
-    let mut generated = Generated::new();
-    for entry in &record.role {
-        generate(place, entry, &mut generated)?;
-    }
+    let (generated, required) = plan(place, record)?;
     let old: BTreeSet<String> = read_manifest(&place.manifest)?;
 
     let foreign: Vec<&str> = generated
@@ -321,7 +381,10 @@ pub fn sync(place: &Place, record: &Record) -> Result<Synced, Failure> {
         )));
     }
 
-    let mut synced = Synced::default();
+    let mut synced = Synced {
+        required,
+        ..Synced::default()
+    };
     for rel in old.iter().filter(|rel| !generated.contains_key(*rel)) {
         let path = dir.join(rel);
         match std::fs::remove_file(&path) {
@@ -381,22 +444,80 @@ pub fn sync(place: &Place, record: &Record) -> Result<Synced, Failure> {
     Ok(synced)
 }
 
-/// Every file `entry` installs at `place`, added to `into`; a path two roles would both write is
-/// refused.
-fn generate(place: &Place, entry: &RoleEntry, into: &mut Generated) -> Result<(), Failure> {
+/// Every file `entry` installs at `place`, for its role and each role it requires, added to
+/// `into`; answers the roles it requires, transitively. A path already in `into` with other
+/// content is refused: two roles of one name, or one role required at two revs.
+fn generate(
+    place: &Place,
+    entry: &RoleEntry,
+    into: &mut Generated,
+) -> Result<Vec<String>, Failure> {
     let found = locate(place, entry)?;
     let (lib, _tree) = sources::read_role(&found)?;
-    let role = &lib.roles[0];
-    let comment = format!(
-        "# Generated by rolesmith from {} at {}; `rolesmith sync` rewrites it, do not edit.",
-        found.qualified(),
-        found.rev
-    );
+    let named = &lib.roles[0];
+    let required = lib.requires(&named.name);
 
     let mut files: Vec<(String, Vec<u8>, bool)> = Vec::new();
+    for role in std::iter::once(named).chain(required.iter().copied()) {
+        role_files(&lib, role, &found, &mut files)?;
+    }
+
+    let mut bases = BTreeSet::new();
+    for target in &entry.into {
+        bases.insert(target_dir(target)?);
+    }
+    for base in bases {
+        for (rel, bytes, exec) in &files {
+            let path = format!("{base}/{rel}");
+            match into.get(&path) {
+                Some(have) if *have != (bytes.clone(), *exec) => {
+                    return Err(Failure::new(format!(
+                        "two roles would both write {path} differently (one role name from two \
+                         sources, or a role required at two revs); bring them to one rev or remove \
+                         one of them from {}",
+                        place.record_name()
+                    )));
+                }
+                Some(_) => {}
+                None => {
+                    into.insert(path, (bytes.clone(), *exec));
+                }
+            }
+        }
+    }
+    Ok(required.iter().map(|r| r.name.clone()).collect())
+}
+
+/// The files of `role`, read from `lib` (the source and rev of `found`), by their path in a
+/// target's skill directory: its core skill, which opens by naming the core skills of the roles
+/// it requires, and each of its skills.
+fn role_files(
+    lib: &library::Library,
+    role: &library::Role,
+    found: &Found,
+    files: &mut Vec<(String, Vec<u8>, bool)>,
+) -> Result<(), Failure> {
+    let qualified = format!("{}/{}", found.source, role.name);
+    let comment = format!(
+        "# Generated by rolesmith from {qualified} at {}; `rolesmith sync` rewrites it, do not edit.",
+        found.rev
+    );
     let core_name = format!("rolesmith-{}", role.name);
+    let requires = lib.requires(&role.name);
+    let builds_on = if requires.is_empty() {
+        String::new()
+    } else {
+        let cores: Vec<String> = requires
+            .iter()
+            .map(|r| format!("`rolesmith-{}`", r.name))
+            .collect();
+        format!(
+            "This role builds on others; their core skills are in force too, read them: {}.\n\n",
+            cores.join(", ")
+        )
+    };
     let mut core = format!(
-        "---\n{comment}\nname: {core_name}\ndescription: {}\n---\n\n{}\n",
+        "---\n{comment}\nname: {core_name}\ndescription: {}\n---\n\n{builds_on}{}\n",
         serde_json::to_string(&format!(
             "Always in force in this project: {}",
             role.toml.description
@@ -420,8 +541,7 @@ fn generate(place: &Place, entry: &RoleEntry, into: &mut Generated) -> Result<()
             let bytes = if rel == "SKILL.md" {
                 renamed_skill(&bytes, &comment, &name).ok_or_else(|| {
                     Failure::new(format!(
-                        "{}: skill {}'s SKILL.md has no front matter",
-                        found.qualified(),
+                        "{qualified}: skill {}'s SKILL.md has no front matter",
                         skill.name
                     ))
                 })?
@@ -429,22 +549,6 @@ fn generate(place: &Place, entry: &RoleEntry, into: &mut Generated) -> Result<()
                 bytes
             };
             files.push((format!("{name}/{rel}"), bytes, executable(&path)));
-        }
-    }
-
-    let mut bases = BTreeSet::new();
-    for target in &entry.into {
-        bases.insert(target_dir(target)?);
-    }
-    for base in bases {
-        for (rel, bytes, exec) in &files {
-            let path = format!("{base}/{rel}");
-            if into.insert(path.clone(), (bytes.clone(), *exec)).is_some() {
-                return Err(Failure::new(format!(
-                    "two roles would both write {path}; remove one of them from {}",
-                    place.record_name()
-                )));
-            }
         }
     }
     Ok(())

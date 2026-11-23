@@ -65,6 +65,8 @@ pub struct RoleToml {
     pub description: String,
     pub programs: Vec<String>,
     pub services: Vec<String>,
+    /// Roles of the same library this one builds on, installed with it (§3.1).
+    pub requires: Vec<String>,
     pub r#match: Option<Match>,
     /// The consumer tables present (one of [`CONSUMER_TABLES`] each), carried untouched.
     pub consumers: BTreeMap<String, toml::Value>,
@@ -77,6 +79,8 @@ struct RawRoleToml {
     programs: Vec<String>,
     #[serde(default)]
     services: Vec<String>,
+    #[serde(default)]
+    requires: Vec<String>,
     #[serde(default, rename = "match")]
     r#match: Option<Match>,
     #[serde(flatten)]
@@ -173,13 +177,26 @@ pub fn load(root: &Path, only: Option<&str>) -> Result<Library, Vec<Problem>> {
         root,
         problems: Vec::new(),
         programs: BTreeSet::new(),
+        requires: BTreeMap::new(),
     };
     let toml = c.library_toml();
-    let roles: Vec<Role> = c
-        .role_names(only)
-        .iter()
-        .filter_map(|name| c.role(name))
-        .collect();
+    // One role asked for brings every role it requires, transitively, in the order first reached.
+    let mut names = c.role_names(only);
+    let mut roles = Vec::new();
+    let mut next = 0;
+    while let Some(name) = names.get(next).cloned() {
+        next += 1;
+        roles.extend(c.role(&name));
+        if only.is_some() {
+            let required = c.requires.get(&name).map(|r| r.names.clone());
+            for req in required.unwrap_or_default() {
+                if !names.contains(&req) && c.is_role(&req) {
+                    names.push(req);
+                }
+            }
+        }
+    }
+    c.check_requires();
 
     let named = std::mem::take(&mut c.programs);
     let mut tool_names = named.clone();
@@ -193,8 +210,8 @@ pub fn load(root: &Path, only: Option<&str>) -> Result<Library, Vec<Problem>> {
 
     let scope: Vec<PathBuf> = match only {
         None => vec![root.to_path_buf()],
-        Some(role) => std::iter::once(root.join("library.toml"))
-            .chain(std::iter::once(root.join("roles").join(role)))
+        Some(_) => std::iter::once(root.join("library.toml"))
+            .chain(names.iter().map(|r| root.join("roles").join(r)))
             .chain(named.iter().map(|t| root.join("tools").join(t)))
             .collect(),
     };
@@ -210,6 +227,29 @@ pub fn load(root: &Path, only: Option<&str>) -> Result<Library, Vec<Problem>> {
             tools,
         }),
         _ => Err(c.problems),
+    }
+}
+
+impl Library {
+    /// The roles `name` requires, transitively, each once, in the order first reached; not `name`
+    /// itself. Every one is among [`Library::roles`] when the library was loaded for `name`.
+    pub fn requires(&self, name: &str) -> Vec<&Role> {
+        let mut found: Vec<&Role> = Vec::new();
+        let mut pending = vec![name];
+        let mut next = 0;
+        while let Some(at) = pending.get(next).copied() {
+            next += 1;
+            let Some(role) = self.roles.iter().find(|r| r.name == at) else {
+                continue;
+            };
+            for req in &role.toml.requires {
+                if req != name && !pending.contains(&req.as_str()) {
+                    pending.push(req);
+                    found.extend(self.roles.iter().find(|r| &r.name == req));
+                }
+            }
+        }
+        found
     }
 }
 
@@ -230,6 +270,14 @@ struct Checker<'a> {
     problems: Vec<Problem>,
     /// Every program a checked role names.
     programs: BTreeSet<String>,
+    /// What each checked role's `role.toml` requires.
+    requires: BTreeMap<String, Requires>,
+}
+
+/// A role's `requires`, and the line of `role.toml` it is on.
+struct Requires {
+    names: Vec<String>,
+    line: Option<usize>,
 }
 
 impl Checker<'_> {
@@ -303,7 +351,7 @@ impl Checker<'_> {
         if !valid_name(name) {
             self.problem(&dir, None, Rule::RoleName, name_reason("role"));
         }
-        let toml = self.role_toml(&format!("{dir}/role.toml"));
+        let toml = self.role_toml(name, &format!("{dir}/role.toml"));
 
         let core_file = format!("{dir}/core.md");
         let core = self.read(&core_file, Rule::Core);
@@ -374,9 +422,73 @@ impl Checker<'_> {
         ok.then_some(prohibitions)
     }
 
-    fn role_toml(&mut self, file: &str) -> Option<RoleToml> {
+    /// Whether `name` is a role of the library.
+    fn is_role(&self, name: &str) -> bool {
+        valid_name(name) && self.root.join("roles").join(name).is_dir()
+    }
+
+    /// Every role a checked role requires is a role of the library, and no role requires itself,
+    /// directly or through others (§3.1).
+    fn check_requires(&mut self) {
+        let mut unknown = Vec::new();
+        for (role, req) in &self.requires {
+            for name in req.names.iter().filter(|n| !self.is_role(n)) {
+                unknown.push((
+                    format!("roles/{role}/role.toml"),
+                    req.line,
+                    format!("requires `{name}`, which is not a role of this library"),
+                ));
+            }
+        }
+        for (file, line, reason) in unknown {
+            self.problem(file, line, Rule::RoleRequires, reason);
+        }
+        let mut done = BTreeSet::new();
+        let starts: Vec<String> = self.requires.keys().cloned().collect();
+        for start in starts {
+            self.visit(&start, &mut Vec::new(), &mut done);
+        }
+    }
+
+    /// Walk what `role` requires depth first, reporting a cycle back onto `path`.
+    fn visit(&mut self, role: &str, path: &mut Vec<String>, done: &mut BTreeSet<String>) {
+        if done.contains(role) {
+            return;
+        }
+        if let Some(i) = path.iter().position(|r| r == role) {
+            let mut cycle = path[i..].to_vec();
+            cycle.push(role.to_owned());
+            let line = self.requires.get(role).and_then(|r| r.line);
+            self.problem(
+                format!("roles/{role}/role.toml"),
+                line,
+                Rule::RoleRequires,
+                format!("requires form a cycle: {}", cycle.join(" -> ")),
+            );
+            return;
+        }
+        let Some(next) = self.requires.get(role).map(|r| r.names.clone()) else {
+            done.insert(role.to_owned());
+            return;
+        };
+        path.push(role.to_owned());
+        for req in next {
+            self.visit(&req, path, done);
+        }
+        path.pop();
+        done.insert(role.to_owned());
+    }
+
+    fn role_toml(&mut self, name: &str, file: &str) -> Option<RoleToml> {
         let text = self.read(file, Rule::RoleToml)?;
         let raw: RawRoleToml = self.parse(file, &text, Rule::RoleToml)?;
+        self.requires.insert(
+            name.to_owned(),
+            Requires {
+                names: raw.requires.clone(),
+                line: key_line(&text, "requires"),
+            },
+        );
         for program in &raw.programs {
             self.programs.insert(program.clone());
             if !self
@@ -420,15 +532,7 @@ impl Checker<'_> {
             if CONSUMER_TABLES.contains(&key.as_str()) {
                 consumers.insert(key, value);
             } else {
-                let line = text
-                    .lines()
-                    .position(|l| {
-                        let l = l.trim_start();
-                        l.starts_with(&format!("[{key}]"))
-                            || l.starts_with(&format!("[{key}."))
-                            || l.split(['=', '.']).next().map(str::trim) == Some(key.as_str())
-                    })
-                    .map(|i| i + 1);
+                let line = key_line(&text, &key);
                 self.problem(
                     file,
                     line,
@@ -444,6 +548,7 @@ impl Checker<'_> {
             description: raw.description,
             programs: raw.programs,
             services: raw.services,
+            requires: raw.requires,
             r#match: raw.r#match,
             consumers,
         })
@@ -606,6 +711,18 @@ pub fn split_front_matter(text: &str) -> Option<(&str, &str)> {
         offset += line.len();
     }
     None
+}
+
+/// The 1-based line where the top-level `key` of a TOML `text` is set, if it can be found.
+fn key_line(text: &str, key: &str) -> Option<usize> {
+    text.lines()
+        .position(|l| {
+            let l = l.trim_start();
+            l.starts_with(&format!("[{key}]"))
+                || l.starts_with(&format!("[{key}."))
+                || l.split(['=', '.']).next().map(str::trim) == Some(key)
+        })
+        .map(|i| i + 1)
 }
 
 /// The line of `key` inside the `n`th (from 0) `[[prohibition]]` of `text`, if it can be found.

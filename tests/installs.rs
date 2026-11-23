@@ -66,7 +66,7 @@ fn status_shows_behind_ahead_and_a_hand_edited_file_as_drift() {
     assert_eq!(
         out["roles"],
         json!([{ "name": "app-store-releaser", "source": "felix", "rev": first, "main": first,
-                 "behind": 0, "ahead": 0, "drift": [] }])
+                 "behind": 0, "ahead": 0, "requires": [], "drift": [] }])
     );
     let human = String::from_utf8(m.rolesmith(&["status", "--project", p]).stdout).unwrap();
     assert_eq!(

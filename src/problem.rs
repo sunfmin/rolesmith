@@ -19,6 +19,8 @@ pub enum Rule {
     RoleDescription,
     /// No top-level key outside the known ones and the consumer tables (§3.1).
     RoleUnknownKey,
+    /// Every role a role requires is a role of the same library, and requires form no cycle (§3.1).
+    RoleRequires,
     /// `core.md` is present and at most 8,000 characters (§3.2).
     Core,
     /// `prohibitions.toml` parses (§3.3).
@@ -48,6 +50,7 @@ impl Rule {
             Rule::RoleToml => "role-toml",
             Rule::RoleDescription => "role-description",
             Rule::RoleUnknownKey => "role-unknown-key",
+            Rule::RoleRequires => "role-requires",
             Rule::Core => "core",
             Rule::Prohibitions => "prohibitions",
             Rule::SkillName => "skill-name",

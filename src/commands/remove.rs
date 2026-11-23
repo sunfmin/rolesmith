@@ -5,7 +5,7 @@
 use serde_json::Value;
 
 use super::{Command, Failure, Output, sync};
-use crate::project::Record;
+use crate::project::{self, Record};
 
 /// Drop a role from rolesmith.toml and delete its generated files.
 #[derive(clap::Args)]
@@ -27,7 +27,7 @@ impl Command for Args {
     fn run(self) -> Result<Output, Failure> {
         let place = self.place.place()?;
         let mut record = Record::load(&place)?;
-        let i = record.position(&place, &self.role)?;
+        let i = project::named_position(&place, &record, &self.role)?;
         record.role.remove(i);
         sync::install(&place, &record)
     }
