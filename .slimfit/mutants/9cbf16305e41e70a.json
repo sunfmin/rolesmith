@@ -1,0 +1,27 @@
+{
+  "tree": "8122429c5d3d55b33cdf89f5664928d319e0067f+d1fba762150c532c",
+  "picker": "codex:01a20620-42c4-76d3-b5bc-e97c444e2a17:default",
+  "author": "claude-code:bb7ab73a-de0e-5b6b-ad8a-f56d9b14fd9f:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/library.rs:716:17: replace || with && in key_line",
+        "why": "The new tests check line numbers for plain assignments, so losing line numbers for unknown TOML table headers could go unnoticed.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/commands/status.rs:22:9: replace <impl Command for Args>::output_shape -> Value with Default::default()",
+        "why": "The status tests assert the runtime JSON, leaving open whether the published schema still declares the requires field.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/commands/sync.rs:60:5: replace shape -> Value with Default::default()",
+        "why": "The install tests assert the required entries in runtime output, so the published schema could disappear without affecting those assertions.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  }
+}
