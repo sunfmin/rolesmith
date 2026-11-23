@@ -22,6 +22,7 @@ pub mod needs;
 pub mod problem;
 pub mod project;
 pub mod secrets;
+pub mod service_map;
 pub mod sources;
 pub mod suggestions;
 pub mod upstream;

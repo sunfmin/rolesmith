@@ -572,3 +572,52 @@ fn check_outside_a_library_names_where_it_started() {
         stderr(&o)
     );
 }
+
+#[test]
+fn a_hosts_service_setting_is_refused_in_a_library() {
+    let lib = sound();
+    let mapping =
+        "[service.asc-api-key]\ncommand = \"op inject -i asc.env\"\ncheck = \"op whoami\"\n";
+    write(lib.path(), "services.toml", mapping);
+    let role = std::fs::read_to_string(lib.path().join("roles/app-store-releaser/role.toml"))
+        .unwrap()
+        .replace("\n[match]", &format!("\n{mapping}\n[match]"));
+    write(lib.path(), "roles/app-store-releaser/role.toml", &role);
+    write(
+        lib.path(),
+        "library.toml",
+        &format!("name = \"felix\"\n{mapping}"),
+    );
+    let tool = std::fs::read_to_string(lib.path().join("tools/asc/tool.toml")).unwrap();
+    write(
+        lib.path(),
+        "tools/asc/tool.toml",
+        &format!("{tool}{mapping}"),
+    );
+
+    let found = problems(lib.path());
+    let host_only: Vec<_> = found.iter().filter(|(_, _, r)| r == "host-only").collect();
+    assert_eq!(host_only.len(), 4, "{found:?}");
+    for file in [
+        "services.toml",
+        "library.toml",
+        "roles/app-store-releaser/role.toml",
+        "tools/asc/tool.toml",
+    ] {
+        assert!(has(&found, file, "host-only"), "{file}: {found:?}");
+    }
+    assert!(
+        host_only
+            .iter()
+            .any(|(f, line, _)| f == "roles/app-store-releaser/role.toml" && *line == Some(5)),
+        "{found:?}"
+    );
+    assert!(
+        !has(
+            &found,
+            "roles/app-store-releaser/role.toml",
+            "role-unknown-key"
+        ),
+        "reported once, as host-only: {found:?}"
+    );
+}

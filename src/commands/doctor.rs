@@ -12,11 +12,12 @@ use super::{Command, Failure, Output};
 use crate::host::{self, Host};
 use crate::machine::{self, Missing};
 use crate::needs::{self, Needs};
+use crate::service_map::{self, ServiceMap};
 use crate::sources::{self, Found, Sources};
 
 /// Check what a role needs on this machine: each program's `check` passes, and each service and credential has its mytokens entry.
 ///
-/// Run it before working under a role. It runs each program's `check` with `sh -c` (a `script` tool's check must also show its pinned version on stdout) and reads only which entries exist (`mytokens list`), never a value. It refuses when anything is missing, listing each with the command that fixes it (`rolesmith tool install <source>/<role>`, `mytokens put <entry> --fields ...`); with `--json` as `error.missing`. Do every fix, then run it again. A program without its `tool.toml` is refused as `show` refuses the role.
+/// Run it before working under a role. It runs each program's `check` with `sh -c` (a `script` tool's check must also show its pinned version on stdout) and reads only which entries exist (`mytokens list`), never a value. A service this host maps to a command in its `services.toml` (see `rolesmith env --help`) is not looked for in mytokens: its `check` runs here in place of the command, which doctor never runs, and a failing check is missing (`kind` `service`); one without a `check` is answered `unchecked`, which does not make doctor refuse. It refuses when anything is missing, listing each with the command that fixes it (`rolesmith tool install <source>/<role>`, `mytokens put <entry> --fields ...`); with `--json` as `error.missing`. Do every fix, then run it again. A program without its `tool.toml` is refused as `show` refuses the role.
 ///
 /// ## A project's roles
 ///
@@ -47,7 +48,7 @@ impl Command for Args {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "description": "nothing is missing; roles that lack anything here exit 1 and list it under error.missing",
             "type": "object",
-            "required": ["host", "programs", "entries"],
+            "required": ["host", "programs", "entries", "services"],
             "properties": {
                 "source": { "type": "string", "description": "with a role" },
                 "role": { "type": "string", "description": "with a role" },
@@ -70,7 +71,19 @@ impl Command for Args {
                     }
                 } },
                 "entries": { "type": "array", "items": { "type": "string" },
-                             "description": "the mytokens entries the roles read, each present" }
+                             "description": "the mytokens entries the roles read, each present" },
+                "services": { "type": "array", "description": "each service this host maps to a command (services.toml), read from it in place of mytokens",
+                              "items": {
+                    "type": "object", "required": ["name", "command", "state"],
+                    "properties": {
+                        "name": { "type": "string" },
+                        "command": { "type": "string", "description": "what `rolesmith env` runs for it; doctor never runs it" },
+                        "state": { "enum": ["checked", "unchecked"],
+                                   "description": "checked: its check passed; unchecked: it has no check, which does not make doctor refuse" },
+                        "from": { "type": "array", "items": { "type": "string" },
+                                  "description": "with --project: the roles that read it, as <source>/<role>" }
+                    }
+                } }
             }
         })
     }
@@ -96,12 +109,11 @@ fn one_role(address: &str, host: &Host) -> Result<Output, Failure> {
         host.flag()
     );
     let what = format!("{} at {}", found.qualified(), found.rev);
-    let found_programs = diagnose(&needs, host, &fix, false, &what)?;
+    let diagnosis = diagnose(&needs, host, &fix, false, &what)?;
     Ok(answer(
         &what,
         host,
-        &needs,
-        found_programs,
+        diagnosis,
         json!({ "source": found.source, "role": found.name, "rev": found.rev }),
     ))
 }
@@ -115,12 +127,11 @@ fn project(dir: Option<PathBuf>, host: &Host) -> Result<Output, Failure> {
         host.flag()
     );
     let what = format!("the roles of {shown}");
-    let programs = diagnose(&needs, host, &fix, true, &what)?;
+    let found = diagnose(&needs, host, &fix, true, &what)?;
     Ok(answer(
         &format!("{what} ({})", roles_at(&read)),
         host,
-        &needs,
-        programs,
+        found,
         json!({
             "project": shown,
             "roles": read.iter().map(|f| json!({ "source": f.source, "role": f.name, "rev": f.rev })).collect::<Vec<_>>(),
@@ -145,7 +156,7 @@ fn diagnose(
     fix: &str,
     with_from: bool,
     what: &str,
-) -> Result<(Vec<Value>, String), Failure> {
+) -> Result<Diagnosis, Failure> {
     let from = |roles: &[String]| with_from.then(|| roles.to_vec());
     let mut missing = Vec::new();
     let mut programs = Vec::new();
@@ -174,9 +185,13 @@ fn diagnose(
         ));
     }
 
-    if !needs.entries.is_empty() {
+    let map = ServiceMap::load()?;
+    let (mapped, in_mytokens): (Vec<_>, Vec<_>) =
+        (needs.entries.iter()).partition(|e| map.get(&e.name).is_some());
+    let entries: Vec<String> = in_mytokens.iter().map(|e| e.name.clone()).collect();
+    if !in_mytokens.is_empty() {
         let present = machine::entries()?;
-        for e in &needs.entries {
+        for e in in_mytokens {
             if !present.contains(&e.name) {
                 missing.push(Missing {
                     kind: "entry",
@@ -187,6 +202,48 @@ fn diagnose(
                 });
             }
         }
+    }
+    let mut services = Vec::new();
+    for e in mapped {
+        let mapped = map.get(&e.name).expect("partitioned on it");
+        // Only the check runs, here, where the command would: never the command.
+        let state = match &mapped.check {
+            None => {
+                human.push_str(&format!(
+                    "- service {}: unchecked: read by `{}`, with no check\n",
+                    e.name, mapped.command
+                ));
+                "unchecked"
+            }
+            Some(check) => {
+                let o = Host::Here.sh(check)?;
+                if !o.status.success() {
+                    missing.push(Missing {
+                        kind: "service",
+                        name: e.name.clone(),
+                        reason: format!(
+                            "check `{check}` exits {}",
+                            o.status
+                                .code()
+                                .map_or("by a signal".to_owned(), |c| c.to_string())
+                        ),
+                        fix: format!(
+                            "make `{check}` exit 0, or change service.{} in {}",
+                            e.name,
+                            service_map::file()?.display()
+                        ),
+                        from: from(&e.from),
+                    });
+                }
+                human.push_str(&format!("- service {}: `{check}` passes\n", e.name));
+                "checked"
+            }
+        };
+        let mut doc = json!({ "name": e.name, "command": mapped.command, "state": state });
+        if with_from {
+            doc["from"] = json!(e.from);
+        }
+        services.push(doc);
     }
 
     if !missing.is_empty() {
@@ -202,26 +259,35 @@ fn diagnose(
             Missing::to_json,
         ));
     }
-    Ok((programs, human))
+    Ok(Diagnosis {
+        programs,
+        entries,
+        services,
+        human,
+    })
+}
+
+/// What a doctor that found nothing missing answers of the programs and the mapped services, as
+/// `--json` lists them, with the human lines.
+struct Diagnosis {
+    programs: Vec<Value>,
+    /// The mytokens entries looked for, each present.
+    entries: Vec<String>,
+    services: Vec<Value>,
+    human: String,
 }
 
 /// What a doctor that found nothing missing prints: `head` (what was checked, for the human
-/// answer, and the keys that say so) with the host, the programs and the entries.
-fn answer(
-    what: &str,
-    host: &Host,
-    needs: &Needs,
-    (programs, lines): (Vec<Value>, String),
-    head: Value,
-) -> Output {
-    let entries: Vec<&String> = needs.entries.iter().map(|e| &e.name).collect();
-    let mut human = format!("{what}: nothing missing\n{lines}");
-    for e in &entries {
+/// answer, and the keys that say so) with the host, the programs, the entries and the services.
+fn answer(what: &str, host: &Host, found: Diagnosis, head: Value) -> Output {
+    let mut human = format!("{what}: nothing missing\n{}", found.human);
+    for e in &found.entries {
         human.push_str(&format!("- entry {e}: present\n"));
     }
     let mut json = head;
     json["host"] = json!(host.name());
-    json["programs"] = json!(programs);
-    json["entries"] = json!(entries);
+    json["programs"] = json!(found.programs);
+    json["services"] = json!(found.services);
+    json["entries"] = json!(found.entries);
     Output { json, human }
 }

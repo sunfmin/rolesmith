@@ -20,6 +20,8 @@
 
 **Service**: a credential a role's work reads, named by its mytokens entry in `role.toml`'s `services`. rolesmith holds only the name.
 
+**Service mapping**: a host's own choice to read a service from a command that prints its variables (1Password's `op inject`, a script) instead of mytokens: a `[service.<name>]` of the host's `services.toml`, beside `sources.toml`. Never in a library. _Avoid_: provider, backend
+
 **Target**: an agent a role is installed into (`claude-code`, `codex`, `agents`), and the skill directory that agent reads.
 
 **Install**: the files rolesmith generates in a target's skill directory for a role, listed in a manifest and rewritten identically by `sync`. A **project install** is recorded in the project's `rolesmith.toml`; a **global install** in `global.toml`.

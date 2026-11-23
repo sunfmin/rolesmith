@@ -124,7 +124,7 @@ pub fn put_command(name: &str, fields: &[String]) -> String {
 
 /// One thing a role needs that this machine lacks, with the command that fixes it.
 pub struct Missing {
-    /// `program` or `entry`.
+    /// `program`, `entry` or `service` (a service this host maps whose check fails).
     pub kind: &'static str,
     pub name: String,
     pub reason: String,
@@ -150,7 +150,7 @@ impl Missing {
             "type": "object",
             "required": ["kind", "name", "reason", "fix"],
             "properties": {
-                "kind": { "enum": ["program", "entry"] },
+                "kind": { "enum": ["program", "entry", "service"] },
                 "name": { "type": "string" },
                 "reason": { "type": "string" },
                 "fix": { "type": "string", "description": "the command that fixes it" },
