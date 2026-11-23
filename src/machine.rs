@@ -51,8 +51,7 @@ pub fn entries() -> Result<BTreeSet<String>, Failure> {
 pub fn profiles() -> Result<BTreeMap<String, Vec<String>>, Failure> {
     Ok(listed()?
         .into_iter()
-        .filter(|l| l.kind == "profile")
-        .map(|l| (l.entry, l.fields))
+        .filter_map(|l| Some((l.entry, l.profile?)))
         .collect())
 }
 
@@ -60,8 +59,8 @@ pub fn profiles() -> Result<BTreeMap<String, Vec<String>>, Failure> {
 /// it has fields, `  fields: <name>, <name>` last.
 struct Listed {
     entry: String,
-    kind: String,
-    fields: Vec<String>,
+    /// A Profile's field names; `None` for an entry of another kind.
+    profile: Option<Vec<String>>,
 }
 
 fn listed() -> Result<Vec<Listed>, Failure> {
@@ -75,14 +74,14 @@ fn parse_listed(line: &str) -> Option<Listed> {
     let mut columns = line.split_whitespace();
     let first = columns.next()?;
     let entry = first.split_once('/').map_or(first, |(entry, _)| entry);
-    let fields = line
-        .rsplit_once("  fields: ")
-        .map(|(_, names)| names.split(", ").map(|n| n.trim().to_owned()).collect())
-        .unwrap_or_default();
+    let profile = (columns.next() == Some("profile")).then(|| {
+        line.rsplit_once("  fields: ")
+            .map(|(_, names)| names.split(", ").map(|n| n.trim().to_owned()).collect())
+            .unwrap_or_default()
+    });
     Some(Listed {
         entry: entry.to_owned(),
-        kind: columns.next().unwrap_or_default().to_owned(),
-        fields,
+        profile,
     })
 }
 
@@ -192,10 +191,8 @@ mod tests {
         )
         .unwrap();
         assert_eq!(l.entry, "apple-dev-signing");
-        assert_eq!(l.kind, "profile");
-        assert_eq!(l.fields, ["APPLE_TEAM", "ASC_KEY_ID"]);
-        let l = parse_listed("bark/default\tstatic\tserver  — a push URL").unwrap();
-        assert_eq!((l.entry.as_str(), l.kind.as_str()), ("bark", "static"));
-        assert!(l.fields.is_empty());
+        assert_eq!(l.profile.unwrap(), ["APPLE_TEAM", "ASC_KEY_ID"]);
+        let l = parse_listed("asc/default\tstatic\tserver  — a key  fields: Key ID").unwrap();
+        assert_eq!((l.entry.as_str(), l.profile), ("asc", None));
     }
 }

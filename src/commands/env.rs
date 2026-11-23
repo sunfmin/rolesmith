@@ -57,17 +57,33 @@ impl Command for Args {
             .filter_map(|p| lib.tools.iter().find(|t| &t.name == p))
             .filter_map(|t| t.toml.credential.as_ref())
             .collect();
-        let mapped = |s: &String| credentials.iter().any(|c| &c.mytokens == s);
-        let unmapped: Vec<&String> = role.toml.services.iter().filter(|s| !mapped(s)).collect();
-        let profiles = if unmapped.is_empty() {
-            BTreeMap::new()
-        } else {
-            machine::profiles()?
-        };
-        let unmapped: Vec<&String> = unmapped
-            .into_iter()
-            .filter(|s| !profiles.contains_key(*s))
+        // Each variable with every (entry, field) it is read from: a program's [credential], or
+        // a Profile service's own field of that name.
+        let mut sources: BTreeMap<&str, BTreeSet<(&str, &str)>> = BTreeMap::new();
+        for cred in &credentials {
+            for (name, field) in &cred.env {
+                let from = (cred.mytokens.as_str(), field.as_str());
+                sources.entry(name).or_default().insert(from);
+            }
+        }
+        let mut unmapped: Vec<&String> = (role.toml.services.iter())
+            .filter(|s| !credentials.iter().any(|c| &c.mytokens == *s))
             .collect();
+        let profiles = match unmapped.is_empty() {
+            true => BTreeMap::new(),
+            false => machine::profiles()?,
+        };
+        if !unmapped.is_empty() {
+            unmapped.retain(|service| {
+                let Some(fields) = profiles.get(*service) else {
+                    return true;
+                };
+                for field in fields {
+                    sources.entry(field).or_default().insert((service, field));
+                }
+                false
+            });
+        }
         if !unmapped.is_empty() {
             return Err(Failure::listing(
                 format!(
@@ -78,22 +94,6 @@ impl Command for Args {
                 &unmapped,
                 |s| json!(s),
             ));
-        }
-        // Each variable with every (entry, field) it is read from: a program's [credential], or
-        // a Profile service's own field of that name.
-        let mut sources: BTreeMap<&str, BTreeSet<(&str, &str)>> = BTreeMap::new();
-        for cred in &credentials {
-            for (name, field) in &cred.env {
-                sources
-                    .entry(name)
-                    .or_default()
-                    .insert((&cred.mytokens, field));
-            }
-        }
-        for service in role.toml.services.iter().filter(|s| !mapped(s)) {
-            for field in &profiles[service] {
-                sources.entry(field).or_default().insert((service, field));
-            }
         }
         let conflicting: Vec<Conflict> = sources
             .iter()
