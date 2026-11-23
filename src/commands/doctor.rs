@@ -251,10 +251,11 @@ fn diagnose(needs: &Needs, run: &Run, head: Value) -> Result<Output, Failure> {
         }
         programs.push(doc);
         human.push_str(&format!(
-            "- program {}: `{}` passes{}\n",
+            "- program {}: `{}`{} {}\n",
             p.name,
             p.toml.check,
-            host.on()
+            host.on(),
+            check.reason
         ));
     }
 

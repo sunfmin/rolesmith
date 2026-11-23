@@ -183,6 +183,9 @@ pub struct Install {
     pub version: Option<String>,
 }
 
+/// The `version` of a brew tool that follows its formula's stable version (ADR 0005, amended).
+pub const STABLE: &str = "stable";
+
 /// How a tool is installed, as its `[install]` pins it.
 pub enum Method<'a> {
     /// A Homebrew formula.
@@ -193,7 +196,7 @@ pub enum Method<'a> {
 
 impl Install {
     /// The method and the pinned version, or the rule it breaks and why: exactly one method, a
-    /// version that is not blank, and a script that never runs `sudo`.
+    /// version that is not blank (`stable` only for brew), and a script that never runs `sudo`.
     pub fn pinned(&self) -> Result<(Method<'_>, &str), (Rule, &'static str)> {
         let unpinned = |reason| Err((Rule::ToolUnpinned, reason));
         let method = match (&self.brew, &self.script) {
@@ -213,6 +216,11 @@ impl Install {
             }
             Some(v) => v,
         };
+        if let (Method::Script(_), STABLE) = (&method, version) {
+            return unpinned(
+                "[install] script follows `stable`; a script pins its version, since rolesmith cannot see what it installed",
+            );
+        }
         if let Method::Script(script) = method
             && runs_sudo(script)
         {
@@ -222,17 +230,6 @@ impl Install {
             ));
         }
         Ok((method, version))
-    }
-}
-
-impl ToolToml {
-    /// What the check's stdout must show for the tool to count as installed: a script's pinned
-    /// version. A brew tool's version is held by its formula, so its check need only pass.
-    pub fn shows(&self) -> Option<&str> {
-        match self.install.pinned() {
-            Ok((Method::Script(_), version)) => Some(version),
-            _ => None,
-        }
     }
 }
 

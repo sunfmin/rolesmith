@@ -1,0 +1,10 @@
+{
+  "tree": "8aeb5cc0c5465a91c884b178d58537c8b2bf7444+d1fba762150c532c",
+  "lines": 102,
+  "serves": "rolesmith#43",
+  "considered": "reusing install.rs's brew runner and offered_version (moved into brew.rs, not copied); a Version enum in library.rs (removed for the existing &str and a STABLE const); brew list --versions as a second call (dropped: brew info's installed gives it in the same call)",
+  "reviewer": "codex:01a2081e-3167-7752-bd5b-0824bdf1320f:default",
+  "author": "claude-code:48b1028f-3f2c-593a-a927-5d3481cc2f73:opus",
+  "cut": "In src/library.rs, keep the existing validated version string and a shared `stable` constant, removing the Version enum. In src/machine.rs and src/install.rs, match that constant for stable brew tools and use the validated string directly for pins. In src/install.rs, give stable tools one arm that selects the verb and uses the formula name once. In src/brew.rs, merge the two stable-version mismatch arms by formatting the installed state first and appending the shared stable-version diagnostic.",
+  "answer": "Made all four cuts: Version enum removed for STABLE const and the validated &str; machine.rs and install.rs match STABLE; install.rs picks the verb in one stable branch; brew.rs's mismatch arms merged into one. The rest is the tap refresh, the lock wait and the stable comparison the issue asks for."
+}

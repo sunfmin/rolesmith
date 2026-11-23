@@ -1,0 +1,38 @@
+{
+  "tree": "03f740973cbca18dcdd52ea69affae5732ee16eb+d1fba762150c532c",
+  "picker": "codex:01a20820-df56-70f3-84a3-efebd5f761bf:default",
+  "author": "claude-code:48b1028f-3f2c-593a-a927-5d3481cc2f73:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/brew.rs:17:35: replace * with +",
+        "why": "The freshness test checks a new stamp and a 25-hour-old stamp, so an 84-minute cutoff would pass both.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/brew.rs:26:52: replace * with +",
+        "why": "The lock clears after one retry, so the test cannot distinguish a 90-second deadline from 30 minutes.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/brew.rs:101:17: delete match arm [] in at_stable",
+        "why": "The fresh-install test starts with a missing executable, so it never checks the diagnostic for a working executable with an empty Brew cellar.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/brew.rs:164:36: replace && with || in change",
+        "why": "The retry test clears the lock on the first failure, leaving retries after the deadline or on unrelated errors untested by that scenario.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  },
+  "removed_tests": {
+    "rust": [
+      "src/install.rs:160: the_offered_version_is_the_formulas_stable_one"
+    ]
+  }
+}

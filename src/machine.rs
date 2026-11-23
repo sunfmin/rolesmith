@@ -7,9 +7,10 @@ use std::process::{Command, Stdio};
 
 use serde_json::{Value, json};
 
+use crate::brew;
 use crate::commands::Failure;
 use crate::host::Host;
-use crate::library::ToolToml;
+use crate::library::{Method, STABLE, ToolToml};
 
 /// What running a tool's `check` here answered.
 pub struct Check {
@@ -19,15 +20,18 @@ pub struct Check {
 }
 
 /// Run `tool`'s check through `sh -c` on `host` with no input. It passes when it exits 0 and, for
-/// a tool that pins what its check shows (a script's version), its stdout contains that. Its output
-/// is not kept. A host that cannot be reached is a failure, never a check that fails.
+/// a script, its stdout contains the pinned version (rolesmith cannot see what a script installed);
+/// for a brew tool following `stable`, when brew there has its formula's stable version installed.
+/// A pinned brew tool's version is held by its formula, so its check need only pass. Its output is
+/// not kept. A host that cannot be reached is a failure, never a check that fails.
 pub fn check_tool(host: &Host, tool: &ToolToml) -> Result<Check, Failure> {
     let o = host.sh(&tool.check)?;
     let (passes, reason) = if o.status.success() {
-        match tool.shows() {
-            Some(v) if !String::from_utf8_lossy(&o.stdout).contains(v) => {
+        match tool.install.pinned() {
+            Ok((Method::Script(_), v)) if !String::from_utf8_lossy(&o.stdout).contains(v) => {
                 (false, format!("does not show the pinned version {v}"))
             }
+            Ok((Method::Brew(formula), STABLE)) => brew::at_stable(host, formula)?,
             _ => (true, "passes".to_owned()),
         }
     } else {

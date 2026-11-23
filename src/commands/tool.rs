@@ -39,12 +39,13 @@ pub enum Action {
     },
     /// Install each program of a role (or one tool) whose check fails, by its pinned method.
     ///
-    /// Run it when `rolesmith doctor` names a program missing. A tool whose check passes is left alone; a `script` tool's check passes only when its stdout shows the pinned `version`. Everything runs as you, never with `sudo`. A `brew` tool is installed into brew's own prefix: `<formula>@<version>` where brew has it, else `<formula>` when brew's stable version is the pinned one. A `script` tool's script is run with `sh -c`. After installing, the tool's check must pass. Tools are installed in order; the first refusal stops it and names what was installed before it.
+    /// Run it when `rolesmith doctor` names a program missing. A tool whose check passes is left alone; a `script` tool's check passes only when its stdout shows the pinned `version`. Everything runs as you, never with `sudo`. A `brew` tool is installed into brew's own prefix: `<formula>@<version>` where brew has it, else `<formula>` when brew's stable version is the pinned one. A `brew` tool with `version = "stable"` follows its formula's stable version instead: it passes only when brew has that version installed (its tap, `<user>/<repo>` of `<user>/<repo>/<formula>`, refreshed first with a `git pull` at most once a day, never `brew update`), and is otherwise installed (`brew install <formula>`) or, when an older one is installed, upgraded (`brew upgrade <formula>`). While another brew holds the formula's lock it waits and tries again. A `script` tool's script is run with `sh -c`. After installing, the tool's check must pass. Tools are installed in order; the first refusal stops it and names what was installed before it.
     ///
     /// ## Refusals
     ///
     /// - a tool without a pinned version, with no method or with both `brew` and `script`;
     /// - a formula whose stable version is not the pinned one (before installing anything);
+    /// - a `script` tool with `version = "stable"` (only `brew` follows a stable version);
     /// - a script that exits non-zero, with its exit code and the end of its stderr;
     /// - a check that still fails, or does not show the pinned version, after installing;
     /// - with `--host`, a host ssh cannot reach (naming it) or one without `brew` for a `brew` tool.

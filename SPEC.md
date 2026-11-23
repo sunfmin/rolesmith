@@ -174,15 +174,41 @@ script = "xcodebuild -downloadComponent MetalToolchain"
 version = "17C48"                             # a script's check must show it on stdout
 ```
 
+A `brew` tool may follow its formula's stable version instead of a pin, `version = "stable"`
+(ADR 0005, amended): its version then has one home, the formula in its tap.
+
+```toml
+check = "flux --version"
+[install]
+brew = "sunfmin/tap/flux-toolchain"
+version = "stable"                            # brew only: whatever the formula's stable is now
+```
+
 A tool's check passes when it exits 0 and, for a `script`, its stdout contains `version`: a check
-that exits 0 without showing the pinned version is missing, for `doctor` and for `tool install`.
-`rolesmith check` refuses an `[install]` with no method, both methods, or no or an empty `version`
-(`tool-unpinned`), and a script that names `sudo` (`tool-sudo`).
+that exits 0 without showing the pinned version is missing, for `doctor` and for `tool install`. For
+a `brew` tool following `stable`, the check passes only when the versions brew has installed (`brew
+info --json=v2 <formula>`'s `installed`) include the formula's stable one (or a rebuild of it,
+`<stable>_<n>`); one installed but older is missing, its reason naming the installed and the stable
+versions. Before comparing, the formula's own tap (`<user>/<repo>` of `<user>/<repo>/<name>`) is
+brought up to its remote with `git pull --ff-only` in `brew --repo <tap>`, never `brew update`, and
+at most once a day: a tap whose `.git/rolesmith-refreshed` was touched within 24 hours is not
+fetched, and the file is touched after each pull that succeeds. A pull that fails is not an error:
+the tap is compared as it is and the check's reason says so. A formula without a tap in its name,
+or a tap brew has not tapped, is compared as brew has it. A pinned `brew` tool's version is held by
+its formula, so its check need only pass.
+`rolesmith check` refuses an `[install]` with no method, both methods, no or an empty `version`, or
+a `script` with `version = "stable"` (`tool-unpinned`: rolesmith cannot see what a script
+installed), and a script that names `sudo` (`tool-sudo`).
 
 `rolesmith tool install` leaves a tool whose `check` passes alone. Otherwise, for `brew`, it
 installs `<formula>@<version>` where brew offers that formula, else `<formula>` when `brew info`
 reports the pinned version as the formula's stable one, and refuses before installing anything when
-it reports another; after installing, the tool's `check` must pass, or the install is refused. For a
+it reports another. A `brew` tool following `stable` is installed with `brew install <formula>` when
+brew has none of it installed, and upgraded with `brew upgrade <formula>` when it has an older one.
+While another brew holds the formula's lock (two `tool install`s at once), brew's install or upgrade
+is tried again each second for up to 30 minutes, so the second does nothing once the first has
+installed it; any other failure of brew is refused. After installing, the tool's `check` must pass,
+or the install is refused. For a
 `script`, it runs the script, then the check, and refuses unless the script exits 0 and the check
 passes, naming the script's exit code and the last lines of its stderr. Everything runs as the
 user, into the user's own prefix: never `sudo`, never a system directory.

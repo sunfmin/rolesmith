@@ -488,6 +488,11 @@ fn a_script_install_is_pinned_alone_and_never_runs_sudo() {
             "script = \"/usr/bin/sudo -n installer -pkg x.pkg\"\nversion = \"1.0.0\"\n",
             "tool-sudo",
         ),
+        // A script cannot follow a stable version: rolesmith cannot see what it installed.
+        (
+            "script = \"cargo install asc\"\nversion = \"stable\"\n",
+            "tool-unpinned",
+        ),
     ] {
         broken(file, &tool(install), file, rule);
     }
@@ -500,6 +505,15 @@ fn a_script_install_is_pinned_alone_and_never_runs_sudo() {
         &tool(
             "script = \"pseudo-installer asc && sudo-helper && sudo_helper && mise use -g asc@1.0.0\"\nversion = \"1.0.0\"\n",
         ),
+    );
+    let o = check(lib.path(), &[]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+
+    // A brew tool may follow its formula's stable version.
+    write(
+        lib.path(),
+        file,
+        &tool("brew = \"sunfmin/tap/asc\"\nversion = \"stable\"\n"),
     );
     let o = check(lib.path(), &[]);
     assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
