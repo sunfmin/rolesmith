@@ -1,10 +1,12 @@
 //! `rolesmith tool show <tool>`: a tool's tool.toml on its source's local `main`, and whether its
 //! check passes on this machine. `rolesmith tool install <role> | --tool <tool>`: each program
-//! whose check fails, installed by its pinned method into the user's own prefix (SPEC.md §3.5, §8).
+//! whose check fails, installed by its pinned method into the user's own prefix, on this machine or
+//! on `--host` over ssh (SPEC.md §3.5, §8).
 
 use serde_json::{Value, json};
 
 use super::{Command, Failure, Output};
+use crate::host::Host;
 use crate::install::{self, Done, Installed};
 use crate::library::ToolToml;
 use crate::machine;
@@ -41,7 +43,12 @@ pub enum Action {
     /// - a tool without a pinned version, with no method or with both `brew` and `script`;
     /// - a formula whose stable version is not the pinned one (before installing anything);
     /// - a script that exits non-zero, with its exit code and the end of its stderr;
-    /// - a check that still fails, or does not show the pinned version, after installing.
+    /// - a check that still fails, or does not show the pinned version, after installing;
+    /// - with `--host`, a host ssh cannot reach (naming it) or one without `brew` for a `brew` tool.
+    ///
+    /// ## Another host
+    ///
+    /// With `--host <host>` every check, every `brew` command and every script runs on that machine, as `ssh -o BatchMode=yes -- <host> sh -c '<command>'`: a `brew` tool goes into the host's own brew and prefix, and the host needs `sh` and ssh access by key, not rolesmith. It runs with the `PATH` that a command run over ssh gets there, so brew must be on it. This is the fix `rolesmith doctor <role> --host <host>` names.
     #[command(verbatim_doc_comment)]
     Install {
         /// The role whose programs to install: <role> or <source>/<role>.
@@ -50,6 +57,9 @@ pub enum Action {
         /// One tool instead of a role's programs: <tool> or <source>/<tool>.
         #[arg(long)]
         tool: Option<String>,
+        /// Check and install on this host over ssh instead of on this machine.
+        #[arg(long)]
+        host: Option<String>,
     },
 }
 
@@ -74,10 +84,11 @@ impl Command for Args {
                     "reason": { "type": "string", "description": "\"passes\", or why it does not" }
                   } },
                 { "title": "install", "type": "object",
-                  "required": ["source", "rev", "tools"],
+                  "required": ["source", "rev", "host", "tools"],
                   "properties": {
                     "source": { "type": "string" },
                     "rev": { "type": "string", "description": "the full SHA the tools were read at" },
+                    "host": { "type": ["string", "null"], "description": "the host it installed on; null for this machine" },
                     "tools": { "type": "array", "items": {
                         "type": "object", "required": ["name", "method", "formula"],
                         "properties": {
@@ -96,7 +107,7 @@ impl Command for Args {
     fn run(self) -> Result<Output, Failure> {
         match self.action {
             Action::Show { tool } => show(&tool),
-            Action::Install { role, tool } => install_all(role, tool),
+            Action::Install { role, tool, host } => install_all(role, tool, &Host::from_arg(host)),
         }
     }
 }
@@ -127,7 +138,7 @@ fn show(address: &str) -> Result<Output, Failure> {
     let record = Sources::load()?;
     let found = sources::resolve_kind(&record, Kind::Tool, address, None)?;
     let (text, toml) = read_tool(&found)?;
-    let check = machine::check_tool(&toml);
+    let check = machine::check_tool(&Host::Here, &toml)?;
     let human = format!(
         "# {} ({} at {})\n\n{}\n\n## tool.toml\n\n{}\n\n## Here\n\n`{}` {}\n",
         found.name,
@@ -155,7 +166,7 @@ fn show(address: &str) -> Result<Output, Failure> {
 
 /// Install a role's programs, or the one tool asked for, in order; the first refusal stops it and
 /// says what was installed before it.
-fn install_all(role: Option<String>, tool: Option<String>) -> Result<Output, Failure> {
+fn install_all(role: Option<String>, tool: Option<String>, host: &Host) -> Result<Output, Failure> {
     let record = Sources::load()?;
     let (found, tools) = match (role, tool) {
         (Some(role), _) => {
@@ -176,7 +187,7 @@ fn install_all(role: Option<String>, tool: Option<String>) -> Result<Output, Fai
 
     let mut done: Vec<Done> = Vec::new();
     for (name, toml) in &tools {
-        match install::install(name, toml) {
+        match install::install(host, name, toml) {
             Ok(d) => done.push(d),
             Err(mut f) => {
                 let installed: Vec<String> = done.iter().filter_map(installed_what).collect();
@@ -189,7 +200,7 @@ fn install_all(role: Option<String>, tool: Option<String>) -> Result<Output, Fai
         }
     }
 
-    let mut human = format!("{} at {}:\n", found.qualified(), found.rev);
+    let mut human = format!("{} at {}{}:\n", found.qualified(), found.rev, host.on());
     for d in &done {
         match installed_what(d) {
             Some(what) => human.push_str(&format!("- {}: installed {what}\n", d.name)),
@@ -200,6 +211,7 @@ fn install_all(role: Option<String>, tool: Option<String>) -> Result<Output, Fai
         json: json!({
             "source": found.source,
             "rev": found.rev,
+            "host": host.name(),
             "tools": done.iter().map(|d| {
                 let (method, formula) = match &d.installed {
                     None => (None, None),

@@ -183,6 +183,16 @@ it reports another; after installing, the tool's `check` must pass, or the insta
 passes, naming the script's exit code and the last lines of its stderr. Everything runs as the
 user, into the user's own prefix: never `sudo`, never a system directory.
 
+`rolesmith doctor <role> --host <host>` and `rolesmith tool install … --host <host>` do the same on
+another machine: each `check`, each `brew` command and each script runs there as
+`ssh -o BatchMode=yes -- <host> sh -c '<command>'` (a password prompt is never waited on), so a
+`brew` tool goes into that host's own brew and prefix. The host needs `sh` and ssh access, not
+rolesmith, and its commands see the `PATH` a command run over ssh gets there. A program's fix that
+`doctor` names then carries `--host <host>`. Services and credentials are still read only from this
+machine's mytokens: a credential never leaves it, and whoever runs work on the host brings the values
+with it. When ssh cannot reach the host (it exits 255) the command fails (`error.kind` `failed`),
+naming the host, rather than listing every program as missing.
+
 `env` maps each environment variable to the field of the mytokens entry it is filled from; a variable mapped to `""` is filled from the entry's single value.
 
 ## 4. Projects
@@ -404,9 +414,9 @@ one JSON document, generated from the same definitions the parser uses.
 | `remove <role> [--project <dir> \| --global]` | drop it from the record, delete its generated files |
 | `prompt <role> [--rev <sha>]` | §5.3 |
 | `suggest [--dir <dir>]` | §5.5 |
-| `doctor <role>` | for each program: tool.toml present (a role without one is refused as `show` refuses it), `check` passes (run by `sh -c`, exit 0); for each service and credential: mytokens entry present, read by `mytokens list` alone. Exit 1 if anything is missing, each with the command that fixes it (`rolesmith tool install <source>/<role>`, `mytokens put <entry> [--fields ...]`) |
+| `doctor <role> [--host <host>]` | for each program: tool.toml present (a role without one is refused as `show` refuses it), `check` passes (run by `sh -c`, exit 0); for each service and credential: mytokens entry present, read by `mytokens list` alone. Exit 1 if anything is missing, each with the command that fixes it (`rolesmith tool install <source>/<role> [--host <host>]`, `mytokens put <entry> [--fields ...]`); with `--host` the checks run on that host over ssh, the entries are still read here (§3.5) |
 | `tool show <tool>` | the tool.toml on its source's `main`, and whether its check passes here; a tool is addressed as a role is (§2) |
-| `tool install <role> \| --tool <tool>` | install each program whose check fails by its pinned method into the user's own prefix (§3.5), in order; the first refusal stops it and names what was installed before it |
+| `tool install <role> \| --tool <tool> [--host <host>]` | install each program whose check fails by its pinned method into the user's own prefix (§3.5), on that host over ssh with `--host`, in order; the first refusal stops it and names what was installed before it |
 | `env <role> [-- <command>...]` | §7.1 |
 | `new <role> --need "<text>" [--source <name>]` | scaffold `roles/<role>/` (`role.toml` with the need as its draft description, empty `core.md` and `prohibitions.toml`, no skills) in the source's working copy on a new branch `rolesmith/new-<role>` from `main`, and print the drafting brief; `--source` may be left out when there is one source; refuse a working copy with uncommitted changes, a role `main` has, and a branch that exists |
 | `propose [<role>] [--source <name>] [--closes <n>...]` | run `check` (of the role, or the whole working copy) and refuse with its problems if it fails; commit the working copy's changes on its current `rolesmith/*` branch (refuse on `main` or any other branch, and when the branch does not differ from `main`); push that branch to the source's `origin`, never `main`, never forced; open a pull request onto `main` with `gh pr create`, its body listing what changed per role (and outside any role) and a `Closes #<n>` line per `--closes`; print its URL. `--source` may be left out when there is one source |
