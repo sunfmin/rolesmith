@@ -1,0 +1,32 @@
+{
+  "tree": "032910913b3b6885ac8f43d45c426de2f39b4158+d1fba762150c532c",
+  "picker": "codex:01a206f2-0bd7-7d71-8b48-512700a2e226:default",
+  "author": "claude-code:3a9a97fd-bdde-5183-9ad0-ec23610003b3:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/entry_file.rs:70:23: replace match guard e.kind() == std::io::ErrorKind::NotFound with true in update",
+        "why": "The entry-file tests cover missing files and malformed markers, leaving room for sync to treat an invalid UTF-8 file as empty and overwrite it.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/project.rs:734:19: replace match guard e.kind() == std::io::ErrorKind::NotFound with true in update_gitignore",
+        "why": "The renamed cleanup test checks successful removal, so it would miss sync discarding existing .gitignore contents after a read error.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/project.rs:602:24: replace match guard known.url != entry.url with false in locate",
+        "why": "The sync fixtures use matching source URLs, so they may miss sync accepting a registered source whose URL conflicts with the project record.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  },
+  "removed_tests": {
+    "rust": [
+      "tests/project.rs:266: emptying_the_record_deletes_the_manifest_and_gitignore_and_keeps_the_skill_directory"
+    ]
+  }
+}
