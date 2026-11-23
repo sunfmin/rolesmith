@@ -18,6 +18,8 @@ rolesmith lesson add app-store-releaser --evidence <url> < lesson.md
 rolesmith distill app-store-releaser               # when you decide to fold lessons in
 ```
 
+Putting several roles together for one agent: `rolesmith use --help`.
+
 Install: `brew install sunfmin/tap/rolesmith`. The binary is universal (Apple silicon and Intel),
 Developer ID signed and notarized ([ADR 0002](docs/adr/0002-releases-are-universal-signed-and-notarized-by-the-taps-workflow.md)).
 
