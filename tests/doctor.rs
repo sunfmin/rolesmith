@@ -1374,7 +1374,7 @@ fn env_exports_a_profile_beside_credentials_and_refuses_a_name_from_two_sources(
     );
 
     let m = Machine::new(&["asc-api-key", "github"]);
-    m.profile("signing", &["ASC_KEY_ID", "OTHER"]);
+    m.profile("signing", &["ASC_KEY_ID", "GH_TOKEN", "OTHER"]);
     env_library(&m, &["signing"]);
     let o = m.rolesmith(&["--json", "env", "releaser"]);
     assert_eq!(o.status.code(), Some(1));
@@ -1382,11 +1382,18 @@ fn env_exports_a_profile_beside_credentials_and_refuses_a_name_from_two_sources(
         json(&o)["error"]["conflicting"],
         serde_json::json!([{ "name": "ASC_KEY_ID", "sources": [
             { "entry": "asc-api-key", "field": "Key ID" },
-            { "entry": "signing", "field": "ASC_KEY_ID" } ] }])
+            { "entry": "signing", "field": "ASC_KEY_ID" } ] },
+          { "name": "GH_TOKEN", "sources": [
+            { "entry": "github", "field": "" },
+            { "entry": "signing", "field": "GH_TOKEN" } ] }])
     );
     let err = stderr(&o);
     assert!(
         err.contains("ASC_KEY_ID: asc-api-key field \"Key ID\", signing field \"ASC_KEY_ID\""),
+        "{err}"
+    );
+    assert!(
+        err.contains("GH_TOKEN: github, signing field \"GH_TOKEN\""),
         "{err}"
     );
     assert!(

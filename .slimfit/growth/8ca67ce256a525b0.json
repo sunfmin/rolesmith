@@ -1,0 +1,10 @@
+{
+  "tree": "61d9975a9c408bb1378b4bc8e2aa0d2eba128307+d1fba762150c532c",
+  "lines": 86,
+  "serves": "rolesmith#39",
+  "considered": "reusing machine::entries' list parsing (now shared via listed()); deleting the Conflict type in favour of plain strings, kept because error.conflicting needs structured JSON",
+  "reviewer": "codex:01a207f0-ef1f-76f0-b4d2-6eae0b4ff4e2:default",
+  "author": "claude-code:35713adb-2a4c-5781-9579-a124f28f5ceb:opus",
+  "cut": "In src/commands/env.rs, resolve Profile fields while retaining unresolved services in the original `unmapped` vector, removing the second service scan and indexed lookup. In src/machine.rs, represent Profile metadata as `Option<Vec<String>>` on `Listed`, using `Some` even for an empty Profile, so `profiles()` can use one `filter_map` and the parser can drop the owned `kind` string.",
+  "answer": "Made both cuts: env resolves Profiles in a retain over the one unmapped vector; Listed.profile is Option<Vec<String>> and kind is gone."
+}
