@@ -8,8 +8,11 @@ use super::{Command, Failure, Output};
 use crate::machine::{self, Missing};
 use crate::sources::{self, Sources};
 
-/// What a role needs on this machine: programs whose check passes, mytokens entries present.
+/// Check what a role needs on this machine: each program's `check` passes, and each service and credential has its mytokens entry.
+///
+/// Run it before working under a role. It runs each program's `check` with `sh -c` and reads only which entries exist (`mytokens list`), never a value. It refuses when anything is missing, listing each with the command that fixes it (`rolesmith tool install <source>/<role>`, `mytokens put <entry> --fields ...`); with `--json` as `error.missing`. Do every fix, then run it again. A program without its `tool.toml` is refused as `show` refuses the role.
 #[derive(clap::Args)]
+#[command(verbatim_doc_comment)]
 pub struct Args {
     /// The role: <role> when one source has it, <source>/<role> otherwise.
     pub role: String,

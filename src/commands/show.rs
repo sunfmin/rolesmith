@@ -7,8 +7,17 @@ use super::{Command, Failure, Output};
 use crate::library::Library;
 use crate::sources::{self, Found, Sources};
 
-/// A role: role.toml, core, prohibitions, skills with descriptions, programs, services.
+/// Show a role: its `role.toml`, core, prohibitions, skills with their descriptions, programs and services.
+///
+/// Run it before `use` to see what a role installs, or with `--rev` to see it at the commit a project records. It reads the role at a commit of its source's clone (local `main`, or `--rev`), never the working tree, and writes nothing; an external skill is fetched into the cache when the cache lacks its rev.
+///
+/// ## Refusals
+///
+/// - an unknown role, or a bare name more than one source has (the refusal lists the addresses);
+/// - a `--rev` the clone does not have;
+/// - a role `rolesmith check` would refuse, with the same problems (with `--json`, `error.problems`).
 #[derive(clap::Args)]
+#[command(verbatim_doc_comment)]
 pub struct Args {
     /// The role: <role> when one source has it, <source>/<role> otherwise.
     pub role: String,

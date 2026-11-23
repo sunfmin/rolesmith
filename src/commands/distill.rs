@@ -8,8 +8,16 @@ use crate::github::Repo;
 use crate::library::{self, Role};
 use crate::sources::{self, MAIN, Sources};
 
-/// Print the distilling brief and the role's open lessons, on a new branch rolesmith/distill-<role>.
+/// Fold a role's open lessons into it: put its source's working copy on a new branch `rolesmith/distill-<role>` and print the distilling brief.
+///
+/// Run it when someone asks an agent to distill a role. It asks `gh` for the role's open lessons; with none, it says so and changes nothing (`branch` and `brief` are `null`). The brief holds the role's current core, prohibitions and skills, each open lesson, where each belongs (the narrowest place; the core only for rules of every task), `rolesmith lesson close` for one judged wrong, and the last step: `rolesmith check`, then `rolesmith propose --closes <n>...`.
+///
+/// ## Refusals
+///
+/// - a working copy with uncommitted changes;
+/// - a branch `rolesmith/distill-<role>` that exists.
 #[derive(clap::Args)]
+#[command(verbatim_doc_comment)]
 pub struct Args {
     /// The role: <role> when one source has it, <source>/<role> otherwise.
     pub role: String,

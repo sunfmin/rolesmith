@@ -1,12 +1,17 @@
 //! `rolesmith agent-context`: every command, flag and JSON output shape as one JSON document,
-//! generated from the parser's own definition and the registry, so it cannot drift from them.
+//! generated from the parser's own definition, the registry and the manual, so it cannot drift
+//! from them.
 
 use serde_json::{Map, Value, json};
 
 use super::{Command, Failure, Output, output_shapes};
+use crate::cli::ErrorKind;
 
 /// Print every command, flag and JSON output shape as one JSON document.
+///
+/// Run it when a program, not a reader, needs rolesmith's commands: the document is generated from the parser's own definitions, so it is never out of date. Each command's `long_help` is the page its `--help` prints, and its `output` the JSON Schema of what its `--json` prints on success. It reads and writes nothing, and never refuses. Without `--json` it prints the same document, pretty-printed.
 #[derive(clap::Args)]
+#[command(verbatim_doc_comment)]
 pub struct Args {}
 
 impl Command for Args {
@@ -59,7 +64,7 @@ impl Command for Args {
                         "name": { "type": "string" },
                         "about": { "type": ["string", "null"] },
                         "long_help": {
-                            "description": "what --help (not -h) prints after the flags: how to use the command well",
+                            "description": "what the command's --help prints: its page of the manual",
                             "type": ["string", "null"]
                         },
                         "flags": { "type": "array", "items": { "$ref": "#/$defs/arg" } },
@@ -90,11 +95,12 @@ pub fn document() -> Value {
         .into_iter()
         .map(|(name, shape)| (name.to_owned(), shape))
         .collect();
+    let manual = crate::help::manual();
     let commands: Vec<Value> = root
         .get_subcommands()
         .filter(|c| c.get_name() != "help")
         .map(|c| {
-            let mut entry = describe(c);
+            let mut entry = describe(&manual, &[], c);
             if let Some(shape) = shapes.get(c.get_name()) {
                 entry["output"] = shape.clone();
             }
@@ -119,7 +125,7 @@ pub fn document() -> Value {
                     "error": {
                         "type": "object",
                         "properties": {
-                            "kind": { "enum": ["failed", "usage"] },
+                            "kind": { "enum": <ErrorKind as agent_help::Table>::ENTRIES.iter().map(|e| e.name).collect::<Vec<_>>() },
                             "message": { "type": "string" },
                             "problems": {
                                 "description": "present when the refusal is a list of problems (check)",
@@ -141,17 +147,19 @@ pub fn document() -> Value {
     })
 }
 
-fn describe(c: &clap::Command) -> Value {
+/// One command at `parent`'s path: its parser definition, and its page of the manual as `long_help`.
+fn describe(manual: &agent_help::Help, parent: &[&str], c: &clap::Command) -> Value {
+    let path: Vec<&str> = parent.iter().copied().chain([c.get_name()]).collect();
     json!({
         "name": c.get_name(),
         "about": c.get_about().map(|s| s.to_string()),
-        "long_help": c.get_after_long_help().map(|s| s.to_string()),
+        "long_help": manual.command_help(&path).expect("checked by the_manual_is_whole"),
         "flags": c.get_arguments().filter(|a| !a.is_positional()).map(arg).collect::<Vec<_>>(),
         "positionals": c.get_arguments().filter(|a| a.is_positional()).map(arg).collect::<Vec<_>>(),
         "subcommands": c
             .get_subcommands()
             .filter(|s| s.get_name() != "help")
-            .map(describe)
+            .map(|s| describe(manual, &path, s))
             .collect::<Vec<_>>(),
     })
 }

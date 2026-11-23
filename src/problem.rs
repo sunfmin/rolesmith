@@ -4,67 +4,58 @@ use serde_json::{Value, json};
 
 use crate::secrets;
 
-/// The rules `rolesmith check` enforces, by the name `--json` reports them under.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// The rules `rolesmith check` enforces. Each variant's doc comment is its line in help; its name,
+/// in kebab-case, is what a problem reports it under.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, agent_help::Help)]
 pub enum Rule {
-    /// `library.toml` is present, parses and has a `name` (§2).
+    /// `library.toml` is present, parses and has a `name`.
     LibraryToml,
     /// A role that was asked for exists.
     RoleMissing,
-    /// A role name is lowercase letters, digits and single hyphens, 2–48 characters (§2).
+    /// A role name is lowercase letters, digits and single hyphens, 2–48 characters.
     RoleName,
-    /// `role.toml` is present and parses with a `description` (§3.1).
+    /// `role.toml` is present and parses with a `description`.
     RoleToml,
-    /// The description is one line of at most 200 characters (§3.1).
+    /// The description is one line of at most 200 characters.
     RoleDescription,
-    /// No top-level key outside the known ones and the consumer tables (§3.1).
+    /// No top-level key outside the known ones and the consumer tables.
     RoleUnknownKey,
-    /// Every role a role requires is a role of the same library, and requires form no cycle (§3.1).
+    /// Every role a role requires is a role of the same library, and requires form no cycle.
     RoleRequires,
-    /// `core.md` is present and at most 8,000 characters (§3.2).
+    /// `core.md` is present and at most 8,000 characters.
     Core,
-    /// `prohibitions.toml` parses (§3.3).
+    /// `prohibitions.toml` parses.
     Prohibitions,
-    /// A skill's name follows the role name's rule (§3.4).
+    /// A skill's name follows the role name's rule.
     SkillName,
-    /// `SKILL.md` is present with front matter `name` equal to its directory (§3.4).
+    /// `SKILL.md` is present with front matter `name` equal to its directory.
     SkillFrontMatter,
-    /// The skill's `description` is present and at most 1,024 characters (§3.4).
+    /// The skill's `description` is present and at most 1,024 characters.
     SkillDescription,
-    /// An external skill's rev is a full SHA its repository has, and its path holds a `SKILL.md`
-    /// (§3.4).
+    /// An external skill's rev is a full SHA its repository has, and its path holds a `SKILL.md`.
     ExternalSkill,
-    /// Every program a role names has `tools/<tool>/tool.toml` (§3.5).
+    /// Every program a role names has `tools/<tool>/tool.toml`.
     ToolMissing,
-    /// `tool.toml` parses (§3.5).
+    /// `tool.toml` parses.
     ToolToml,
-    /// A tool's `[install]` names a known method and a pinned version (§3.5).
+    /// A tool's `[install]` names a known method and a pinned version.
     ToolUnpinned,
-    /// Nothing matches a secret pattern (§7.2).
+    /// Nothing matches a secret pattern.
     Secret,
 }
 
 impl Rule {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Rule::LibraryToml => "library-toml",
-            Rule::RoleMissing => "role-missing",
-            Rule::RoleName => "role-name",
-            Rule::RoleToml => "role-toml",
-            Rule::RoleDescription => "role-description",
-            Rule::RoleUnknownKey => "role-unknown-key",
-            Rule::RoleRequires => "role-requires",
-            Rule::Core => "core",
-            Rule::Prohibitions => "prohibitions",
-            Rule::SkillName => "skill-name",
-            Rule::SkillFrontMatter => "skill-front-matter",
-            Rule::SkillDescription => "skill-description",
-            Rule::ExternalSkill => "external-skill",
-            Rule::ToolMissing => "tool-missing",
-            Rule::ToolToml => "tool-toml",
-            Rule::ToolUnpinned => "tool-unpinned",
-            Rule::Secret => "secret",
-        }
+    /// The rule's name, as a problem reports it: its variant in kebab-case.
+    pub fn name(self) -> String {
+        agent_help::Table::entry(&self).name.replace('_', "-")
+    }
+
+    /// Every rule, one line each, as help lists them.
+    pub fn help() -> String {
+        <Rule as agent_help::Table>::ENTRIES
+            .iter()
+            .map(|e| format!("- `{}`: {}\n", e.name.replace('_', "-"), e.markdown))
+            .collect()
     }
 }
 
@@ -104,7 +95,7 @@ impl Problem {
     }
 
     pub fn to_json(&self) -> Value {
-        let mut v = json!({ "file": self.file, "rule": self.rule.as_str(), "reason": self.reason });
+        let mut v = json!({ "file": self.file, "rule": self.rule.name(), "reason": self.reason });
         if let Some(line) = self.line {
             v["line"] = json!(line);
         }
@@ -134,9 +125,9 @@ impl std::fmt::Display for Problem {
                 "{}:{line}: {} [{}]",
                 self.file,
                 self.reason,
-                self.rule.as_str()
+                self.rule.name()
             ),
-            None => write!(f, "{}: {} [{}]", self.file, self.reason, self.rule.as_str()),
+            None => write!(f, "{}: {} [{}]", self.file, self.reason, self.rule.name()),
         }
     }
 }

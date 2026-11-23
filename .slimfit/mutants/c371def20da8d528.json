@@ -1,0 +1,33 @@
+{
+  "tree": "38a5de082b913d72cf9f6cee1e725cccc0d0bf04+d1fba762150c532c",
+  "picker": "codex:01a2067f-09d0-7f71-b5e4-04698cecd535:default",
+  "author": "claude-code:bc395aef-5b05-5104-9702-28508e796aaa:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/help.rs:215:5: replace targets -> String with \"xyzzy\".into()",
+        "why": "The use help assertions cover the composing link and flag parity, so the accepted targets and their install directories could disappear unnoticed.",
+        "outcome": "killed",
+        "first_outcome": "survived"
+      },
+      {
+        "name": "src/problem.rs:55:9: replace Rule::help -> String with \"xyzzy\".into()",
+        "why": "The topic tests check the opening sentence and manual inclusion, which can still pass after the errors topic loses every check rule.",
+        "outcome": "killed",
+        "first_outcome": "survived"
+      },
+      {
+        "name": "src/problem.rs:107:9: replace Problem::shape -> Value with Default::default()",
+        "why": "This can erase the documented check problem fields, including the optional line number, while leaving the actual problem JSON intact.",
+        "outcome": "killed",
+        "first_outcome": "survived"
+      }
+    ]
+  },
+  "removed_tests": {
+    "rust": [
+      "tests/cli.rs:154: use_long_help_explains_composing_roles_and_short_help_does_not",
+      "tests/cli.rs:179: agent_context_carries_use_long_help_from_the_same_string"
+    ]
+  }
+}

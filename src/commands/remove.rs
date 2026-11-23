@@ -7,8 +7,11 @@ use serde_json::Value;
 use super::{Command, Failure, Output, sync};
 use crate::project::{self, Record};
 
-/// Drop a role from rolesmith.toml and delete its generated files.
+/// Drop a role from the record and delete its generated files.
+///
+/// Only files the manifest lists are deleted, and a role another remaining role requires keeps its files. A record left with no roles is deleted, with its manifest and the `.gitignore` lines rolesmith added: the project is as it was before `use`. It refuses a role the record does not name and one installed only because others require it, naming those.
 #[derive(clap::Args)]
+#[command(verbatim_doc_comment)]
 pub struct Args {
     /// The role, by its name in rolesmith.toml.
     pub role: String,

@@ -7,8 +7,17 @@ use super::{Command, Failure, Output};
 use crate::library;
 use crate::sources::{self, MAIN, Sources};
 
-/// Scaffold roles/<role>/ on a new branch rolesmith/new-<role> and print the drafting brief.
+/// Scaffold a new role on a new branch `rolesmith/new-<role>` of a source's working copy, and print the drafting brief.
+///
+/// Run it when someone asks for a role that no library has. It writes `roles/<role>/` from `main`: `role.toml` with the need as its draft description, an empty `core.md` and `prohibitions.toml`, no skills. The brief says what to write, the limits `check` enforces, and the last step: `rolesmith check`, then `rolesmith propose`.
+///
+/// ## Refusals
+///
+/// - a name that is not lowercase letters, digits and single hyphens;
+/// - a working copy with uncommitted changes;
+/// - a role `main` already has, or a branch that exists.
 #[derive(clap::Args)]
+#[command(verbatim_doc_comment)]
 pub struct Args {
     /// The new role's name (lowercase letters, digits and single hyphens).
     pub role: String,

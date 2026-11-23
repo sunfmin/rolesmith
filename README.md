@@ -18,7 +18,11 @@ rolesmith lesson add app-store-releaser --evidence <url> < lesson.md
 rolesmith distill app-store-releaser               # when you decide to fold lessons in
 ```
 
-Putting several roles together for one agent: `rolesmith use --help`.
+`rolesmith --help` is the manual: what each command is for, grouped by who runs it, and its topics.
+Run `rolesmith <command> --help` before a command's first run; `rolesmith help composing` says how to
+put several roles together for one agent, `rolesmith help all` prints everything. The help is written
+with [agent-help](https://github.com/sunfmin/agent-cli/tree/main/crates/agent-help), as Markdown on
+the code each fact lives in.
 
 Install: `brew install sunfmin/tap/rolesmith`. The binary is universal (Apple silicon and Intel),
 Developer ID signed and notarized ([ADR 0002](docs/adr/0002-releases-are-universal-signed-and-notarized-by-the-taps-workflow.md)).

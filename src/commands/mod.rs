@@ -1,9 +1,10 @@
 //! The one place commands are registered (SPEC.md §8).
 //!
 //! A command is a module here with a `pub struct Args` that derives `clap::Args` and implements
-//! [`Command`]. Adding one is a `pub mod` line and a line in `registry!` below; nothing else in
-//! the frame changes. The parser, the dispatch and `agent-context` are all generated from that
-//! list, so they cannot disagree.
+//! [`Command`]; its help is the Markdown doc comment on that struct (`verbatim_doc_comment`), and
+//! its group, who runs it, is one of [`groups`], beside it in `registry!`. Adding one is a `pub mod` line and a line in
+//! `registry!` below; nothing else in the frame changes. The parser, the dispatch, the manual and
+//! `agent-context` are all generated from that list, in its order, so they cannot disagree.
 
 use serde_json::Value;
 
@@ -70,6 +71,21 @@ impl Failure {
     }
 }
 
+/// Who runs a command: the groups the manual lists commands under, in the order it first meets
+/// them.
+pub mod groups {
+    /// Commands that describe rolesmith itself; `help` is one, so this group is first.
+    pub const LEARNING: &str = "Run by an agent learning rolesmith";
+    /// Commands that keep the libraries this machine knows.
+    pub const MACHINE: &str = "Run on a machine, to know its libraries";
+    /// Commands that choose and install a project's roles.
+    pub const PROJECT: &str = "Run by whoever sets up a project's agents";
+    /// Commands an agent runs while it works under a role.
+    pub const ROLE: &str = "Run by an agent working under a role";
+    /// Commands that change a library's roles.
+    pub const LIBRARY: &str = "Run by an agent writing a library's roles";
+}
+
 /// A registered command.
 pub trait Command: clap::Args {
     /// The name the command is typed as.
@@ -82,12 +98,15 @@ pub trait Command: clap::Args {
 }
 
 macro_rules! registry {
-    ($($variant:ident => $module:ident),+ $(,)?) => {
+    ($($variant:ident => $module:ident in $group:ident),+ $(,)?) => {
         /// Every registered command, as the parser knows them.
         #[derive(clap::Subcommand)]
         pub enum Registered {
             $(
-                #[command(name = <$module::Args as Command>::NAME)]
+                #[command(
+                    name = <$module::Args as Command>::NAME,
+                    next_help_heading = groups::$group
+                )]
                 $variant($module::Args),
             )+
         }
@@ -111,23 +130,23 @@ macro_rules! registry {
 }
 
 registry! {
-    AgentContext => agent_context,
-    Check => check,
-    Distill => distill,
-    Doctor => doctor,
-    Env => env,
-    Lesson => lesson,
-    List => list,
-    New => new,
-    Prompt => prompt,
-    Propose => propose,
-    Remove => remove,
-    Show => show,
-    Source => source,
-    Status => status,
-    Suggest => suggest,
-    Sync => sync,
-    Use => use_,
-    Tool => tool,
-    Update => update,
+    AgentContext => agent_context in LEARNING,
+    Source => source in MACHINE,
+    List => list in PROJECT,
+    Show => show in PROJECT,
+    Suggest => suggest in PROJECT,
+    Use => use_ in PROJECT,
+    Sync => sync in PROJECT,
+    Status => status in PROJECT,
+    Update => update in PROJECT,
+    Remove => remove in PROJECT,
+    Prompt => prompt in ROLE,
+    Doctor => doctor in ROLE,
+    Tool => tool in ROLE,
+    Env => env in ROLE,
+    Lesson => lesson in ROLE,
+    New => new in LIBRARY,
+    Check => check in LIBRARY,
+    Distill => distill in LIBRARY,
+    Propose => propose in LIBRARY,
 }

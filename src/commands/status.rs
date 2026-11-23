@@ -8,8 +8,11 @@ use super::{Command, Failure, Output, sync};
 use crate::project::{self, Place, Record, RoleEntry};
 use crate::sources;
 
-/// Per role: the pinned rev, the source's main, and whether the generated files match.
+/// Show, per recorded role: the rev it is pinned at, its source's local `main`, how many commits the rev is behind and ahead of it, the roles it requires, and the generated files that differ from what the record generates (drift).
+///
+/// Run it to see whether a project's roles are current and intact. Drift is repaired by `rolesmith sync`; a rev behind `main` is moved by `rolesmith update`. It writes no generated file, but adds a source the record names that this machine lacks, as `sync` does.
 #[derive(clap::Args)]
+#[command(verbatim_doc_comment)]
 pub struct Args {
     #[command(flatten)]
     pub place: sync::Where,

@@ -8,8 +8,11 @@ use super::{Command, Failure, Output, sync};
 use crate::project::{self, Record};
 use crate::sources::{self, MAIN};
 
-/// Move roles (default: every role) to their source's local main and sync.
+/// Move recorded roles (default: every role) to their source's local `main`, rewrite their `rev` in the record, and sync.
+///
+/// It fetches nothing: run `rolesmith source update` first. The roles a role requires move with it. It refuses a role the record does not name, one the record installs only because others require it (update those instead), and a source with no local `main`.
 #[derive(clap::Args)]
+#[command(verbatim_doc_comment)]
 pub struct Args {
     /// Only this role, by its name in rolesmith.toml.
     pub role: Option<String>,

@@ -1,6 +1,7 @@
 //! `rolesmith lesson add|list|close`: lessons as issues on a library's GitHub repository, labelled
 //! `lesson` and `role:<role>`, opened and closed through `gh` (SPEC.md §6, §7.2).
-
+///
+/// Each subcommand's `rolesmith lesson <subcommand> --help` says when to run it and what it answers.
 use std::io::Read;
 
 use serde_json::{Value, json};
@@ -16,7 +17,10 @@ const LESSON: &str = "lesson";
 const LABEL_COLOR: &str = "5319e7";
 
 /// Hand a role a lesson, list the open ones, close one that will not be absorbed.
+///
+/// A lesson is what doing a role's work taught that the role should know next time: what happened, the rule that would have prevented it, and the evidence. It is an issue on the library's GitHub repository, labelled `lesson` and `role:<role>`, opened and closed through `gh`; `rolesmith distill` folds open lessons into the role. A source whose URL is not on GitHub is refused.
 #[derive(clap::Args)]
+#[command(verbatim_doc_comment)]
 pub struct Args {
     #[command(subcommand)]
     pub action: Action,
@@ -25,6 +29,14 @@ pub struct Args {
 #[derive(clap::Subcommand)]
 pub enum Action {
     /// Open a lesson on the role's library; its text comes on stdin, the first line its title.
+    ///
+    /// The rest of the text is the issue's body, which ends with `Evidence: <url>` and `Handed in by: <source>`. The labels are created on the repository when it lacks them. When the library is public it reminds you to keep project details (customer names, private URLs) general.
+    ///
+    /// ## Refusals
+    ///
+    /// - empty text, or text that looks like a secret (nothing is sent);
+    /// - an `--evidence` that is not an `http://` or `https://` link.
+    #[command(verbatim_doc_comment)]
     Add {
         /// The role: <role> when one source has it, <source>/<role> otherwise.
         role: String,
@@ -35,12 +47,18 @@ pub enum Action {
         #[arg(long, value_enum, default_value_t = By::Agent)]
         source: By,
     },
-    /// Open lessons: number, role, title, age.
+    /// List open lessons: number, role, title and age, of one role or of every source.
+    ///
+    /// Without a role, a source whose URL is not on GitHub is skipped and listed as skipped, not refused. A lesson is numbered `<n>` when the machine has one source, `<source>#<n>` otherwise, as `lesson close` takes it.
+    #[command(verbatim_doc_comment)]
     List {
         /// Only this role's lessons.
         role: Option<String>,
     },
-    /// Close a lesson that will not be absorbed, with the reason as a comment.
+    /// Close a lesson that will not be absorbed, with the reason as its comment.
+    ///
+    /// Run it for a lesson judged wrong; one a change absorbs is closed by that change's pull request (`rolesmith propose --closes <n>`). It refuses an empty `--why` or one that looks like a secret, a bare `<n>` when the machine has more than one source, an issue without the `lesson` label, and one already closed.
+    #[command(verbatim_doc_comment)]
     Close {
         /// The lesson: <n> when there is one source, <source>#<n> otherwise.
         lesson: String,

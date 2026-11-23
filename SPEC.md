@@ -344,18 +344,30 @@ otherwise), writes diagnostics to stderr, and exits 0 on success, 1 when it refu
 failed, 2 on a usage error. `rolesmith agent-context` prints every command, flag and JSON shape as
 one JSON document, generated from the same definitions the parser uses.
 
-- `--help` and `--version` print on stdout and exit 0.
+- Help is written with agent-help (`sunfmin/agent-cli`, `crates/agent-help`, pinned by commit): Markdown doc
+  comments on the type that is each fact's one home (a command's `Args` struct or subcommand
+  variant, a refusal kind's enum variant, a topic's struct over a file in `src/help/`), assembled
+  into one manual. `--help` and `-h` print its index (the tool's text, each command's line under
+  its group, each topic's line); `<command> --help` that command's page; `help <topic>` a topic;
+  `help all` the whole manual. All print on stdout and exit 0, as `--version` does; an unknown
+  topic is a usage error naming the topics. A command's page says when to run it, what it reads
+  and writes, what it refuses, and every key its `--json` prints, rendered from its output shape.
+  Codes and numbers (exit codes, `error.kind`, `check`'s rules, targets) are written once in code
+  and placed by placeholder. Help names no ADR, SPEC section or repository path. A test runs
+  `agent_help::check`, so a command without text fails it.
+- The topics: `composing` (how to put roles together for one agent: requires or use, one project
+  per combination, naming it, its entry file, changing it, new versions; `use`'s page points to
+  it), `errors` (exit codes, stderr, the `--json` error object and its lists, `check`'s rules) and
+  `sources` (libraries, sources, addressing, revs, external skills).
 - With `--json`, a run that exits 1 or 2 still prints one JSON document on stdout,
   `{"error": {"kind": "failed" | "usage", "message": "..."}}`, besides the diagnostic on stderr. A refusal that is a list of problems (`check`) adds `"problems": [{"file", "line"?, "rule", "reason"}]` to `error`. A refusal that is what this machine lacks (`doctor`) adds `"missing": [{"kind": "program" | "entry", "name", "reason", "fix"}]`, `fix` being the command that fixes it.
 - `agent-context` lists the global flags, then each command with its `about`, `long_help`, flags,
   positionals, subcommands and `output`: the JSON Schema of what its `--json` prints on success. Its
-  human form is the same document, pretty-printed.
-- A command's `long_help` is what its `--help` (not `-h`) prints after the flags: how to use it
-  well, from one string in its module. `use`'s says how to compose roles for an agent (requires or
-  use, one project per combination, naming it, its entry file, changing it, new versions); that
-  string is its one home.
-- Each command is one module of `src/commands/`, registered on one line of its `registry!`; the
-  parser, the dispatch and `agent-context` are generated from that list.
+  `about` is the first line of the command's doc comment and its `long_help` the page its `--help`
+  prints, so the manual is their one home. Its human form is the same document, pretty-printed.
+- Each command is one module of `src/commands/`, registered on one line of its `registry!`, with
+  its group (who runs it) beside its name; the parser, the dispatch, the manual and
+  `agent-context` are generated from that list.
 
 | Command | What it does |
 | --- | --- |
@@ -385,6 +397,7 @@ one JSON document, generated from the same definitions the parser uses.
 | `lesson close [<source>#]<n> --why "<text>"` | close a lesson that will not be absorbed |
 | `distill <role>` | ask `gh` for the role's open lessons (`lesson` and `role:<role>`); with none, say so and change nothing (`branch` and `brief` null); otherwise refuse a working copy with uncommitted changes, put it on a new branch `rolesmith/distill-<role>` from `main` (refuse one that exists), and print the distilling brief: the role's current `core.md`, prohibitions and skills, each open lesson (number, title, body, evidence), where each belongs (the narrowest place; core only for rules of every task), `lesson close` for one judged wrong, and the last step `check`, then `propose --closes <n>...` |
 | `agent-context` | §8 |
+| `help [<topic>]` | §8: the manual's index, a topic, or `all` |
 
 ### 8.1 Briefs
 

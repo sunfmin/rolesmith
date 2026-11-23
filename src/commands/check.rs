@@ -9,8 +9,15 @@ use super::{Command, Failure, Output};
 use crate::library;
 use crate::problem::Problem;
 
-/// Validate a library working copy or one role; print every problem.
+/// Check a library working copy, or one role of it, and print every problem, not only the first.
+///
+/// Run it in a library after changing a role, before `rolesmith propose` (which runs it too). It reads the working tree as it is, and fetches what the external-skill cache lacks. Checking one role checks `library.toml`, the roles it requires and the tools it names. Each problem has its file, its line where there is one, and its rule (see [how a run ends](help:errors)). It refuses when there is any problem, with `--json` as `error.problems`.
+///
+/// ## Pitfall
+///
+/// A problem that matches a secret pattern never echoes the match: its file or reason is withheld.
 #[derive(clap::Args)]
+#[command(verbatim_doc_comment)]
 pub struct Args {
     /// Check only this role (with library.toml and the tools it names).
     pub role: Option<String>,
