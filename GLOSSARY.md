@@ -12,6 +12,8 @@
 
 **Skill**: `skills/<skill>/SKILL.md` of a role, loaded by an agent when its description fits the task.
 
+**External skill**: a skill of another git repository that a role uses without a copy in its library: a `[[skill]]` of its `role.toml` naming the repository's URL, the skill's path in it and a pinned commit. rolesmith fetches it into its own cache and installs it like the role's own skills. _Avoid_: vendored skill, remote skill
+
 **Tool**: a program a role runs, described by `tools/<tool>/tool.toml`: how to install it (pinned), how to check it, and the credential it needs.
 
 **Service**: a credential a role's work reads, named by its mytokens entry in `role.toml`'s `services`. rolesmith holds only the name.

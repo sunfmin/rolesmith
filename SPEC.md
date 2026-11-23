@@ -45,7 +45,9 @@ as **sources**: a local name for a library's URL.
 
 Nothing else belongs in a library. In particular, **lessons are not files** (§6): a lesson waiting
 to be distilled is an issue on the library's GitHub repository, and a distilled lesson is the text it
-became in `core.md` or a skill, its origin the distilling pull request.
+became in `core.md` or a skill, its origin the distilling pull request. Nor is a skill that lives in
+another repository copied in: a role names it as an **external skill** (§3.4), by URL, path and
+commit, and rolesmith fetches it into its own cache, `$XDG_DATA_HOME/rolesmith/skills/`.
 
 Sources live in `$XDG_CONFIG_HOME/rolesmith/sources.toml` (default `~/.config/rolesmith/`); each
 source's clone lives in `$XDG_DATA_HOME/rolesmith/sources/<name>/` (default
@@ -77,6 +79,12 @@ description = "Ships iOS and macOS apps to the App Store"   # required, one line
 programs = ["asc", "xcodegen"]          # tools of tools/ in the same library, by name
 services = ["asc-api-key"]              # mytokens entries the role's work reads (§7)
 requires = ["coder"]                    # roles of the same library this one builds on (§5.1)
+
+[[skill]]                               # optional, repeated: an external skill (§3.4)
+name = "codebase-design"
+url = "https://github.com/mattpocock/skills"
+path = "skills/engineering/codebase-design"
+rev = "<full sha>"
 
 [match]                                 # optional: what makes a project one this role fits (§5.5)
 files = ["*.xcodeproj", "App/project.yml"]    # globs, relative to the project root
@@ -124,6 +132,18 @@ consumer from the same list as §3.1 (`[prohibition.guild]`), which rolesmith ca
 `skills/<skill>/SKILL.md` with YAML front matter `name` (equal to the directory name) and
 `description` (required, at most 1,024 characters, saying when to use it). Other files beside
 `SKILL.md` (scripts, references) are copied with it. A skill name follows the role name's rule.
+
+An **external skill** is a skill of another git repository that a role uses without a copy in the
+library: a `[[skill]]` of `role.toml` names it (`name`, as the role calls it), the repository's
+`url`, the skill directory's `path` in it, and the commit `rev`, a full SHA (40 lowercase hex
+digits). rolesmith fetches the repository into `$XDG_DATA_HOME/rolesmith/skills/<repository>/`
+and keeps the tree of each rev it was asked for there; a rev whose tree the cache holds is read
+without git or the network. Moving `rev` is a change to the library, landed like any other edit of
+the role; `update` does not chase the repository. `rolesmith check` fetches what the cache lacks
+and refuses a rev that is not a full SHA or that the repository does not have, a path outside the
+repository or with no `SKILL.md`, front matter without `name` or `description` (its `name` need
+not be the role's), and a name the role already has for a skill of its own or an earlier
+`[[skill]]`. Once checked, it is a skill of the role like the others (§5).
 
 ### 3.5 tools/<tool>/tool.toml
 
@@ -174,8 +194,9 @@ rolesmith never edits a project's `CLAUDE.md`, `AGENTS.md`, code, build files or
 
 For each target, a role becomes skills in the directory that agent reads:
 
-- one skill per skill of the role, named `rolesmith-<role>-<skill>`, its files copied as they are
-  (its `SKILL.md`'s front matter `name` set to that name);
+- one skill per skill of the role, its external skills (§3.4) among them, named
+  `rolesmith-<role>-<skill>`, its files copied as they are (its `SKILL.md`'s front matter `name` set
+  to that name); an external skill's files come from the cache, at its rev;
 - one **core skill**, `rolesmith-<role>`, whose `SKILL.md` is `core.md` followed by the
   prohibitions, with the description "Always in force in this project: <role description>".
 
@@ -190,7 +211,8 @@ into the record. `use` and `sync` list the roles installed only because others r
 `required` (`name`, `source`, `rev`, `by`: the recorded roles requiring them).
 
 Every generated `SKILL.md` carries a comment on the first line of its front matter naming the source,
-role and rev it came from and saying it is generated. (On the file's first line it would hide the
+role and rev it came from (for an external skill, also its path, URL and rev) and saying it is
+generated. (On the file's first line it would hide the
 front matter: agents read front matter only from a first line `---`.)
 
 ### 5.2 Targets
@@ -219,7 +241,8 @@ project, so it does not take `--global`.
 `rolesmith prompt <role> [--rev <sha>]` prints the role as one Markdown document for an agent that
 takes instructions but reads no skills, such as a bot's standing instructions: a first-line comment
 naming the source, role and rev it came from, then `core.md`, then the prohibitions, then each skill's
-name, description and the path of its `SKILL.md` in the source at that rev; for a role that requires
+name, description and the path of its `SKILL.md` in the source at that rev (for an external skill,
+its path in its repository, the URL and the rev); for a role that requires
 others, a line naming them after the comment, and after its own skills each required role in turn
 (transitively, each once) under a heading `# Required role <source>/<role>: <description>`: its core,
 prohibitions and skills. It writes nothing. With
@@ -337,7 +360,7 @@ one JSON document, generated from the same definitions the parser uses.
 | `source update [<name>]` | fetch and fast-forward each source's clone; never force |
 | `source remove <name>` | forget it and delete its clone; refuse while a project or global install records it, listing them |
 | `list [--source <name>]` | roles: address, description |
-| `show <role> [--rev <sha>]` | role.toml, core, prohibitions, skills with descriptions, programs, services |
+| `show <role> [--rev <sha>]` | role.toml, core, prohibitions, skills with descriptions (an external skill with its `url`, `path` and `rev`), programs, services |
 | `check [<role>] [--library <dir>]` | validate a library working copy (default: the current directory) or one role (§2, §3, §7.2); prints every problem, not the first, each with its file, line where there is one, and rule; exits 1 if there is any, and with `--json` lists them as `error.problems` |
 | `use <role>... --into <target>... [--project <dir> \| --global] [--rev <sha>]` | install (§5); record in `rolesmith.toml` or `global.toml`; idempotent: a role already recorded keeps its rev unless `--rev` is given (`update` moves it) |
 | `use --auto --into <target>... [--project <dir>]` | install what `suggest` lists |

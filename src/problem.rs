@@ -31,6 +31,9 @@ pub enum Rule {
     SkillFrontMatter,
     /// The skill's `description` is present and at most 1,024 characters (§3.4).
     SkillDescription,
+    /// An external skill's rev is a full SHA its repository has, and its path holds a `SKILL.md`
+    /// (§3.4).
+    ExternalSkill,
     /// Every program a role names has `tools/<tool>/tool.toml` (§3.5).
     ToolMissing,
     /// `tool.toml` parses (§3.5).
@@ -56,6 +59,7 @@ impl Rule {
             Rule::SkillName => "skill-name",
             Rule::SkillFrontMatter => "skill-front-matter",
             Rule::SkillDescription => "skill-description",
+            Rule::ExternalSkill => "external-skill",
             Rule::ToolMissing => "tool-missing",
             Rule::ToolToml => "tool-toml",
             Rule::ToolUnpinned => "tool-unpinned",
