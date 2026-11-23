@@ -492,12 +492,14 @@ fn a_script_install_is_pinned_alone_and_never_runs_sudo() {
         broken(file, &tool(install), file, rule);
     }
 
-    // A pinned script with no sudo is sound; "pseudo" is not sudo.
+    // A pinned script with no sudo is sound; "pseudo", "sudo-helper" and "sudo_helper" are not sudo.
     let lib = sound();
     write(
         lib.path(),
         file,
-        &tool("script = \"pseudo-installer asc && mise use -g asc@1.0.0\"\nversion = \"1.0.0\"\n"),
+        &tool(
+            "script = \"pseudo-installer asc && sudo-helper && sudo_helper && mise use -g asc@1.0.0\"\nversion = \"1.0.0\"\n",
+        ),
     );
     let o = check(lib.path(), &[]);
     assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
