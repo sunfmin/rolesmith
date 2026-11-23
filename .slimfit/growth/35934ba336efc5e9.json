@@ -1,0 +1,10 @@
+{
+  "tree": "1d8990ebc1f24c49bf178a3a7f292f15bd457beb+d1fba762150c532c",
+  "lines": 84,
+  "serves": "rolesmith#34",
+  "considered": "install.rs's brew path and machine::check (reused: the script path shares check_tool and the Failure shape); Install::pinned replaced the inline method/version match in library.rs; doctor/tool show call check_tool instead of a second version check",
+  "reviewer": "codex:01a206e9-2fdc-7bf1-9bd0-8d6a1cd45cb6:default",
+  "author": "claude-code:ef9e8b8f-e3e0-5bd0-9d88-9b349d04f2a9:opus",
+  "cut": "In src/library.rs, use one constructor for ToolUnpinned errors while keeping the distinct messages; in src/machine.rs, fold the private check into check_tool and report a version mismatch only when the pin is absent from stdout; in src/commands/tool.rs, return Option from installed_what and reuse it for both filter_map and the human output; in tests/check.rs, run the five invalid inputs through the existing broken helper in a table; in tests/doctor.rs, reuse Machine::program and provides for the pixi stub, retaining the argument log and dropping the stub’s package parser.",
+  "answer": "Made every cut: one unpinned() closure in Install::pinned; check folded into check_tool with the mismatch only when the pin is absent; installed_what returns Option and serves both filter_map and the human output; the five broken tool.tomls run as a table through broken(); the pixi stub is program()+provides() with its argument log, no parser."
+}
