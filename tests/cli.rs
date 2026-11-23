@@ -311,3 +311,32 @@ fn no_help_names_what_its_reader_cannot_open() {
         assert!(!manual.contains(word), "the manual holds {word:?}");
     }
 }
+
+#[test]
+fn use_help_names_every_target_with_its_directory() {
+    let help = stdout(&rolesmith(&["use", "--help"])).to_owned();
+    for (target, dir) in rolesmith::project::TARGETS {
+        assert!(
+            help.contains(&format!("`{target}` (`{dir}/`)")),
+            "{target} in {help}"
+        );
+    }
+}
+
+#[test]
+fn the_errors_topic_lists_checks_rules_and_a_problems_keys() {
+    let errors = stdout(&rolesmith(&["help", "errors"])).to_owned();
+    for rule in ["library-toml", "role-requires", "external-skill", "secret"] {
+        assert!(
+            errors.contains(&format!("- `{rule}`: ")),
+            "{rule} in {errors}"
+        );
+    }
+    for key in [
+        "  - `file`: a string: relative to the library root",
+        "  - `line`: an integer, only where it applies: where there is one",
+        "  - `kind`: one of `program`, `entry`",
+    ] {
+        assert!(errors.contains(key), "{key:?} in {errors}");
+    }
+}
