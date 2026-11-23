@@ -504,20 +504,24 @@ impl Checker<'_> {
         ext: &External,
         clash: bool,
     ) -> Option<Skill> {
-        let mut found: Vec<(Rule, String)> = Vec::new();
-        if !valid_name(&ext.name) {
-            found.push((Rule::SkillName, name_reason("skill")));
+        let before = self.problems.len();
+        let name = &ext.name;
+        let refuse = |c: &mut Self, rule: Rule, reason: String| {
+            c.problem(file, line, rule, format!("skill `{name}`: {reason}"));
+        };
+        if !valid_name(name) {
+            refuse(self, Rule::SkillName, name_reason("skill"));
         }
         if clash {
             let reason = "the role already has a skill of this name";
-            found.push((Rule::SkillName, reason.to_owned()));
+            refuse(self, Rule::SkillName, reason.to_owned());
         }
         if !upstream::is_full_sha(&ext.rev) {
             let reason = format!(
                 "rev `{}` is not a full commit SHA (40 lowercase hex digits)",
                 ext.rev
             );
-            found.push((Rule::ExternalSkill, reason));
+            refuse(self, Rule::ExternalSkill, reason);
         }
         let inside = !ext.path.is_empty()
             && Path::new(&ext.path)
@@ -528,39 +532,29 @@ impl Checker<'_> {
                 "path `{}` is not a relative path inside the repository",
                 ext.path
             );
-            found.push((Rule::ExternalSkill, reason));
+            refuse(self, Rule::ExternalSkill, reason);
+        }
+        if self.problems.len() > before {
+            return None;
         }
         let at = format!("{} at {}", ext.url, ext.rev);
         let skill_md = format!("{}/SKILL.md", ext.path);
-        let mut description = None;
-        let mut dir = PathBuf::new();
-        if found.is_empty() {
-            match upstream::tree(&ext.url, &ext.rev) {
-                Err(e) => found.push((Rule::ExternalSkill, e.message)),
-                Ok(tree) => {
-                    dir = tree.join(&ext.path);
-                    match std::fs::read_to_string(dir.join("SKILL.md")) {
-                        Err(_) => {
-                            found.push((Rule::ExternalSkill, format!("{at} has no {skill_md}")))
-                        }
-                        Ok(text) => {
-                            let (d, wrong) = skill_md_problems(&text, None);
-                            description = d;
-                            for (_, rule, reason) in wrong {
-                                found.push((rule, format!("{at}: {skill_md}: {reason}")));
-                            }
-                        }
-                    }
-                }
+        let dir = match upstream::tree(&ext.url, &ext.rev) {
+            Ok(tree) => tree.join(&ext.path),
+            Err(e) => {
+                refuse(self, Rule::ExternalSkill, e.message);
+                return None;
             }
-        }
-        let ok = found.is_empty();
-        for (rule, reason) in found {
-            self.problem(file, line, rule, format!("skill `{}`: {reason}", ext.name));
-        }
-        ok.then_some(())?;
+        };
+        let Ok(text) = std::fs::read_to_string(dir.join("SKILL.md")) else {
+            refuse(self, Rule::ExternalSkill, format!("{at} has no {skill_md}"));
+            return None;
+        };
+        let description = check_skill_md(&text, None, &mut |_, rule, reason| {
+            refuse(self, rule, format!("{at}: {skill_md}: {reason}"))
+        });
         Some(Skill {
-            name: ext.name.clone(),
+            name: name.clone(),
             description: description?,
             dir,
             external: Some(ext.clone()),
@@ -660,12 +654,9 @@ impl Checker<'_> {
         }
         let file = format!("{dir}/SKILL.md");
         let text = self.read(&file, Rule::SkillFrontMatter)?;
-        let (description, found) = skill_md_problems(&text, Some(name));
-        let ok = found.is_empty();
-        for (line, rule, reason) in found {
-            self.problem(&file, line, rule, reason);
-        }
-        ok.then_some(())?;
+        let description = check_skill_md(&text, Some(name), &mut |line, rule, reason| {
+            self.problem(&file, line, rule, reason)
+        });
         Some(Skill {
             name: name.to_owned(),
             description: description?,
@@ -729,26 +720,26 @@ impl Checker<'_> {
     }
 }
 
-/// What is wrong in a file: the line where there is one, the rule and why.
-type Wrong = (Option<usize>, Rule, String);
-
-/// The description of a `SKILL.md` of `text`, and what is wrong with its front matter (§3.4),
-/// each with its line where there is one; `dir` is the directory name its `name` must equal, if
-/// any.
-fn skill_md_problems(text: &str, dir: Option<&str>) -> (Option<String>, Vec<Wrong>) {
-    let mut found = Vec::new();
+/// The description of a `SKILL.md` of `text` (§3.4); each thing wrong with its front matter goes
+/// to `report`, with its line where there is one. `dir` is the
+/// directory name its `name` must equal, if any.
+fn check_skill_md(
+    text: &str,
+    dir: Option<&str>,
+    report: &mut dyn FnMut(Option<usize>, Rule, String),
+) -> Option<String> {
     let Some((yaml, first_line)) = front_matter(text) else {
         let reason = "does not begin with YAML front matter between `---` lines";
-        found.push((Some(1), Rule::SkillFrontMatter, reason.to_owned()));
-        return (None, found);
+        report(Some(1), Rule::SkillFrontMatter, reason.to_owned());
+        return None;
     };
     let doc = match YamlLoader::load_from_str(yaml) {
         Ok(docs) => docs.into_iter().next(),
         Err(e) => {
             let line = first_line + e.marker().line().saturating_sub(1);
             let reason = format!("front matter does not parse: {}", e.info());
-            found.push((Some(line), Rule::SkillFrontMatter, reason));
-            return (None, found);
+            report(Some(line), Rule::SkillFrontMatter, reason);
+            return None;
         }
     };
     let field = |key: &str| {
@@ -757,37 +748,37 @@ fn skill_md_problems(text: &str, dir: Option<&str>) -> (Option<String>, Vec<Wron
             .map(str::to_owned)
     };
     match (field("name"), dir) {
-        (None, _) => found.push((
+        (None, _) => report(
             None,
             Rule::SkillFrontMatter,
             "front matter has no `name`".to_owned(),
-        )),
-        (Some(n), Some(dir)) if n != dir => found.push((
+        ),
+        (Some(n), Some(dir)) if n != dir => report(
             None,
             Rule::SkillFrontMatter,
             format!("front matter name `{n}` is not its directory `{dir}`"),
-        )),
+        ),
         _ => {}
     }
     let description = field("description").filter(|d| !d.trim().is_empty());
     match &description {
-        None => found.push((
+        None => report(
             None,
             Rule::SkillDescription,
             "front matter has no `description`".to_owned(),
-        )),
+        ),
         Some(d) => {
             let n = d.chars().count();
             if n > MAX_SKILL_DESCRIPTION {
-                found.push((
+                report(
                     None,
                     Rule::SkillDescription,
                     format!("description is {n} characters, more than {MAX_SKILL_DESCRIPTION}"),
-                ));
+                );
             }
         }
     }
-    (description, found)
+    description
 }
 
 fn name_reason(what: &str) -> String {

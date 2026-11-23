@@ -3,7 +3,7 @@
 //! rev a role pins, the tree of that commit `<rev>/`. A rev's tree is written once and never
 //! changes, so a cache that holds it answers without git or the network.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use crate::commands::Failure;
 use crate::sources::{self, git};
@@ -39,8 +39,19 @@ pub fn tree(url: &str, rev: &str) -> Result<PathBuf, Failure> {
     std::fs::create_dir_all(&repo)
         .map_err(|e| Failure::new(format!("cannot create {}: {e}", repo.display())))?;
     git(Some(&repo), &["init", "--quiet", "--bare"])?;
+    // Its branches and tags first, then `rev` itself, which a server may give though no branch
+    // reaches it.
+    let fetch = |refspecs: &[&str]| {
+        git(
+            Some(&repo),
+            &[&["fetch", "--quiet", "--", url], refspecs].concat(),
+        )
+    };
     if sources::commit(&repo, rev).is_none() {
-        fetch(&repo, url, rev)?;
+        fetch(&["+refs/heads/*:refs/heads/*", "+refs/tags/*:refs/tags/*"])?;
+    }
+    if sources::commit(&repo, rev).is_none() {
+        let _ = fetch(&[rev]);
     }
     if sources::commit(&repo, rev).is_none() {
         return Err(Failure::new(format!("{url} has no commit {rev}")));
@@ -55,26 +66,6 @@ pub fn tree(url: &str, rev: &str) -> Result<PathBuf, Failure> {
         return Err(Failure::new(format!("cannot write {}", tree.display())));
     }
     Ok(tree)
-}
-
-/// Fetch `url`'s branches and tags into `repo`, and then `rev` itself, which a server may give
-/// though no branch reaches it.
-fn fetch(repo: &Path, url: &str, rev: &str) -> Result<(), Failure> {
-    git(
-        Some(repo),
-        &[
-            "fetch",
-            "--quiet",
-            "--",
-            url,
-            "+refs/heads/*:refs/heads/*",
-            "+refs/tags/*:refs/tags/*",
-        ],
-    )?;
-    if sources::commit(repo, rev).is_none() {
-        let _ = git(Some(repo), &["fetch", "--quiet", "--", url, rev]);
-    }
-    Ok(())
 }
 
 #[cfg(test)]
