@@ -18,6 +18,11 @@ rolesmith lesson add app-store-releaser --evidence <url> < lesson.md
 rolesmith distill app-store-releaser               # when you decide to fold lessons in
 ```
 
+`use` writes a short managed section into the project's `CLAUDE.md` (or `AGENTS.md`); commit it
+with `rolesmith.toml`. An agent on a fresh clone reads it and, without being reminded, installs or
+upgrades rolesmith, runs `rolesmith sync` and reads its roles' core skills: a new machine needs no
+setup of its own.
+
 `rolesmith --help` is the manual: what each command is for, grouped by who runs it, and its topics.
 Run `rolesmith <command> --help` before a command's first run; `rolesmith help composing` says how to
 put several roles together for one agent, `rolesmith help all` prints everything. The help is written

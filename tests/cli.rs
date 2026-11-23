@@ -328,10 +328,11 @@ fn no_help_names_what_its_reader_cannot_open() {
 #[test]
 fn use_help_names_every_target_with_its_directory() {
     let help = stdout(&rolesmith(&["use", "--help"])).to_owned();
-    for (target, dir) in rolesmith::project::TARGETS {
+    for t in rolesmith::project::TARGETS {
         assert!(
-            help.contains(&format!("`{target}` (`{dir}/`)")),
-            "{target} in {help}"
+            help.contains(&format!("`{}` (`{}/`)", t.name, t.skills)),
+            "{} in {help}",
+            t.name
         );
     }
 }

@@ -214,7 +214,7 @@ fn indented(list: &str) -> String {
 fn targets() -> String {
     crate::project::TARGETS
         .iter()
-        .map(|(name, dir)| format!("`{name}` (`{dir}/`)"))
+        .map(|t| format!("`{}` (`{}/`)", t.name, t.skills))
         .collect::<Vec<_>>()
         .join(", ")
 }

@@ -214,7 +214,29 @@ Everything rolesmith writes into a project besides it is **generated** from it: 
 identically by `rolesmith sync`. rolesmith deletes only files its manifest lists, and refuses to
 overwrite a file its manifest does not list.
 
-rolesmith never edits a project's `CLAUDE.md`, `AGENTS.md`, code, build files or settings.
+An agent on a fresh clone has only `rolesmith.toml`, so the project's **entry file**, which it reads
+first and which is committed, tells it what to do: `use` and `sync` write one **managed section**
+into the entry file of each target the record installs into (`claude-code`: `CLAUDE.md`; `codex`
+and `agents`: `AGENTS.md`, at the project's root; ADR 0005). The section lies between a fixed first
+line and a fixed last line; rolesmith writes only between them and nothing outside. It is the same
+in every project and names no role: it tells the agent to install rolesmith when `command -v
+rolesmith` finds nothing (`brew install sunfmin/tap/rolesmith`) and otherwise upgrade it (`brew
+upgrade sunfmin/tap/rolesmith`), to run `rolesmith sync` when the skills are missing or `status`
+reports drift, to read each role's core skill, and to run `doctor` and `tool install` for what is
+missing, reporting a missing credential to a person; and not to run `update`, since a role's rev
+moves only as §5.4 says. The section is committed, not ignored by git, and is not in the manifest.
+
+- A target's entry file that does not exist is created, unless the other entry file exists and
+  imports (`@AGENTS.md`) or links (`](AGENTS.md)`) it, or is a symlink to it: then the section goes
+  into the one that exists. Two targets whose entry files are one file write one section.
+- A section appended to a file with text is preceded by a blank line. A section whose first line
+  has no last line after it is refused, writing nothing into that file.
+- An entry file no target of the record names loses the section; a record with no roles removes it
+  from every entry file, and an entry file that held only the section is deleted, as `.gitignore`'s
+  lines are.
+
+Apart from that section and the `.gitignore` lines, rolesmith never edits a project's
+`CLAUDE.md`, `AGENTS.md`, code, build files or settings.
 
 ## 5. Using a role
 
@@ -260,7 +282,7 @@ record is refused.
 A `--global` install writes nothing into any project; it is recorded in
 `$XDG_DATA_HOME/rolesmith/global.toml` with the same fields as `rolesmith.toml`, and its manifest
 beside it (`global.manifest.json`, its paths relative to `HOME`). It adds no `.gitignore` lines and
-no entry in `projects.toml`. `use`, `sync`, `status`, `update` and `remove` take `--global` in place
+no entry in `projects.toml`, and no managed section. `use`, `sync`, `status`, `update` and `remove` take `--global` in place
 of `--project`, and their `--json` document's `project` is then `null`; `use --auto` matches a
 project, so it does not take `--global`.
 

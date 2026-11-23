@@ -1,0 +1,10 @@
+{
+  "tree": "8ccd043afbdefcd31d7e5c574279297ef5a27d3a+d1fba762150c532c",
+  "lines": 154,
+  "serves": "rolesmith#37",
+  "considered": "update_gitignore (the same begin/end-line pattern for .gitignore; its block is computed from the generated files, the section is fixed text, so they share only the split); TARGETS (extended to carry each entry file instead of a second name-keyed table)",
+  "reviewer": "codex:01a206f1-8f26-7de1-bdaa-45842925f6e9:default",
+  "author": "claude-code:3a9a97fd-bdde-5183-9ad0-ec23610003b3:opus",
+  "cut": "In src/entry_file.rs and src/project.rs, append entry-file changes directly to the existing Synced.written and Synced.removed lists, deleting Change, the temporary change vector, and the dispatch loop. In src/entry_file.rs, use split_once for each marker and strip_prefix for the optional newline, deleting the byte-offset arithmetic while preserving the missing-end refusal.",
+  "answer": "Made both cuts: update takes &mut Synced and pushes to written/removed (Change, its vector and the dispatch loop deleted); with_section splits on BEGIN and END with split_once and strip_prefix, keeping the refusal of a first line without an end line."
+}
