@@ -251,6 +251,19 @@ pub struct Credential {
     pub env: BTreeMap<String, String>,
 }
 
+/// The library working copy that holds `start`: the nearest of `start` and its parents with a
+/// `library.toml`, the way git finds its repository. Outside any library, `start` itself, so that
+/// checking it refuses as a directory with no `library.toml`. Either is absolute where `start`
+/// exists, so a run answers the same from anywhere inside the library.
+pub fn find_root(start: &Path) -> PathBuf {
+    let start = start.canonicalize().unwrap_or_else(|_| start.to_path_buf());
+    start
+        .ancestors()
+        .find(|dir| dir.join("library.toml").is_file())
+        .unwrap_or(&start)
+        .to_path_buf()
+}
+
 /// Read the library at `root`, or only its role `only` (with `library.toml` and the tools the
 /// role names), and check it.
 pub fn load(root: &Path, only: Option<&str>) -> Result<Library, Vec<Problem>> {

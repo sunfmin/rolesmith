@@ -1,0 +1,6 @@
+{
+  "tree": "f7fa17405ad7a0ab10d47afaa6c35dcb8dd6b288+d1fba762150c532c",
+  "picker": "codex:01a207ef-c805-7a83-858b-d51b36bdca5c:default",
+  "author": "claude-code:b9b942c6-dd18-517f-b23f-066cee7ab14b:opus",
+  "none": "The nested-directory success tests catch an empty library root, and the broken-library and outside-library tests catch an unconditional success."
+}
