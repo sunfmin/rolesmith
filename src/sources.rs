@@ -347,9 +347,9 @@ pub fn resolve_kind(
             rev: sha,
         }))
     };
-    let unresolved = |r: &str, sources: &str| {
+    let unresolved = |sources: &str| {
         Failure::new(format!(
-            "rev {r} names no commit in {sources}; name a SHA, branch or tag its clone has \
+            "rev {wanted} names no commit in {sources}; name a SHA, branch or tag its clone has \
              (`rolesmith source update` fetches its main)"
         ))
     };
@@ -361,10 +361,7 @@ pub fn resolve_kind(
     if let Some((source, role)) = address.split_once('/') {
         sources.get(source)?;
         let Some(sha) = commit(&clone_dir(source)?, wanted) else {
-            return Err(match rev {
-                Some(r) => unresolved(r, &format!("source {source}")),
-                None => Failure::new(format!("source {source} has no {noun} {role} {at_what}")),
-            });
+            return Err(unresolved(&format!("source {source}")));
         };
         return has(source, sha, role)?.ok_or_else(|| {
             Failure::new(format!("source {source} has no {noun} {role} {at_what}"))
@@ -382,16 +379,11 @@ pub fn resolve_kind(
             found.push(f);
         }
     }
-    if let Some(r) = rev
-        && !resolved_anywhere
-        && !sources.source.is_empty()
-    {
-        let names = sources.names_or_none();
-        let which = match sources.source.len() {
-            1 => format!("source {names}"),
-            _ => format!("any of the sources {names}"),
-        };
-        return Err(unresolved(r, &which));
+    if rev.is_some() && !resolved_anywhere && !sources.source.is_empty() {
+        return Err(unresolved(&format!(
+            "any source's clone ({})",
+            sources.names_or_none()
+        )));
     }
     match found.len() {
         1 => Ok(found.remove(0)),
