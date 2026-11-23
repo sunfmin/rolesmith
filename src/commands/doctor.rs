@@ -20,7 +20,6 @@ pub struct Args {
 
 impl Command for Args {
     const NAME: &'static str = "doctor";
-    const GROUP: &'static str = super::groups::ROLE;
 
     fn output_shape() -> Value {
         json!({

@@ -77,7 +77,6 @@ impl Lesson {
 
 impl Command for Args {
     const NAME: &'static str = "distill";
-    const GROUP: &'static str = super::groups::LIBRARY;
 
     fn output_shape() -> Value {
         let string = json!({ "type": "string" });

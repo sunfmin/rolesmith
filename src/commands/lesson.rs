@@ -86,7 +86,6 @@ impl By {
 
 impl Command for Args {
     const NAME: &'static str = "lesson";
-    const GROUP: &'static str = super::groups::ROLE;
 
     fn output_shape() -> Value {
         let string = json!({ "type": "string" });

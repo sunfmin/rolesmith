@@ -23,7 +23,6 @@ pub struct Args {
 
 impl Command for Args {
     const NAME: &'static str = "update";
-    const GROUP: &'static str = super::groups::PROJECT;
 
     fn output_shape() -> Value {
         sync::shape()

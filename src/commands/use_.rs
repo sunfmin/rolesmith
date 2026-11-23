@@ -59,7 +59,6 @@ fn known_target(target: &str) -> Result<String, String> {
 
 impl Command for Args {
     const NAME: &'static str = "use";
-    const GROUP: &'static str = super::groups::PROJECT;
 
     fn output_shape() -> Value {
         sync::shape()

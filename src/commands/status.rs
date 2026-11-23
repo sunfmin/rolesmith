@@ -20,7 +20,6 @@ pub struct Args {
 
 impl Command for Args {
     const NAME: &'static str = "status";
-    const GROUP: &'static str = super::groups::PROJECT;
 
     fn output_shape() -> Value {
         let count = json!({ "type": ["integer", "null"], "minimum": 0 });

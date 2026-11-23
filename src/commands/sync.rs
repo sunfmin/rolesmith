@@ -50,7 +50,6 @@ impl Where {
 
 impl Command for Args {
     const NAME: &'static str = "sync";
-    const GROUP: &'static str = super::groups::PROJECT;
 
     fn output_shape() -> Value {
         shape()

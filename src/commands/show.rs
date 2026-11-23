@@ -38,7 +38,6 @@ impl Args {
 
 impl Command for Args {
     const NAME: &'static str = "show";
-    const GROUP: &'static str = super::groups::PROJECT;
 
     fn output_shape() -> Value {
         let strings = json!({ "type": "array", "items": { "type": "string" } });

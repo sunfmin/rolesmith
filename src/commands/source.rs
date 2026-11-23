@@ -61,7 +61,6 @@ pub enum Action {
 
 impl Command for Args {
     const NAME: &'static str = "source";
-    const GROUP: &'static str = super::groups::MACHINE;
 
     fn output_shape() -> Value {
         let source = json!({

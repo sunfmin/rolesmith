@@ -16,7 +16,6 @@ pub struct Args {}
 
 impl Command for Args {
     const NAME: &'static str = "agent-context";
-    const GROUP: &'static str = super::groups::LEARNING;
 
     fn output_shape() -> Value {
         let arg = json!({

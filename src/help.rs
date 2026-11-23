@@ -146,10 +146,7 @@ fn kind(property: &Value) -> String {
         return format!("one of {}", choices.join(", "));
     }
     if let Some(reference) = property["$ref"].as_str() {
-        return format!(
-            "a `{}` object",
-            reference.rsplit('/').next().unwrap_or(reference)
-        );
+        return format!("a `{}` object", definition(reference));
     }
     let types: Vec<&str> = match &property["type"] {
         Value::String(t) => vec![t.as_str()],
@@ -179,14 +176,16 @@ fn kind(property: &Value) -> String {
 /// What a list holds, for "a list of ...".
 fn plural(items: &Value) -> String {
     if let Some(reference) = items["$ref"].as_str() {
-        return format!(
-            "`{}` objects",
-            reference.rsplit('/').next().unwrap_or(reference)
-        );
+        return format!("`{}` objects", definition(reference));
     }
     items["type"]
         .as_str()
         .map_or_else(|| "values".to_owned(), |t| format!("{t}s"))
+}
+
+/// The name a `$ref` points at, `arg` of `#/$defs/arg`.
+fn definition(reference: &str) -> &str {
+    reference.rsplit('/').next().unwrap_or(reference)
 }
 
 fn unquoted(value: &Value) -> String {

@@ -44,7 +44,6 @@ pub struct Args {
 
 impl Command for Args {
     const NAME: &'static str = "propose";
-    const GROUP: &'static str = super::groups::LIBRARY;
 
     fn output_shape() -> Value {
         json!({

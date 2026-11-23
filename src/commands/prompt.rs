@@ -19,7 +19,6 @@ pub struct Args {
 
 impl Command for Args {
     const NAME: &'static str = "prompt";
-    const GROUP: &'static str = super::groups::ROLE;
 
     fn output_shape() -> Value {
         json!({

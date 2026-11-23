@@ -2,7 +2,7 @@
 //!
 //! A command is a module here with a `pub struct Args` that derives `clap::Args` and implements
 //! [`Command`]; its help is the Markdown doc comment on that struct (`verbatim_doc_comment`), and
-//! its group, who runs it, is its [`Command::GROUP`]. Adding one is a `pub mod` line and a line in
+//! its group, who runs it, is one of [`groups`], beside it in `registry!`. Adding one is a `pub mod` line and a line in
 //! `registry!` below; nothing else in the frame changes. The parser, the dispatch, the manual and
 //! `agent-context` are all generated from that list, in its order, so they cannot disagree.
 
@@ -91,9 +91,6 @@ pub trait Command: clap::Args {
     /// The name the command is typed as.
     const NAME: &'static str;
 
-    /// Who runs it: one of [`groups`].
-    const GROUP: &'static str;
-
     /// The JSON document `--json` prints on success, as a JSON Schema.
     fn output_shape() -> Value;
 
@@ -101,14 +98,14 @@ pub trait Command: clap::Args {
 }
 
 macro_rules! registry {
-    ($($variant:ident => $module:ident),+ $(,)?) => {
+    ($($variant:ident => $module:ident in $group:ident),+ $(,)?) => {
         /// Every registered command, as the parser knows them.
         #[derive(clap::Subcommand)]
         pub enum Registered {
             $(
                 #[command(
                     name = <$module::Args as Command>::NAME,
-                    next_help_heading = <$module::Args as Command>::GROUP
+                    next_help_heading = groups::$group
                 )]
                 $variant($module::Args),
             )+
@@ -133,23 +130,23 @@ macro_rules! registry {
 }
 
 registry! {
-    AgentContext => agent_context,
-    Source => source,
-    List => list,
-    Show => show,
-    Suggest => suggest,
-    Use => use_,
-    Sync => sync,
-    Status => status,
-    Update => update,
-    Remove => remove,
-    Prompt => prompt,
-    Doctor => doctor,
-    Tool => tool,
-    Env => env,
-    Lesson => lesson,
-    New => new,
-    Check => check,
-    Distill => distill,
-    Propose => propose,
+    AgentContext => agent_context in LEARNING,
+    Source => source in MACHINE,
+    List => list in PROJECT,
+    Show => show in PROJECT,
+    Suggest => suggest in PROJECT,
+    Use => use_ in PROJECT,
+    Sync => sync in PROJECT,
+    Status => status in PROJECT,
+    Update => update in PROJECT,
+    Remove => remove in PROJECT,
+    Prompt => prompt in ROLE,
+    Doctor => doctor in ROLE,
+    Tool => tool in ROLE,
+    Env => env in ROLE,
+    Lesson => lesson in ROLE,
+    New => new in LIBRARY,
+    Check => check in LIBRARY,
+    Distill => distill in LIBRARY,
+    Propose => propose in LIBRARY,
 }

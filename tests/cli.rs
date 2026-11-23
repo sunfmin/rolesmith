@@ -150,10 +150,6 @@ fn help_exits_0_on_stdout() {
     assert!(stdout(&o).contains("agent-context"));
 }
 
-fn top_level_names(doc: &Value) -> Vec<String> {
-    commands_by_name(doc).into_iter().map(|(n, _)| n).collect()
-}
-
 #[test]
 fn help_prints_the_index_each_command_under_its_group_and_each_topic() {
     let o = rolesmith(&["--help"]);
@@ -199,7 +195,7 @@ fn help_all_is_the_whole_manual_and_each_topic_answers() {
     assert_eq!(o.status.code(), Some(0));
     let manual = stdout(&o);
     let doc = one_json_document(&rolesmith(&["agent-context", "--json"]));
-    for name in top_level_names(&doc) {
+    for (name, _) in commands_by_name(&doc) {
         assert!(manual.contains(&format!("`rolesmith {name}`")), "{name}");
     }
     for topic in ["composing", "errors", "sources"] {

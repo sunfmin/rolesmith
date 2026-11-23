@@ -99,43 +99,48 @@ pub fn main(args: impl IntoIterator<Item = OsString>) -> ExitCode {
 /// Parse, run and report; answers the exit code. Writes go to the given streams so tests can
 /// watch them; a closed stdout (`| head`) is not an error of the command.
 pub fn run(args: &[OsString], out: &mut impl Write, err: &mut impl Write) -> u8 {
-    match parse(args) {
-        Ok(Parsed::Run(command, json)) => report(command.run(), json, out, err),
-        Ok(Parsed::Answer(text)) => {
-            let _ = write!(out, "{text}");
-            EXIT_OK
-        }
-        Err(e) => usage(&e, wants_json(args), out, err),
+    let cli = match parse(args) {
+        Ok(cli) => cli,
+        Err(e) => return usage(&e, wants_json(args), out, err),
+    };
+    match cli.command {
+        Top::Run(command) => report(command.run(), cli.json, out, err),
+        Top::Help { topic } => match help_answer(topic.as_deref()) {
+            Ok(human) => report(
+                Ok(Output {
+                    json: Value::Null,
+                    human,
+                }),
+                false,
+                out,
+                err,
+            ),
+            Err(e) => usage(&e, cli.json, out, err),
+        },
     }
-}
-
-/// A command line read: a command to run (and whether `--json` was given), or help's answer.
-enum Parsed {
-    Run(Registered, bool),
-    Answer(String),
 }
 
 /// Parse without the manual when the line needs none; `--help`, `-h`, `help [<topic>]` and a
 /// line clap refuses go through the manual, so every help answer and usage error is its text.
-fn parse(args: &[OsString]) -> Result<Parsed, clap::Error> {
-    if let Ok(Cli {
-        command: Top::Run(command),
-        json,
-    }) = Cli::try_parse_from(args)
-    {
-        return Ok(Parsed::Run(command, json));
+fn parse(args: &[OsString]) -> Result<Cli, clap::Error> {
+    match Cli::try_parse_from(args) {
+        Ok(cli) if matches!(cli.command, Top::Run(_)) => Ok(cli),
+        _ => {
+            let command = crate::help::manual()
+                .clap()
+                .expect("checked by the_manual_is_whole");
+            Cli::from_arg_matches(&command.try_get_matches_from(args)?)
+        }
     }
+}
+
+/// What `help [<topic>]` answers: the index, a topic, or `all`; an unknown topic is a usage error.
+fn help_answer(topic: Option<&str>) -> Result<String, clap::Error> {
     let manual = crate::help::manual();
-    let command = manual.clap().expect("checked by the_manual_is_whole");
-    let cli = Cli::from_arg_matches(&command.try_get_matches_from(args)?)?;
-    match cli.command {
-        Top::Run(command) => Ok(Parsed::Run(command, cli.json)),
-        Top::Help { topic: None } => Ok(Parsed::Answer(
-            manual.index().expect("checked by the_manual_is_whole"),
-        )),
-        Top::Help { topic: Some(topic) } => manual
-            .topic_help(&topic)
-            .map(Parsed::Answer)
+    match topic {
+        None => Ok(manual.index().expect("checked by the_manual_is_whole")),
+        Some(topic) => manual
+            .topic_help(topic)
             .map_err(|e| clap::Error::raw(clap::error::ErrorKind::InvalidValue, format!("{e}\n"))),
     }
 }

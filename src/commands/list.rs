@@ -21,7 +21,6 @@ pub struct Args {
 
 impl Command for Args {
     const NAME: &'static str = "list";
-    const GROUP: &'static str = super::groups::PROJECT;
 
     fn output_shape() -> Value {
         json!({
