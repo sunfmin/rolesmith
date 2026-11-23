@@ -12,6 +12,7 @@ use yaml_rust2::YamlLoader;
 
 use crate::problem::{Problem, Rule};
 use crate::secrets;
+use crate::upstream;
 
 /// Tables that belong to another consumer: top-level in `role.toml` (§3.1) and sub-tables of a
 /// `[[prohibition]]` (§3.3). rolesmith keeps them untouched and ignores them. The one place they
@@ -67,6 +68,8 @@ pub struct RoleToml {
     pub services: Vec<String>,
     /// Roles of the same library this one builds on, installed with it (§3.1).
     pub requires: Vec<String>,
+    /// `[[skill]]`: skills of other repositories, pinned by commit (§3.4).
+    pub external: Vec<External>,
     pub r#match: Option<Match>,
     /// The consumer tables present (one of [`CONSUMER_TABLES`] each), carried untouched.
     pub consumers: BTreeMap<String, toml::Value>,
@@ -81,10 +84,24 @@ struct RawRoleToml {
     services: Vec<String>,
     #[serde(default)]
     requires: Vec<String>,
+    #[serde(default)]
+    skill: Vec<External>,
     #[serde(default, rename = "match")]
     r#match: Option<Match>,
     #[serde(flatten)]
     rest: toml::Table,
+}
+
+/// One `[[skill]]` of `role.toml`: a skill of another repository, at a pinned commit (§3.4).
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct External {
+    pub name: String,
+    pub url: String,
+    /// The skill's directory in that repository.
+    pub path: String,
+    /// The commit, a full SHA.
+    pub rev: String,
 }
 
 /// `[match]` of `role.toml` (§5.5).
@@ -133,8 +150,11 @@ struct RawProhibition {
 pub struct Skill {
     pub name: String,
     pub description: String,
-    /// The skill's directory, whose files are copied with it.
+    /// The skill's directory, whose files are copied with it: in the library, or for an external
+    /// skill in rolesmith's cache.
     pub dir: PathBuf,
+    /// Where an external skill comes from; `None` for a skill of the role's own.
+    pub external: Option<External>,
 }
 
 /// `tools/<tool>/`.
@@ -377,10 +397,21 @@ impl Checker<'_> {
             Some(Vec::new())
         };
 
-        let skills: Vec<Option<Skill>> = subdirectories(&self.root.join(&dir).join("skills"))
+        let own = subdirectories(&self.root.join(&dir).join("skills"));
+        let mut skills: Vec<Option<Skill>> = own
             .iter()
             .map(|skill| self.skill(&format!("{dir}/skills/{skill}"), skill))
             .collect();
+        if let Some((toml, text)) = &toml {
+            let file = format!("{dir}/role.toml");
+            let mut seen: BTreeSet<String> = own.into_iter().collect();
+            for (i, ext) in toml.external.iter().enumerate() {
+                let line = nth_table_line(text, "skill", i, "name");
+                let clash = !seen.insert(ext.name.clone());
+                skills.push(self.external(&file, line, ext, clash));
+            }
+        }
+        let toml = toml.map(|(toml, _)| toml);
 
         Some(Role {
             name: name.to_owned(),
@@ -404,7 +435,7 @@ impl Checker<'_> {
                     continue;
                 }
                 ok = false;
-                let line = nth_prohibition_line(&text, i, &key);
+                let line = nth_table_line(&text, "prohibition", i, &key);
                 self.problem(
                     file,
                     line,
@@ -463,7 +494,74 @@ impl Checker<'_> {
         done.insert(role.to_owned());
     }
 
-    fn role_toml(&mut self, name: &str, file: &str) -> Option<RoleToml> {
+    /// The external skill `ext` of the role whose `role.toml` is `file` (its `[[skill]]` at
+    /// `line`), fetched into the cache when it lacks the rev; `clash` when the role already has a
+    /// skill of that name.
+    fn external(
+        &mut self,
+        file: &str,
+        line: Option<usize>,
+        ext: &External,
+        clash: bool,
+    ) -> Option<Skill> {
+        let before = self.problems.len();
+        let name = &ext.name;
+        let refuse = |c: &mut Self, rule: Rule, reason: String| {
+            c.problem(file, line, rule, format!("skill `{name}`: {reason}"));
+        };
+        if !valid_name(name) {
+            refuse(self, Rule::SkillName, name_reason("skill"));
+        }
+        if clash {
+            let reason = "the role already has a skill of this name";
+            refuse(self, Rule::SkillName, reason.to_owned());
+        }
+        if !upstream::is_full_sha(&ext.rev) {
+            let reason = format!(
+                "rev `{}` is not a full commit SHA (40 lowercase hex digits)",
+                ext.rev
+            );
+            refuse(self, Rule::ExternalSkill, reason);
+        }
+        let inside = !ext.path.is_empty()
+            && Path::new(&ext.path)
+                .components()
+                .all(|c| matches!(c, std::path::Component::Normal(_)));
+        if !inside {
+            let reason = format!(
+                "path `{}` is not a relative path inside the repository",
+                ext.path
+            );
+            refuse(self, Rule::ExternalSkill, reason);
+        }
+        if self.problems.len() > before {
+            return None;
+        }
+        let at = format!("{} at {}", ext.url, ext.rev);
+        let skill_md = format!("{}/SKILL.md", ext.path);
+        let dir = match upstream::tree(&ext.url, &ext.rev) {
+            Ok(tree) => tree.join(&ext.path),
+            Err(e) => {
+                refuse(self, Rule::ExternalSkill, e.message);
+                return None;
+            }
+        };
+        let Ok(text) = std::fs::read_to_string(dir.join("SKILL.md")) else {
+            refuse(self, Rule::ExternalSkill, format!("{at} has no {skill_md}"));
+            return None;
+        };
+        let description = check_skill_md(&text, None, &mut |_, rule, reason| {
+            refuse(self, rule, format!("{at}: {skill_md}: {reason}"))
+        });
+        Some(Skill {
+            name: name.clone(),
+            description: description?,
+            dir,
+            external: Some(ext.clone()),
+        })
+    }
+
+    fn role_toml(&mut self, name: &str, file: &str) -> Option<(RoleToml, String)> {
         let text = self.read(file, Rule::RoleToml)?;
         let raw: RawRoleToml = self.parse(file, &text, Rule::RoleToml)?;
         let root = self.root;
@@ -538,14 +636,16 @@ impl Checker<'_> {
                 );
             }
         }
-        Some(RoleToml {
+        let toml = RoleToml {
             description: raw.description,
             programs: raw.programs,
             services: raw.services,
             requires: raw.requires,
+            external: raw.skill,
             r#match: raw.r#match,
             consumers,
-        })
+        };
+        Some((toml, text))
     }
 
     fn skill(&mut self, dir: &str, name: &str) -> Option<Skill> {
@@ -554,74 +654,14 @@ impl Checker<'_> {
         }
         let file = format!("{dir}/SKILL.md");
         let text = self.read(&file, Rule::SkillFrontMatter)?;
-        let Some((yaml, first_line)) = front_matter(&text) else {
-            self.problem(
-                &file,
-                Some(1),
-                Rule::SkillFrontMatter,
-                "does not begin with YAML front matter between `---` lines",
-            );
-            return None;
-        };
-        let doc = match YamlLoader::load_from_str(yaml) {
-            Ok(docs) => docs.into_iter().next(),
-            Err(e) => {
-                self.problem(
-                    &file,
-                    Some(first_line + e.marker().line().saturating_sub(1)),
-                    Rule::SkillFrontMatter,
-                    format!("front matter does not parse: {}", e.info()),
-                );
-                return None;
-            }
-        };
-        let field = |key: &str| {
-            doc.as_ref()
-                .and_then(|d| d[key].as_str())
-                .map(str::to_owned)
-        };
-
-        let front_name = field("name");
-        match &front_name {
-            None => self.problem(
-                &file,
-                None,
-                Rule::SkillFrontMatter,
-                "front matter has no `name`",
-            ),
-            Some(n) if n != name => self.problem(
-                &file,
-                None,
-                Rule::SkillFrontMatter,
-                format!("front matter name `{n}` is not its directory `{name}`"),
-            ),
-            Some(_) => {}
-        }
-        let description = field("description").filter(|d| !d.trim().is_empty());
-        match &description {
-            None => self.problem(
-                &file,
-                None,
-                Rule::SkillDescription,
-                "front matter has no `description`",
-            ),
-            Some(d) => {
-                let n = d.chars().count();
-                if n > MAX_SKILL_DESCRIPTION {
-                    self.problem(
-                        &file,
-                        None,
-                        Rule::SkillDescription,
-                        format!("description is {n} characters, more than {MAX_SKILL_DESCRIPTION}"),
-                    );
-                }
-            }
-        }
-        front_name?;
+        let description = check_skill_md(&text, Some(name), &mut |line, rule, reason| {
+            self.problem(&file, line, rule, reason)
+        });
         Some(Skill {
             name: name.to_owned(),
             description: description?,
             dir: self.root.join(dir),
+            external: None,
         })
     }
 
@@ -680,6 +720,67 @@ impl Checker<'_> {
     }
 }
 
+/// The description of a `SKILL.md` of `text` (§3.4); each thing wrong with its front matter goes
+/// to `report`, with its line where there is one. `dir` is the
+/// directory name its `name` must equal, if any.
+fn check_skill_md(
+    text: &str,
+    dir: Option<&str>,
+    report: &mut dyn FnMut(Option<usize>, Rule, String),
+) -> Option<String> {
+    let Some((yaml, first_line)) = front_matter(text) else {
+        let reason = "does not begin with YAML front matter between `---` lines";
+        report(Some(1), Rule::SkillFrontMatter, reason.to_owned());
+        return None;
+    };
+    let doc = match YamlLoader::load_from_str(yaml) {
+        Ok(docs) => docs.into_iter().next(),
+        Err(e) => {
+            let line = first_line + e.marker().line().saturating_sub(1);
+            let reason = format!("front matter does not parse: {}", e.info());
+            report(Some(line), Rule::SkillFrontMatter, reason);
+            return None;
+        }
+    };
+    let field = |key: &str| {
+        doc.as_ref()
+            .and_then(|d| d[key].as_str())
+            .map(str::to_owned)
+    };
+    match (field("name"), dir) {
+        (None, _) => report(
+            None,
+            Rule::SkillFrontMatter,
+            "front matter has no `name`".to_owned(),
+        ),
+        (Some(n), Some(dir)) if n != dir => report(
+            None,
+            Rule::SkillFrontMatter,
+            format!("front matter name `{n}` is not its directory `{dir}`"),
+        ),
+        _ => {}
+    }
+    let description = field("description").filter(|d| !d.trim().is_empty());
+    match &description {
+        None => report(
+            None,
+            Rule::SkillDescription,
+            "front matter has no `description`".to_owned(),
+        ),
+        Some(d) => {
+            let n = d.chars().count();
+            if n > MAX_SKILL_DESCRIPTION {
+                report(
+                    None,
+                    Rule::SkillDescription,
+                    format!("description is {n} characters, more than {MAX_SKILL_DESCRIPTION}"),
+                );
+            }
+        }
+    }
+    description
+}
+
 fn name_reason(what: &str) -> String {
     format!(
         "not a valid {what} name: lowercase letters, digits and single hyphens, 2-{MAX_NAME} characters"
@@ -719,16 +820,16 @@ fn key_line(text: &str, key: &str) -> Option<usize> {
         .map(|i| i + 1)
 }
 
-/// The line of `key` inside the `n`th (from 0) `[[prohibition]]` of `text`, if it can be found.
-fn nth_prohibition_line(text: &str, n: usize, key: &str) -> Option<usize> {
+/// The line of `key` inside the `n`th (from 0) `[[<table>]]` of `text`, if it can be found.
+fn nth_table_line(text: &str, table: &str, n: usize, key: &str) -> Option<usize> {
     let mut seen = None;
     for (i, l) in text.lines().enumerate() {
         let l = l.trim_start();
-        if l.starts_with("[[prohibition]]") {
+        if l.starts_with(&format!("[[{table}]]")) {
             seen = Some(seen.map_or(0, |s| s + 1));
         } else if seen == Some(n)
-            && (l.starts_with(&format!("[prohibition.{key}]"))
-                || l.starts_with(&format!("[prohibition.{key}."))
+            && (l.starts_with(&format!("[{table}.{key}]"))
+                || l.starts_with(&format!("[{table}.{key}."))
                 || l.split(['=', '.']).next().map(str::trim) == Some(key))
         {
             return Some(i + 1);

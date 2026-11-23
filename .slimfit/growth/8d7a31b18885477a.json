@@ -1,0 +1,10 @@
+{
+  "tree": "230aa802eb3c50a3d00953a99fb199a34a28b8dc+d1fba762150c532c",
+  "lines": 178,
+  "serves": "rolesmith#30",
+  "considered": "sources::read_role's git archive + tar extraction (factored into sources::extract and reused by the cache); Checker::skill's front-matter checks (factored into check_skill_md, shared by own and external skills); project::role_files and renamed_skill (external skills ride the same install path); nth_prohibition_line (generalized to nth_table_line)",
+  "reviewer": "codex:01a20630-5a5a-7f92-9534-d3232aeae324:default",
+  "author": "claude-code:d0d13513-6f09-5cd3-873a-d02f5f73b9a5:opus",
+  "cut": "In src/library.rs, have the shared front-matter parser report through a callback so both loaders can use Checker::problem directly and drop the intermediate diagnostic vectors. In Checker::external, return after reporting invalid reference fields, then bind the fetched directory and parsed description directly. In src/upstream.rs, consolidate the fetch fallback and commit checks, and use tempdir_in for atomic staging. In src/project.rs, build the provenance string separately and reuse one generated-comment formatter for core, local and external skills.",
+  "answer": "All made: check_skill_md reports through a callback into Checker::problem, no diagnostic vectors; external returns after the reference-field problems and binds dir and description directly; the fetch helper is inlined into tree as one closure with the two steps (staging already used tempdir_in); role_files has one generated-comment formatter taking the provenance suffix."
+}

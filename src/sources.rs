@@ -397,40 +397,45 @@ pub fn resolve_kind(
     }
 }
 
-/// The library of `found`'s source as it was at `found.rev`, read and checked with only that role.
-/// The tree is extracted into a temporary directory that lives as long as the answer.
-pub fn read_role(found: &Found) -> Result<(Library, tempfile::TempDir), Failure> {
-    let clone = clone_dir(&found.source)?;
-    let tree = tempfile::tempdir()
-        .map_err(|e| Failure::new(format!("cannot make a temporary directory: {e}")))?;
-    let archive = tree.path().join(".tree.tar");
+/// Write the tree of the commit `rev` of the repository `repo` into the existing directory `into`.
+pub fn extract(repo: &Path, rev: &str, into: &Path) -> Result<(), Failure> {
+    let archive = into.join(".tree.tar");
     git(
-        Some(&clone),
+        Some(repo),
         &[
             OsStr::new("archive"),
             OsStr::new("--format=tar"),
             OsStr::new("-o"),
             archive.as_os_str(),
-            OsStr::new(&found.rev),
+            OsStr::new(rev),
         ],
     )?;
     let out = Command::new("tar")
         .arg("-xf")
         .arg(&archive)
         .arg("-C")
-        .arg(tree.path())
+        .arg(into)
         .stdin(Stdio::null())
         .output()
         .map_err(|e| Failure::new(format!("cannot run tar: {e}")))?;
+    let _ = std::fs::remove_file(&archive);
     if !out.status.success() {
         return Err(Failure::new(format!(
-            "cannot extract {} at {}: {}",
-            found.source,
-            found.rev,
+            "cannot extract {} at {rev}: {}",
+            repo.display(),
             String::from_utf8_lossy(&out.stderr).trim()
         )));
     }
-    let _ = std::fs::remove_file(&archive);
+    Ok(())
+}
+
+/// The library of `found`'s source as it was at `found.rev`, read and checked with only that role.
+/// The tree is extracted into a temporary directory that lives as long as the answer.
+pub fn read_role(found: &Found) -> Result<(Library, tempfile::TempDir), Failure> {
+    let clone = clone_dir(&found.source)?;
+    let tree = tempfile::tempdir()
+        .map_err(|e| Failure::new(format!("cannot make a temporary directory: {e}")))?;
+    extract(&clone, &found.rev, tree.path())?;
     match library::load(tree.path(), Some(&found.name)) {
         Ok(lib) => Ok((lib, tree)),
         Err(problems) => {

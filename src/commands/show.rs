@@ -54,7 +54,15 @@ impl Command for Args {
                     "additionalProperties": { "type": "object",
                         "description": "a consumer's own sub-table (e.g. guild), as written" }
                 } },
-                "skills": named.clone(),
+                "skills": { "type": "array", "items": {
+                    "type": "object", "required": ["name", "description"],
+                    "properties": {
+                        "name": { "type": "string" }, "description": { "type": "string" },
+                        "url": { "type": "string", "description": "an external skill's repository" },
+                        "path": { "type": "string", "description": "its directory there" },
+                        "rev": { "type": "string", "description": "the commit it is pinned at" }
+                    }
+                } },
                 "programs": named,
                 "services": strings
             }
@@ -102,7 +110,13 @@ impl Command for Args {
                 "Skills",
                 role.skills
                     .iter()
-                    .map(|s| format!("{}: {}", s.name, s.description))
+                    .map(|s| match &s.external {
+                        None => format!("{}: {}", s.name, s.description),
+                        Some(e) => format!(
+                            "{}: {} (from {} at {}, {})",
+                            s.name, s.description, e.url, e.rev, e.path
+                        ),
+                    })
                     .collect(),
             ),
             (
@@ -141,7 +155,15 @@ impl Command for Args {
                     o
                 }).collect::<Vec<_>>(),
             "skills": role.skills.iter()
-                .map(|s| json!({ "name": s.name, "description": s.description })).collect::<Vec<_>>(),
+                .map(|s| {
+                    let mut o = json!({ "name": s.name, "description": s.description });
+                    if let Some(e) = &s.external {
+                        o["url"] = json!(e.url);
+                        o["path"] = json!(e.path);
+                        o["rev"] = json!(e.rev);
+                    }
+                    o
+                }).collect::<Vec<_>>(),
             "programs": role.toml.programs.iter()
                 .map(|p| json!({ "name": p, "description": program_description(p) })).collect::<Vec<_>>(),
             "services": role.toml.services,

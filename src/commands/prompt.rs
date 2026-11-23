@@ -78,14 +78,14 @@ fn section(lib: &Library, role: &Role, intro: &str) -> String {
     md.push_str("\n## Skills\n\n");
     md.push_str(intro);
     for s in &role.skills {
-        let dir = s.dir.strip_prefix(&lib.root).unwrap_or(&s.dir);
-        let path = dir.join("SKILL.md");
-        md.push_str(&format!(
-            "- {}: {} (`{}`)\n",
-            s.name,
-            s.description,
-            path.display()
-        ));
+        let place = match &s.external {
+            Some(e) => format!("`{}/SKILL.md` in {} at {}", e.path, e.url, e.rev),
+            None => {
+                let dir = s.dir.strip_prefix(&lib.root).unwrap_or(&s.dir);
+                format!("`{}`", dir.join("SKILL.md").display())
+            }
+        };
+        md.push_str(&format!("- {}: {} ({place})\n", s.name, s.description));
     }
     md
 }

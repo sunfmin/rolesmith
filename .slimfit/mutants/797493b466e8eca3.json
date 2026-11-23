@@ -1,0 +1,39 @@
+{
+  "tree": "c724cc86dbac8766ab0b19acd26850a3742fdfb5+d1fba762150c532c",
+  "picker": "codex:01a20632-e130-7971-846b-4b2cf977da31:default",
+  "author": "claude-code:d0d13513-6f09-5cd3-873a-d02f5f73b9a5:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/upstream.rs:65:59: delete ! in tree",
+        "why": "The cache test exercises successful writes and reuse, leaving rename failures and concurrent cache writers unchecked.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/upstream.rs:21:51: replace || with && in repo_dir",
+        "why": "Escaping dots and hyphens changes the cache directory name, while the tests populate and reuse the cache through the same lookup.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/library.rs:772:18: replace > with >= in check_skill_md",
+        "why": "The new fixtures leave acceptance of a description exactly 1,024 characters long unchecked.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/library.rs:832:17: replace || with && in nth_table_line",
+        "why": "The external skill diagnostics use plain name assignments, so their line assertions can pass even if prohibition subtable locations are lost.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/library.rs:739:35: replace + with * in check_skill_md",
+        "why": "The malformed external skill lacks front matter entirely, leaving the source line reported for a YAML syntax error unchecked.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  }
+}
