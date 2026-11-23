@@ -1,0 +1,10 @@
+{
+  "tree": "38a5de082b913d72cf9f6cee1e725cccc0d0bf04+d1fba762150c532c",
+  "lines": 254,
+  "serves": "rolesmith#32",
+  "considered": "slimfit's own help wiring (copied its parse fast path, not a shared crate: agent-help is the shared part); hand-written key lists per command (rejected: output_shape already holds them); deleting use_::COMPOSING and Rule::as_str (done: both moved to the manual / the variant name)",
+  "reviewer": "codex:01a2067e-d0b9-7953-a1d7-4f07089e5c6e:default",
+  "author": "claude-code:bc395aef-5b05-5104-9702-28508e796aaa:opus",
+  "cut": "In src/commands/mod.rs, put each help group on its existing registry entry and delete the GROUP associated constant and its per-command definitions. In src/cli.rs, dispatch directly from the parsed Cli and write topic help through the existing output path, removing Parsed while retaining the fast path. In src/help.rs, share JSON Schema $ref name extraction between kind and plural. In tests/cli.rs, iterate over commands_by_name directly and delete top_level_names.",
+  "answer": "Made all four cuts in 5f00fed: groups on registry lines, GROUP gone; Parsed gone, help answered through report; one definition() helper; top_level_names deleted. The rest is the help text itself (doc comments and topics), which the issue asks for."
+}
