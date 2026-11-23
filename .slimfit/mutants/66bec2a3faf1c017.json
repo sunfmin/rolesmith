@@ -1,0 +1,21 @@
+{
+  "tree": "45bcff3b47ab3bc894c0d7bf7f3dff79d0ded243+d1fba762150c532c",
+  "picker": "codex:01a20632-e130-7971-846b-4b2cf977da31:default",
+  "author": "claude-code:d0d13513-6f09-5cd3-873a-d02f5f73b9a5:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/upstream.rs:65:59: delete ! in tree",
+        "why": "The cache test exercises successful writes and reuse, leaving rename failures and concurrent cache writers unchecked.",
+        "outcome": "killed",
+        "first_outcome": "survived"
+      },
+      {
+        "name": "src/upstream.rs:21:51: replace || with && in repo_dir",
+        "why": "Escaping dots and hyphens changes the cache directory name, while the tests populate and reuse the cache through the same lookup.",
+        "outcome": "killed",
+        "first_outcome": "survived"
+      }
+    ]
+  }
+}
