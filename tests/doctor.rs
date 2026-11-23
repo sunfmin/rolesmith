@@ -1302,3 +1302,95 @@ fn doctor_and_tool_install_refuse_a_project_without_rolesmith_toml() {
     let o = m.rolesmith(&["tool", "install", "--tool", "asc", "--project", project]);
     assert_eq!(o.status.code(), Some(2), "--tool and --project together");
 }
+
+impl Machine {
+    /// Have `mytokens list` also name `entry` as a Profile whose fields are `fields`.
+    fn profile(&self, entry: &str, fields: &[&str]) {
+        let mut listing = std::fs::read_to_string(self.path("listing")).unwrap();
+        listing.push_str(&format!(
+            "{entry}/default\tprofile\tserver  — a Profile, fields: not these  fields: {}\n",
+            fields.join(", ")
+        ));
+        std::fs::write(self.path("listing"), listing).unwrap();
+    }
+}
+
+#[test]
+fn env_exports_a_profile_service_by_its_own_field_names() {
+    let m = Machine::new(&[]);
+    m.profile("signing", &["A", "B"]);
+    m.source(&[
+        ("roles/signer/role.toml", &role(&[], &["signing"])),
+        ("roles/signer/core.md", "Core.\n"),
+    ]);
+    m.serve_values(&[("signing", "A", AWKWARD), ("signing", "B", "bee")]);
+
+    let o = m.rolesmith(&["env", "signer"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    let lines = String::from_utf8(o.stdout).unwrap();
+    assert!(lines.contains("export B='bee'\n"), "{lines}");
+    assert!(lines.starts_with("export A='"), "{lines}");
+
+    let o = m.rolesmith(&[
+        "env",
+        "signer",
+        "--",
+        "sh",
+        "-c",
+        "printf '%s|%s' \"$A\" \"$B\"",
+    ]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    assert_eq!(
+        String::from_utf8(o.stdout).unwrap(),
+        format!("{AWKWARD}|bee")
+    );
+
+    let o = m.rolesmith(&["--json", "env", "signer"]);
+    let doc = json(&o);
+    conforms(&doc, &shape("env"));
+    assert_eq!(
+        doc["variables"],
+        serde_json::json!({ "A": AWKWARD, "B": "bee" })
+    );
+}
+
+#[test]
+fn env_exports_a_profile_beside_credentials_and_refuses_a_name_from_two_sources() {
+    let m = Machine::new(&["asc-api-key", "github"]);
+    m.profile("signing", &["APPLE_TEAM"]);
+    env_library(&m, &["github", "signing"]);
+    m.serve_values(&[
+        ("asc-api-key", "Key ID", "key"),
+        ("asc-api-key", "Issuer ID", "issuer"),
+        ("github", "", "gh-value"),
+        ("signing", "APPLE_TEAM", "team"),
+    ]);
+    let o = m.rolesmith(&["--json", "env", "releaser"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    assert_eq!(
+        json(&o)["variables"],
+        serde_json::json!({ "APPLE_TEAM": "team", "ASC_ISSUER_ID": "issuer",
+                            "ASC_KEY_ID": "key", "GH_TOKEN": "gh-value" })
+    );
+
+    let m = Machine::new(&["asc-api-key", "github"]);
+    m.profile("signing", &["ASC_KEY_ID", "OTHER"]);
+    env_library(&m, &["signing"]);
+    let o = m.rolesmith(&["--json", "env", "releaser"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert_eq!(
+        json(&o)["error"]["conflicting"],
+        serde_json::json!([{ "name": "ASC_KEY_ID", "sources": [
+            { "entry": "asc-api-key", "field": "Key ID" },
+            { "entry": "signing", "field": "ASC_KEY_ID" } ] }])
+    );
+    let err = stderr(&o);
+    assert!(
+        err.contains("ASC_KEY_ID: asc-api-key field \"Key ID\", signing field \"ASC_KEY_ID\""),
+        "{err}"
+    );
+    assert!(
+        !m.mytokens_calls().contains("get"),
+        "nothing is read before the refusal"
+    );
+}

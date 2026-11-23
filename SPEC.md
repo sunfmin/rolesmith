@@ -386,8 +386,13 @@ second source.
 variable of its programs' `[credential]` (§3.5), each read from mytokens at that moment
 (`mytokens get <entry> --field <field>`, or `mytokens get <entry>` for `""`), for
 `eval "$(rolesmith env <role>)"`; `--json` gives them as `variables`. A service of the role that no
-program's `[credential]` names has no mapping to variables: `env` refuses the role, listing each such
-service (`error.unmapped`), and reads nothing. `rolesmith env <role> -- <command> [args]` runs the
+program's `[credential]` names is read as a mytokens **Profile** when `mytokens list` lists it with
+kind `profile`: a Profile's fields are already variable names (what `mytokens env <entry>` exports),
+so each field is exported under its own name, read with `mytokens get <entry> --field <NAME>`. A
+service that is neither has no mapping to variables: `env` refuses the role, listing each such
+service (`error.unmapped`), and reads nothing. A variable read from two different (entry, field)
+pairs — two `[credential]`s, or a `[credential]` and a Profile's field — is refused, each with both
+sources (`error.conflicting`), and nothing is read. `rolesmith env <role> -- <command> [args]` runs the
 command in rolesmith's place with them added to its environment instead of printing. Neither writes
 anything to disk. `rolesmith doctor` reads only whether each entry exists (`mytokens list`), never its value.
 

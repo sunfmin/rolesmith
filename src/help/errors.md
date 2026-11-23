@@ -28,7 +28,8 @@ A refusal that is a list adds it under `error`, by the command that refuses so:
   {const:PROBLEM}
 - `missing` (`doctor`): every thing the role needs that this machine lacks. Each has:
   {const:MISSING}
-- `unmapped` (`env`): the role's services that no program's `[credential]` maps to variables, by name.
+- `unmapped` (`env`): the role's services that no program's `[credential]` maps to variables and that are not mytokens Profiles, by name.
+- `conflicting` (`env`): each variable read from more than one place, with `name` and `sources` (each `entry` and `field`; `field` `""` is the entry's single value).
 - `projects` (`source remove`): the installs that still record the source, each with `project` (its root; `null` for the user's own installs) and `roles` (the roles it records of the source).
 
 ## The rules `check` enforces
