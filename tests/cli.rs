@@ -149,3 +149,34 @@ fn help_exits_0_on_stdout() {
     assert_eq!(o.status.code(), Some(0));
     assert!(stdout(&o).contains("agent-context"));
 }
+
+#[test]
+fn use_long_help_explains_composing_roles_and_short_help_does_not() {
+    let text = rolesmith::commands::use_::COMPOSING;
+    let long = rolesmith(&["use", "--help"]);
+    assert_eq!(long.status.code(), Some(0));
+    for point in [
+        "Requires or use",
+        "One project per combination",
+        "Name it by the kind of work",
+        "Its entry file",
+        "Changing a combination",
+        "New versions",
+    ] {
+        assert!(text.contains(point), "the text has {point:?}");
+    }
+    assert!(stdout(&long).contains(text.trim_end()), "{}", stdout(&long));
+    let short = rolesmith(&["use", "-h"]);
+    assert_eq!(short.status.code(), Some(0));
+    assert!(!stdout(&short).contains("Requires or use"), "{}", stdout(&short));
+}
+
+#[test]
+fn agent_context_carries_use_long_help_from_the_same_string() {
+    let doc = one_json_document(&rolesmith(&["agent-context", "--json"]));
+    let listed = commands_by_name(&doc);
+    let (_, entry) = listed.iter().find(|(n, _)| n == "use").expect("use is listed");
+    assert_eq!(entry["long_help"], rolesmith::commands::use_::COMPOSING);
+    let (_, other) = listed.iter().find(|(n, _)| n == "sync").expect("sync is listed");
+    assert_eq!(other["long_help"], Value::Null);
+}

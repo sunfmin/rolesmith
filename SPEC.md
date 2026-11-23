@@ -347,9 +347,13 @@ one JSON document, generated from the same definitions the parser uses.
 - `--help` and `--version` print on stdout and exit 0.
 - With `--json`, a run that exits 1 or 2 still prints one JSON document on stdout,
   `{"error": {"kind": "failed" | "usage", "message": "..."}}`, besides the diagnostic on stderr. A refusal that is a list of problems (`check`) adds `"problems": [{"file", "line"?, "rule", "reason"}]` to `error`. A refusal that is what this machine lacks (`doctor`) adds `"missing": [{"kind": "program" | "entry", "name", "reason", "fix"}]`, `fix` being the command that fixes it.
-- `agent-context` lists the global flags, then each command with its `about`, flags, positionals,
-  subcommands and `output`: the JSON Schema of what its `--json` prints on success. Its human form
-  is the same document, pretty-printed.
+- `agent-context` lists the global flags, then each command with its `about`, `long_help`, flags,
+  positionals, subcommands and `output`: the JSON Schema of what its `--json` prints on success. Its
+  human form is the same document, pretty-printed.
+- A command's `long_help` is what its `--help` (not `-h`) prints after the flags: how to use it
+  well, from one string in its module. `use`'s says how to compose roles for an agent (requires or
+  use, one project per combination, naming it, its entry file, changing it, new versions); that
+  string is its one home.
 - Each command is one module of `src/commands/`, registered on one line of its `registry!`; the
   parser, the dispatch and `agent-context` are generated from that list.
 

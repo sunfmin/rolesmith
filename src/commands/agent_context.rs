@@ -54,10 +54,14 @@ impl Command for Args {
                 "arg": arg,
                 "command": {
                     "type": "object",
-                    "required": ["name", "about", "flags", "positionals", "subcommands"],
+                    "required": ["name", "about", "long_help", "flags", "positionals", "subcommands"],
                     "properties": {
                         "name": { "type": "string" },
                         "about": { "type": ["string", "null"] },
+                        "long_help": {
+                            "description": "what --help (not -h) prints after the flags: how to use the command well",
+                            "type": ["string", "null"]
+                        },
                         "flags": { "type": "array", "items": { "$ref": "#/$defs/arg" } },
                         "positionals": { "type": "array", "items": { "$ref": "#/$defs/arg" } },
                         "subcommands": { "type": "array", "items": { "$ref": "#/$defs/command" } },
@@ -141,6 +145,7 @@ fn describe(c: &clap::Command) -> Value {
     json!({
         "name": c.get_name(),
         "about": c.get_about().map(|s| s.to_string()),
+        "long_help": c.get_after_long_help().map(|s| s.to_string()),
         "flags": c.get_arguments().filter(|a| !a.is_positional()).map(arg).collect::<Vec<_>>(),
         "positionals": c.get_arguments().filter(|a| a.is_positional()).map(arg).collect::<Vec<_>>(),
         "subcommands": c
