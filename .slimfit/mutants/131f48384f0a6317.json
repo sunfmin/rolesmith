@@ -1,0 +1,33 @@
+{
+  "tree": "9d73a54078e79cca1b8feca10de6b330fee721cb+d1fba762150c532c",
+  "picker": "codex:01a206ea-41ad-7121-a0f1-0da11f6d8190:default",
+  "author": "claude-code:ef9e8b8f-e3e0-5bd0-9d88-9b349d04f2a9:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/library.rs:241:72: replace || with && in runs_sudo",
+        "why": "The tests cover `pseudo-installer`, but never check that a name like `sudo-helper` is accepted.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/library.rs:241:60: replace || with && in runs_sudo",
+        "why": "The tests never check that an underscore keeps `sudo` within a larger name such as `sudo_helper`.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/machine.rs:38:18: replace match guard o.status.code() == Some(127) with true in check_tool",
+        "why": "The new tests assert the missing-command diagnostic, but never check that a tool check exiting with another code reports that code.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/commands/tool.rs:60:9: replace <impl Command for Args>::output_shape -> Value with Default::default()",
+        "why": "The new tests assert the runtime JSON fields, leaving the help schema that declares `method` unverified.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  }
+}
