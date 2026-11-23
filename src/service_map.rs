@@ -248,6 +248,14 @@ mod tests {
     }
 
     #[test]
+    fn a_backslash_is_literal_inside_single_quotes() {
+        assert_eq!(
+            parse("A='a\\$b\\'\nB=c").unwrap(),
+            vars(&[("A", r"a\$b\"), ("B", "c")])
+        );
+    }
+
+    #[test]
     fn a_later_name_wins() {
         assert_eq!(parse("A=1\nA=2\n").unwrap(), vars(&[("A", "2")]));
     }

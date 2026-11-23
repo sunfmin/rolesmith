@@ -1590,6 +1590,15 @@ fn doctor_runs_a_mapped_services_check_never_its_command_and_lists_one_without_a
     let o = m.rolesmith(&["--json", "doctor", "signer"]);
     assert_eq!(o.status.code(), Some(1));
     let missing = &json(&o)["error"]["missing"][0];
+    let item = rolesmith::machine::Missing::shape();
+    conforms(missing, &item);
+    assert!(
+        item["properties"]["kind"]["enum"]
+            .as_array()
+            .unwrap()
+            .contains(&missing["kind"]),
+        "{item}"
+    );
     assert_eq!(missing["kind"], "service");
     assert_eq!(missing["name"], "signing");
     assert!(
