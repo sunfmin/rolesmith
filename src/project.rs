@@ -454,11 +454,11 @@ fn generate(
 ) -> Result<Vec<String>, Failure> {
     let found = locate(place, entry)?;
     let (lib, _tree) = sources::read_role(&found)?;
-    let named = &lib.roles[0];
-    let required = lib.requires(&named.name);
+    // Loaded for one role, the library holds it first and then every role it requires.
+    let required = &lib.roles[1..];
 
     let mut files: Vec<(String, Vec<u8>, bool)> = Vec::new();
-    for role in std::iter::once(named).chain(required.iter().copied()) {
+    for role in &lib.roles {
         role_files(&lib, role, &found, &mut files)?;
     }
 
@@ -469,19 +469,17 @@ fn generate(
     for base in bases {
         for (rel, bytes, exec) in &files {
             let path = format!("{base}/{rel}");
-            match into.get(&path) {
-                Some(have) if *have != (bytes.clone(), *exec) => {
-                    return Err(Failure::new(format!(
-                        "two roles would both write {path} differently (one role name from two \
+            let file = (bytes.clone(), *exec);
+            if into
+                .insert(path.clone(), file.clone())
+                .is_some_and(|had| had != file)
+            {
+                return Err(Failure::new(format!(
+                    "two roles would both write {path} differently (one role name from two \
                          sources, or a role required at two revs); bring them to one rev or remove \
                          one of them from {}",
-                        place.record_name()
-                    )));
-                }
-                Some(_) => {}
-                None => {
-                    into.insert(path, (bytes.clone(), *exec));
-                }
+                    place.record_name()
+                )));
             }
         }
     }

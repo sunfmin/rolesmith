@@ -190,7 +190,7 @@ pub fn load(root: &Path, only: Option<&str>) -> Result<Library, Vec<Problem>> {
         if only.is_some() {
             let required = c.requires.get(&name).map(|r| r.names.clone());
             for req in required.unwrap_or_default() {
-                if !names.contains(&req) && c.is_role(&req) {
+                if !names.contains(&req) && is_role(root, &req) {
                     names.push(req);
                 }
             }
@@ -239,10 +239,8 @@ impl Library {
         let mut next = 0;
         while let Some(at) = pending.get(next).copied() {
             next += 1;
-            let Some(role) = self.roles.iter().find(|r| r.name == at) else {
-                continue;
-            };
-            for req in &role.toml.requires {
+            let role = self.roles.iter().find(|r| r.name == at);
+            for req in role.into_iter().flat_map(|r| &r.toml.requires) {
                 if req != name && !pending.contains(&req.as_str()) {
                     pending.push(req);
                     found.extend(self.roles.iter().find(|r| &r.name == req));
@@ -263,6 +261,11 @@ pub fn valid_name(name: &str) -> bool {
         && !name.starts_with('-')
         && !name.ends_with('-')
         && !name.contains("--")
+}
+
+/// Whether `name` is a role of the library at `root`.
+fn is_role(root: &Path, name: &str) -> bool {
+    valid_name(name) && root.join("roles").join(name).is_dir()
 }
 
 struct Checker<'a> {
@@ -422,27 +425,8 @@ impl Checker<'_> {
         ok.then_some(prohibitions)
     }
 
-    /// Whether `name` is a role of the library.
-    fn is_role(&self, name: &str) -> bool {
-        valid_name(name) && self.root.join("roles").join(name).is_dir()
-    }
-
-    /// Every role a checked role requires is a role of the library, and no role requires itself,
-    /// directly or through others (§3.1).
+    /// No role requires itself, directly or through others (§3.1).
     fn check_requires(&mut self) {
-        let mut unknown = Vec::new();
-        for (role, req) in &self.requires {
-            for name in req.names.iter().filter(|n| !self.is_role(n)) {
-                unknown.push((
-                    format!("roles/{role}/role.toml"),
-                    req.line,
-                    format!("requires `{name}`, which is not a role of this library"),
-                ));
-            }
-        }
-        for (file, line, reason) in unknown {
-            self.problem(file, line, Rule::RoleRequires, reason);
-        }
         let mut done = BTreeSet::new();
         let starts: Vec<String> = self.requires.keys().cloned().collect();
         for start in starts {
@@ -482,11 +466,21 @@ impl Checker<'_> {
     fn role_toml(&mut self, name: &str, file: &str) -> Option<RoleToml> {
         let text = self.read(file, Rule::RoleToml)?;
         let raw: RawRoleToml = self.parse(file, &text, Rule::RoleToml)?;
+        let root = self.root;
+        let line = key_line(&text, "requires");
+        for req in raw.requires.iter().filter(|r| !is_role(root, r)) {
+            self.problem(
+                file,
+                line,
+                Rule::RoleRequires,
+                format!("requires `{req}`, which is not a role of this library"),
+            );
+        }
         self.requires.insert(
             name.to_owned(),
             Requires {
                 names: raw.requires.clone(),
-                line: key_line(&text, "requires"),
+                line,
             },
         );
         for program in &raw.programs {
