@@ -239,6 +239,7 @@ pub fn commit(clone: &Path, rev: &str) -> Option<String> {
             "rev-parse",
             "--verify",
             "--quiet",
+            "--end-of-options",
             &format!("{rev}^{{commit}}"),
         ],
     )
@@ -314,17 +315,6 @@ impl Found {
     }
 }
 
-/// What `rev` a lookup reads: the local `main` of each source, or a commit asked for.
-fn wanted_rev(rev: Option<&str>) -> Result<&str, Failure> {
-    match rev {
-        None => Ok(MAIN),
-        Some(r) if (4..=64).contains(&r.len()) && r.bytes().all(|b| b.is_ascii_hexdigit()) => Ok(r),
-        Some(r) => Err(Failure::new(format!(
-            "--rev {r} is not a commit SHA (4 to 64 hex digits)"
-        ))),
-    }
-}
-
 /// Resolve a role address (§2): `<source>/<role>`, or `<role>` when exactly one source has it at
 /// `rev` (default: each source's local `main`). An ambiguous bare name is refused, listing the
 /// addresses that would work.
@@ -341,12 +331,10 @@ pub fn resolve_kind(
     rev: Option<&str>,
 ) -> Result<Found, Failure> {
     let noun = kind.noun();
-    let wanted = wanted_rev(rev)?;
-    let at = |source: &str, name: &str| -> Result<Option<Found>, Failure> {
+    // A rev is any name git resolves to a commit in the clone; what is answered is its full SHA.
+    let wanted = rev.unwrap_or(MAIN);
+    let has = |source: &str, sha: String, name: &str| -> Result<Option<Found>, Failure> {
         let clone = clone_dir(source)?;
-        let Some(sha) = commit(&clone, wanted) else {
-            return Ok(None);
-        };
         let has = library::valid_name(name)
             && git(
                 Some(&clone),
@@ -359,6 +347,12 @@ pub fn resolve_kind(
             rev: sha,
         }))
     };
+    let unresolved = |r: &str, sources: &str| {
+        Failure::new(format!(
+            "rev {r} names no commit in {sources}; name a SHA, branch or tag its clone has \
+             (`rolesmith source update` fetches its main)"
+        ))
+    };
     let at_what = match rev {
         None => format!("on {MAIN}"),
         Some(r) => format!("at {r}"),
@@ -366,16 +360,38 @@ pub fn resolve_kind(
 
     if let Some((source, role)) = address.split_once('/') {
         sources.get(source)?;
-        return at(source, role)?.ok_or_else(|| {
+        let Some(sha) = commit(&clone_dir(source)?, wanted) else {
+            return Err(match rev {
+                Some(r) => unresolved(r, &format!("source {source}")),
+                None => Failure::new(format!("source {source} has no {noun} {role} {at_what}")),
+            });
+        };
+        return has(source, sha, role)?.ok_or_else(|| {
             Failure::new(format!("source {source} has no {noun} {role} {at_what}"))
         });
     }
 
     let mut found = Vec::new();
+    let mut resolved_anywhere = false;
     for source in sources.source.keys() {
-        if let Some(f) = at(source, address)? {
+        let Some(sha) = commit(&clone_dir(source)?, wanted) else {
+            continue;
+        };
+        resolved_anywhere = true;
+        if let Some(f) = has(source, sha, address)? {
             found.push(f);
         }
+    }
+    if let Some(r) = rev
+        && !resolved_anywhere
+        && !sources.source.is_empty()
+    {
+        let names = sources.names_or_none();
+        let which = match sources.source.len() {
+            1 => format!("source {names}"),
+            _ => format!("any of the sources {names}"),
+        };
+        return Err(unresolved(r, &which));
     }
     match found.len() {
         1 => Ok(found.remove(0)),

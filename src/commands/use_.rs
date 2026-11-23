@@ -1,4 +1,4 @@
-//! `rolesmith use <role>... --into <target>... [--project <dir> | --global] [--rev <sha>]`: record
+//! `rolesmith use <role>... --into <target>... [--project <dir> | --global] [--rev <rev>]`: record
 //! roles in a project's `rolesmith.toml` (or the user's `global.toml`) and install them (SPEC.md §4,
 //! §5.1, §5.2, §8); `use --auto` installs what `suggest` lists for a project (§5.5).
 
@@ -20,6 +20,7 @@ use crate::suggestions;
 /// ## Refusals
 ///
 /// - an unknown role, or a bare name more than one source has;
+/// - a `--rev` that names no commit in the clone (the refusal names it and the source);
 /// - a role name the record already has from another source;
 /// - a file in an install directory that the manifest does not list (it is never overwritten);
 /// - two roles requiring one role at two revs;
@@ -44,9 +45,11 @@ pub struct Args {
     #[command(flatten)]
     pub place: sync::Where,
 
-    /// Install the roles at this commit of their source (default: a role already recorded keeps
-    /// its rev; a new one takes its source's local main).
-    #[arg(long, value_name = "SHA")]
+    /// Install the roles at this commit of their source: any name git resolves in the clone (a
+    /// SHA, a branch such as main, a tag, HEAD); the record keeps the full SHA it resolved to,
+    /// never the name (default: a role already recorded keeps its rev; a new one takes its
+    /// source's local main).
+    #[arg(long, value_name = "REV")]
     pub rev: Option<String>,
 }
 

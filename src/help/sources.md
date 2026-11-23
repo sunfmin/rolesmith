@@ -10,7 +10,8 @@ A role (or a tool) is `<role>` when one source has it and `<source>/<role>` othe
 
 ## Revs
 
-- `list`, `show`, `prompt` and `suggest` read roles from a commit of the clone, its local `main` (or `--rev <sha>`), never from its working tree: they show what an install at that commit writes.
+- `list`, `show`, `prompt` and `suggest` read roles from a commit of the clone, its local `main` (or `--rev <rev>`), never from its working tree: they show what an install at that commit writes.
+- A `--rev` (of `show`, `prompt`, `use`) is any name git resolves to a commit in the clone: a SHA or a prefix of one, a branch such as `main`, a tag, `HEAD`. Everything answered or recorded keeps the full SHA it resolved to, never the name. A name the clone does not resolve is refused, naming it and the source.
 - `use` records each role with the full SHA it installed (`rev` in `rolesmith.toml`, or `global.toml` for `--global`); `sync` installs exactly that rev again. A role already recorded keeps its rev unless `use --rev` is given.
 - Nothing fetches on its own. `source update` fetches and fast-forwards each clone's local `main`, never forced; `update` then moves the recorded revs to it. `status` says how far each rev is behind and ahead of `main`.
 - A record names each source's `url`, so `sync`, `status` and `update` on a fresh machine add a source the machine lacks.
