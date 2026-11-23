@@ -273,7 +273,7 @@ fn a_file_rolesmith_did_not_generate_is_never_overwritten() {
 }
 
 #[test]
-fn emptying_the_record_deletes_the_manifest_gitignore_and_claude_md_and_keeps_the_skill_directory() {
+fn emptying_the_record_deletes_what_rolesmith_made_and_keeps_the_skill_directory() {
     let m = Machine::new();
     let (lib, _) = published(&m, "felix", &["app-store-releaser"]);
     m.json(&["source", "add", "felix", lib.url()]);
