@@ -504,3 +504,71 @@ fn a_script_install_is_pinned_alone_and_never_runs_sudo() {
     let o = check(lib.path(), &[]);
     assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
 }
+
+/// `check` with no `--library`, run in `dir`.
+fn check_in(dir: &Path, extra: &[&str]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_rolesmith"))
+        .arg("check")
+        .args(extra)
+        .current_dir(dir)
+        .output()
+        .expect("the binary runs")
+}
+
+/// Run inside a role or one of its skills, `check` finds the library the way git finds its
+/// repository, and answers as at the root: the same output, exit code and `--json`.
+#[test]
+fn check_inside_a_library_checks_the_whole_library() {
+    let lib = sound();
+    let root = lib.path();
+    let inner = [
+        root.join("roles/app-store-releaser"),
+        root.join("roles/app-store-releaser/skills/submit-build"),
+    ];
+    for extra in [&[][..], &["--json"][..]] {
+        let at_root = check_in(root, extra);
+        assert_eq!(at_root.status.code(), Some(0), "{}", stderr(&at_root));
+        for dir in &inner {
+            let o = check_in(dir, extra);
+            assert_eq!(
+                o.status.code(),
+                Some(0),
+                "{}: {}",
+                dir.display(),
+                stderr(&o)
+            );
+            assert_eq!(stdout(&o), stdout(&at_root), "{}", dir.display());
+        }
+    }
+
+    // A broken library answers the same from inside, too.
+    write(root, "roles/broken/role.toml", "nonsense");
+    for extra in [&[][..], &["--json"][..]] {
+        let at_root = check_in(root, extra);
+        assert_eq!(at_root.status.code(), Some(1));
+        assert!(stdout(&at_root).contains("role-toml") || stderr(&at_root).contains("role-toml"));
+        for dir in &inner {
+            let o = check_in(dir, extra);
+            assert_eq!(o.status.code(), Some(1), "{}", dir.display());
+            assert_eq!(stdout(&o), stdout(&at_root), "{}", dir.display());
+            assert_eq!(stderr(&o), stderr(&at_root), "{}", dir.display());
+        }
+    }
+}
+
+/// Outside any library, `check` refuses as before, naming the directory it started from.
+#[test]
+fn check_outside_a_library_names_where_it_started() {
+    let dir = tempfile::tempdir().unwrap();
+    let start = dir.path().join("somewhere");
+    std::fs::create_dir_all(&start).unwrap();
+    let o = check_in(&start, &[]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(stderr(&o).contains("[library-toml]"), "{}", stderr(&o));
+    let canonical = start.canonicalize().unwrap();
+    assert!(
+        stderr(&o).contains(&canonical.display().to_string()),
+        "{}",
+        stderr(&o)
+    );
+}
