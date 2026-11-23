@@ -9,8 +9,16 @@ use serde_json::{Value, json};
 use super::{Command, Failure, Output};
 use crate::project::{self, Place, Record, Synced};
 
-/// Make the generated files equal what rolesmith.toml says; add missing sources from their url.
+/// Make the generated files equal what the record (`rolesmith.toml`, or `global.toml` with `--global`) says.
+///
+/// Run it after cloning a project, after editing `rolesmith.toml` by hand, or when `rolesmith status` shows drift. It writes only the files that differ and deletes only files the manifest lists that the record no longer generates. A source the record names that this machine lacks is added from the record's `url`. A record with no roles is an answer that writes nothing.
+///
+/// ## Refusals
+///
+/// - a `--project` that is not a directory, or a record that does not parse or names an unknown target;
+/// - a file in an install directory that the manifest does not list.
 #[derive(clap::Args)]
+#[command(verbatim_doc_comment)]
 pub struct Args {
     #[command(flatten)]
     pub place: Where,
@@ -42,6 +50,7 @@ impl Where {
 
 impl Command for Args {
     const NAME: &'static str = "sync";
+    const GROUP: &'static str = super::groups::PROJECT;
 
     fn output_shape() -> Value {
         shape()

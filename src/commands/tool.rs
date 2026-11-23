@@ -10,8 +10,13 @@ use crate::library::ToolToml;
 use crate::machine;
 use crate::sources::{self, Found, Kind, Sources};
 
-/// The tools of a library, as this machine has them.
+/// Show and install the tools of a library, as this machine has them.
+///
+/// A tool is a program a role runs, described by its library's `tools/<tool>/tool.toml`: how to check it, how to install it at a pinned version, and the credential it needs. A tool is addressed as a role is.
+///
+/// Each subcommand's `rolesmith tool <subcommand> --help` says when to run it and what it answers.
 #[derive(clap::Args)]
+#[command(verbatim_doc_comment)]
 pub struct Args {
     #[command(subcommand)]
     pub action: Action,
@@ -19,12 +24,24 @@ pub struct Args {
 
 #[derive(clap::Subcommand)]
 pub enum Action {
-    /// The tool.toml, and whether its check passes here.
+    /// Show a tool's `tool.toml` on its source's local `main`, and whether its check passes here.
+    ///
+    /// It runs the tool's `check` with `sh -c` and writes nothing. It refuses an unknown tool and a `tool.toml` that does not parse.
+    #[command(verbatim_doc_comment)]
     Show {
         /// The tool: <tool> when one source has it, <source>/<tool> otherwise.
         tool: String,
     },
     /// Install each program of a role (or one tool) whose check fails, by its pinned method.
+    ///
+    /// Run it when `rolesmith doctor` names a program missing. A tool whose check passes is left alone. It installs with `brew`, as you, into brew's own prefix, never with `sudo`: `<formula>@<version>` where brew has it, else `<formula>` when brew's stable version is the pinned one. After installing, the tool's check must pass. Tools are installed in order; the first refusal stops it and names what was installed before it.
+    ///
+    /// ## Refusals
+    ///
+    /// - a tool without a pinned version or with an unknown method;
+    /// - a formula whose stable version is not the pinned one (before installing anything);
+    /// - a check that still fails after installing.
+    #[command(verbatim_doc_comment)]
     Install {
         /// The role whose programs to install: <role> or <source>/<role>.
         #[arg(required_unless_present = "tool", conflicts_with = "tool")]
@@ -37,6 +54,7 @@ pub enum Action {
 
 impl Command for Args {
     const NAME: &'static str = "tool";
+    const GROUP: &'static str = super::groups::ROLE;
 
     fn output_shape() -> Value {
         json!({

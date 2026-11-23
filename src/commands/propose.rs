@@ -17,8 +17,18 @@ use crate::sources::{self, MAIN, Sources};
 /// The branches `propose` pushes: those `new` and `distill` put the working copy on.
 const BRANCH_PREFIX: &str = "rolesmith/";
 
-/// Check, commit and push a source's working copy branch, and open its pull request.
+/// Check, commit and push a source's working copy branch, and open its pull request onto `main`.
+///
+/// Run it as the last step of `new` or `distill`. It runs `rolesmith check` (of the role, or the whole working copy) and refuses with its problems if it fails; commits the working copy's changes on its current `rolesmith/*` branch; pushes that branch to the source's `origin`, never `main`, never forced; and opens a pull request with `gh pr create`, its body listing what changed per role and a `Closes #<n>` line per `--closes`. A person merges it.
+///
+/// ## Refusals
+///
+/// - a working copy on `main`, on no branch, or on a branch not named `rolesmith/*`;
+/// - a branch that does not differ from `main`;
+/// - a failing check;
+/// - a failed push, or `gh pr create` failing (the branch is pushed by then: run it again).
 #[derive(clap::Args)]
+#[command(verbatim_doc_comment)]
 pub struct Args {
     /// Check only this role before proposing (default: the whole library).
     pub role: Option<String>,
@@ -34,6 +44,7 @@ pub struct Args {
 
 impl Command for Args {
     const NAME: &'static str = "propose";
+    const GROUP: &'static str = super::groups::LIBRARY;
 
     fn output_shape() -> Value {
         json!({

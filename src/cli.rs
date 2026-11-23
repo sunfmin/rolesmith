@@ -1,13 +1,14 @@
-//! The frame every command runs in (SPEC.md §8): parsing, `--json`, stderr, exit codes.
+//! The frame every command runs in (SPEC.md §8): parsing, `--help` from the manual, `--json`,
+//! stderr, exit codes.
 
 use std::ffi::OsString;
 use std::io::Write;
 use std::process::ExitCode;
 
-use clap::{CommandFactory, Parser};
+use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use serde_json::{Value, json};
 
-use crate::commands::{Failure, Output, Registered};
+use crate::commands::{Failure, Output, Registered, groups};
 
 /// Success.
 pub const EXIT_OK: u8 = 0;
@@ -16,16 +17,67 @@ pub const EXIT_FAILED: u8 = 1;
 /// The command line was not one rolesmith accepts.
 pub const EXIT_USAGE: u8 = 2;
 
-/// Roles for any coding agent.
+/// Roles for any coding agent: keeps them in git libraries, installs them into any agent, and opens the lessons people distill into them.
+///
+/// A role is what an agent of one kind of work must know: a core always in force, prohibitions, and skills loaded when a task needs them. rolesmith installs a role as skills in the directory an agent reads (`--into`), records it at a commit, and checks what an agent writes into a library. It never calls a model and never writes a secret.
+///
+/// It needs `git` on `PATH`; `gh` for lessons and pull requests, `mytokens` for credentials, `brew` for installing tools.
+///
+/// Run `rolesmith <command> --help` before a command's first run. To start on a machine: `rolesmith source add <name> <git-url>`, then `rolesmith list`. To give a project's agents roles: `rolesmith suggest`, then `rolesmith use <role>... --into <target>`. To work under a role: `rolesmith doctor <role>`, then `rolesmith env <role>`.
+///
+/// ## Rules to know first
+///
+/// - Every command runs without asking anything. With `--json` it prints one JSON object on stdout; without, human text. Diagnostics go to stderr. It exits {const:EXIT_OK} on success, {const:EXIT_FAILED} when it refused or something failed, {const:EXIT_USAGE} on a bad command line (see [how a run ends](help:errors)).
+/// - A role is addressed as `<role>` or `<source>/<role>` and read at a commit, never from a working tree (see [sources and revs](help:sources)).
+/// - A project's `rolesmith.toml` is the one record of its roles; every other file rolesmith writes there is generated from it, and `rolesmith sync` writes it again. Never edit a generated file.
+/// - Changes to a library land only as a pull request a person merges (`rolesmith propose`).
 #[derive(Parser)]
-#[command(name = "rolesmith", version = env!("ROLESMITH_VERSION"), arg_required_else_help = true)]
+#[command(
+    name = "rolesmith",
+    version = env!("ROLESMITH_VERSION"),
+    arg_required_else_help = true,
+    disable_help_subcommand = true,
+    verbatim_doc_comment
+)]
 pub struct Cli {
-    /// Print one JSON document on stdout instead of human text.
-    #[arg(long, global = true)]
+    /// Print one JSON object on stdout instead of human text.
+    #[arg(long, global = true, verbatim_doc_comment)]
     pub json: bool,
 
     #[command(subcommand)]
-    pub command: Registered,
+    pub command: Top,
+}
+
+/// The commands: every registered one, and `help`.
+#[derive(Subcommand)]
+pub enum Top {
+    /// Show one topic of this manual, or all of it.
+    ///
+    /// `rolesmith help <topic>` shows a topic, `rolesmith help all` the whole manual, every command and topic in full; without a topic it shows what `rolesmith --help` does. It answers Markdown on stdout, even with `--json`. An unknown topic is a usage error naming the topics.
+    #[command(next_help_heading = groups::LEARNING, verbatim_doc_comment)]
+    Help {
+        /// The topic, such as `composing`, or `all`.
+        #[arg(verbatim_doc_comment)]
+        topic: Option<String>,
+    },
+    #[command(flatten)]
+    Run(Registered),
+}
+
+/// The kind of a refusal, `error.kind` with `--json`.
+#[derive(agent_help::Help, Clone, Copy)]
+pub enum ErrorKind {
+    /// The command refused, or something it needed failed; exit 1.
+    Failed,
+    /// The command line is not one rolesmith accepts; exit 2.
+    Usage,
+}
+
+impl ErrorKind {
+    /// Its name, as `error.kind` carries it.
+    pub fn name(self) -> &'static str {
+        agent_help::Table::entry(&self).name
+    }
 }
 
 /// The parser's definition: what `agent-context` describes and what parses the command line.
@@ -47,11 +99,45 @@ pub fn main(args: impl IntoIterator<Item = OsString>) -> ExitCode {
 /// Parse, run and report; answers the exit code. Writes go to the given streams so tests can
 /// watch them; a closed stdout (`| head`) is not an error of the command.
 pub fn run(args: &[OsString], out: &mut impl Write, err: &mut impl Write) -> u8 {
-    let cli = match Cli::try_parse_from(args) {
-        Ok(cli) => cli,
-        Err(e) => return usage(&e, wants_json(args), out, err),
-    };
-    report(cli.command.run(), cli.json, out, err)
+    match parse(args) {
+        Ok(Parsed::Run(command, json)) => report(command.run(), json, out, err),
+        Ok(Parsed::Answer(text)) => {
+            let _ = write!(out, "{text}");
+            EXIT_OK
+        }
+        Err(e) => usage(&e, wants_json(args), out, err),
+    }
+}
+
+/// A command line read: a command to run (and whether `--json` was given), or help's answer.
+enum Parsed {
+    Run(Registered, bool),
+    Answer(String),
+}
+
+/// Parse without the manual when the line needs none; `--help`, `-h`, `help [<topic>]` and a
+/// line clap refuses go through the manual, so every help answer and usage error is its text.
+fn parse(args: &[OsString]) -> Result<Parsed, clap::Error> {
+    if let Ok(Cli {
+        command: Top::Run(command),
+        json,
+    }) = Cli::try_parse_from(args)
+    {
+        return Ok(Parsed::Run(command, json));
+    }
+    let manual = crate::help::manual();
+    let command = manual.clap().expect("checked by the_manual_is_whole");
+    let cli = Cli::from_arg_matches(&command.try_get_matches_from(args)?)?;
+    match cli.command {
+        Top::Run(command) => Ok(Parsed::Run(command, cli.json)),
+        Top::Help { topic: None } => Ok(Parsed::Answer(
+            manual.index().expect("checked by the_manual_is_whole"),
+        )),
+        Top::Help { topic: Some(topic) } => manual
+            .topic_help(&topic)
+            .map(Parsed::Answer)
+            .map_err(|e| clap::Error::raw(clap::error::ErrorKind::InvalidValue, format!("{e}\n"))),
+    }
 }
 
 /// Print what a command produced or why it failed, and answer the exit code.
@@ -73,7 +159,7 @@ pub fn report(
         Err(failure) => {
             let _ = writeln!(err, "rolesmith: {}", failure.message);
             if json {
-                let mut doc = error_document("failed", &failure.message);
+                let mut doc = error_document(ErrorKind::Failed, &failure.message);
                 if let Some((key, items)) = failure.list {
                     doc["error"][key] = items;
                 }
@@ -94,14 +180,14 @@ fn usage(e: &clap::Error, json: bool, out: &mut impl Write, err: &mut impl Write
     }
     let _ = write!(err, "{text}");
     if json {
-        let _ = writeln!(out, "{}", error_document("usage", text.trim_end()));
+        let _ = writeln!(out, "{}", error_document(ErrorKind::Usage, text.trim_end()));
     }
     EXIT_USAGE
 }
 
 /// The one JSON document a failed `--json` run prints.
-fn error_document(kind: &str, message: &str) -> Value {
-    json!({ "error": { "kind": kind, "message": message } })
+fn error_document(kind: ErrorKind, message: &str) -> Value {
+    json!({ "error": { "kind": kind.name(), "message": message } })
 }
 
 /// Whether a command line that did not parse asked for `--json` (before any `--`).

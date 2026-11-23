@@ -6,8 +6,11 @@ use serde_json::{Value, json};
 use super::{Command, Failure, Output};
 use crate::library::{Library, Role};
 
-/// The role as one Markdown document: core, prohibitions, then each skill's description and path.
+/// Print a role as one Markdown document: its core, its prohibitions, then each skill's name, description and the path of its `SKILL.md`.
+///
+/// Run it for an agent that takes instructions but reads no skills, such as a bot's standing instructions. The document opens with a comment naming the source, role and rev; each role it requires follows its own skills, under a heading of its own. It reads the role at a commit as `show` does, writes nothing, and refuses what `show` refuses.
 #[derive(clap::Args)]
+#[command(verbatim_doc_comment)]
 #[group(skip)]
 pub struct Args {
     #[command(flatten)]
@@ -16,6 +19,7 @@ pub struct Args {
 
 impl Command for Args {
     const NAME: &'static str = "prompt";
+    const GROUP: &'static str = super::groups::ROLE;
 
     fn output_shape() -> Value {
         json!({

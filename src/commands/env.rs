@@ -10,8 +10,15 @@ use super::{Command, Failure, Output};
 use crate::machine;
 use crate::sources::{self, Sources};
 
-/// A role's credentials as `export NAME='value'` lines, or set for a command after `--`.
+/// Print a role's credentials as `export NAME='value'` lines, or run a command with them set.
+///
+/// Run `eval "$(rolesmith env <role>)"`, or `rolesmith env <role> -- <command> [args]` to run the command in rolesmith's place with the variables added to its environment. Every variable of the role's programs' `[credential]` is read from mytokens at that moment; nothing is written to disk. It refuses a role with a service no program's `[credential]` maps to variables, listing each (with `--json`, `error.unmapped`), and reads nothing then.
+///
+/// ## Pitfall
+///
+/// The values are secrets: never print them into a log, a lesson or a file.
 #[derive(clap::Args)]
+#[command(verbatim_doc_comment)]
 pub struct Args {
     /// The role: <role> when one source has it, <source>/<role> otherwise.
     pub role: String,
@@ -22,6 +29,7 @@ pub struct Args {
 
 impl Command for Args {
     const NAME: &'static str = "env";
+    const GROUP: &'static str = super::groups::ROLE;
 
     fn output_shape() -> Value {
         json!({

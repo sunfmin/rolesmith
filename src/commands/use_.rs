@@ -9,39 +9,25 @@ use crate::project::{self, Record, RoleEntry};
 use crate::sources::{self, Sources};
 use crate::suggestions;
 
-/// How to put several roles together for one agent: `use --help` and `agent-context` print it, from
-/// this one string (in GLOSSARY.md's words).
-pub const COMPOSING: &str = "\
-Composing roles for an agent:
-
-1. Requires or use. A role that every agent of another role needs (\"an iOS app coder is also a
-   coder\") is named in that role's `requires` (ADR 0003), never listed again per project. A role
-   some projects want and others do not (for example running tests on a real phone) is not
-   required by anything; it is named in `rolesmith use` only for the projects that want it.
-
-2. One project per combination. An agent started outside any repository (a harness given a
-   directory of roles, such as factorium's `--role <dir>`) gets a directory that holds only
-   `rolesmith.toml` and the installs: `rolesmith use A B --into <target> --project <dir>`. Each
-   combination of roles is its own directory.
-
-3. Name it by the kind of work, not by the project that first uses it, so another project doing
-   the same work reuses it (e.g. `ios-ml-app`, not `chessmirror-roles`).
-
-4. Its entry file (`CLAUDE.md` / `AGENTS.md` beside the installs) lists the roles the directory
-   installs and tells the agent to read each one's core skill `rolesmith-<role>`. Required roles
-   are not listed: the core skill names them (ADR 0003).
-
-5. Changing a combination makes a new directory rather than editing one agents are running from.
-   The old one is removed (`rolesmith remove`, then the directory) only after every agent started
-   from it has finished.
-
-6. New versions: `rolesmith source update <source> && rolesmith update --project <dir>`; agents
-   started after that read the new version.
-";
-
-/// Install roles into a project's agents (or the user's, with --global) and record them; idempotent.
+/// Install roles into a project's agents (or the user's own, with `--global`) and record them.
+///
+/// Run it to give a project's agents roles; to put several roles together for one agent, read [composing roles](help:composing) first. `--into` names each agent: {const:TARGETS}; under `--global` the same directories under your home.
+///
+/// It records each role in the project's `rolesmith.toml` (or `global.toml`) with its source, URL, the full SHA it installed and its targets, then writes, for each target, the role's core skill `rolesmith-<role>` and a skill `rolesmith-<role>-<skill>` per skill, and the same for every role it requires. Generated files are listed in `.rolesmith/manifest.json` and added to `.gitignore`; commit `rolesmith.toml`, never the generated files. It never edits a project's `CLAUDE.md`, `AGENTS.md`, code or settings.
+///
+/// It is idempotent: a role already recorded keeps its rev unless `--rev` is given (`rolesmith update` moves it). `--auto` installs exactly what `rolesmith suggest` lists.
+///
+/// ## Refusals
+///
+/// - an unknown role, or a bare name more than one source has;
+/// - a role name the record already has from another source;
+/// - a file in an install directory that the manifest does not list (it is never overwritten);
+/// - two roles requiring one role at two revs;
+/// - `--auto` with nothing to install (and it writes nothing).
+///
+/// An unknown `--into` is a usage error naming the targets.
 #[derive(clap::Args)]
-#[command(after_long_help = COMPOSING)]
+#[command(verbatim_doc_comment)]
 pub struct Args {
     /// Each role: <role> when one source has it, <source>/<role> otherwise.
     #[arg(required_unless_present = "auto", conflicts_with = "auto")]
@@ -51,7 +37,7 @@ pub struct Args {
     #[arg(long, conflicts_with_all = ["rev", "global"])]
     pub auto: bool,
 
-    /// Each agent to install into (claude-code, codex, agents).
+    /// Each agent to install into, repeatable: one of the targets this page names.
     #[arg(long, value_name = "TARGET", required = true, value_parser = known_target)]
     pub into: Vec<String>,
 
@@ -73,6 +59,7 @@ fn known_target(target: &str) -> Result<String, String> {
 
 impl Command for Args {
     const NAME: &'static str = "use";
+    const GROUP: &'static str = super::groups::PROJECT;
 
     fn output_shape() -> Value {
         sync::shape()

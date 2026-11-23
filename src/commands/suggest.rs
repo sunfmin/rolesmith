@@ -8,8 +8,11 @@ use serde_json::{Value, json};
 use super::{Command, Failure, Output, sync};
 use crate::suggestions::{self, Suggestion};
 
-/// Roles of every source whose [match] the project meets, with the rule that matched.
+/// List the roles of every source whose `[match]` the project meets, each with the rule that matched and the path that met it.
+///
+/// Run it in a project to see which roles fit it; `rolesmith use --auto --into <target>` installs exactly this list. Matching alone installs nothing. Roles are read from each source's local `main`; a role whose `role.toml` does not parse matches nothing. A `files` glob matches a path relative to the project root (`*` does not cross `/`, `**` does); a `contains` rule matches when that file holds its text. The walk skips `.git`, `target`, `node_modules` and what the project's `.gitignore` files ignore. Each role is listed once, with its first rule that matched. Nothing matching is an answer, not a refusal.
 #[derive(clap::Args)]
+#[command(verbatim_doc_comment)]
 pub struct Args {
     /// The project's root (default: the current directory).
     #[arg(long, value_name = "DIR")]
@@ -18,6 +21,7 @@ pub struct Args {
 
 impl Command for Args {
     const NAME: &'static str = "suggest";
+    const GROUP: &'static str = super::groups::PROJECT;
 
     fn output_shape() -> Value {
         json!({

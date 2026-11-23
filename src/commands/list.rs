@@ -8,8 +8,11 @@ use serde_json::{Value, json};
 use super::{Command, Failure, Output};
 use crate::sources::{self, Kind, Sources};
 
-/// Roles of every source (or one): address, description.
+/// List the roles of every source (or of one): the address that reaches each, and its description.
+///
+/// Run it to find a role to `show` or `use`. It reads each source's local `main`, never its working tree, and fetches nothing (`rolesmith source update` does). An address is `<role>` when only one source has the role, `<source>/<role>` otherwise. It refuses an unknown `--source`.
 #[derive(clap::Args)]
+#[command(verbatim_doc_comment)]
 pub struct Args {
     /// Only the roles of this source.
     #[arg(long, value_name = "NAME")]
@@ -18,6 +21,7 @@ pub struct Args {
 
 impl Command for Args {
     const NAME: &'static str = "list";
+    const GROUP: &'static str = super::groups::PROJECT;
 
     fn output_shape() -> Value {
         json!({

@@ -7,7 +7,12 @@ use crate::project;
 use crate::sources::{self, Entry, MAIN, Sources};
 
 /// Add, list, update and remove the libraries this machine knows.
+///
+/// A source is this machine's name for a library, a git repository of roles (see [sources and revs](help:sources)). Run `source add` once per library on a machine, and `source update` to bring in what a library has merged since.
+///
+/// Each subcommand's `rolesmith source <subcommand> --help` says when to run it and what it answers.
 #[derive(clap::Args)]
+#[command(verbatim_doc_comment)]
 pub struct Args {
     #[command(subcommand)]
     pub action: Action,
@@ -15,21 +20,39 @@ pub struct Args {
 
 #[derive(clap::Subcommand)]
 pub enum Action {
-    /// Clone a library and record it; refuse a name in use or a repo without library.toml.
+    /// Clone a library and record it as a source.
+    ///
+    /// Run it once per library on a machine. It clones `<url>` into rolesmith's data directory and records `<name>` in `sources.toml`; the name is the `<source>` of `<source>/<role>`.
+    ///
+    /// ## Refusals
+    ///
+    /// - a name that is not lowercase letters, digits and single hyphens, or one already recorded;
+    /// - a URL `git clone` cannot clone;
+    /// - a repository without `library.toml` on its `main`.
+    #[command(verbatim_doc_comment)]
     Add {
         /// The local name of the source (lowercase letters, digits and single hyphens).
         name: String,
         /// The library's git URL.
         url: String,
     },
-    /// Each source: name, URL, local main commit, roles count.
+    /// List each source: its name, URL, local `main` commit and how many roles it has there.
+    ///
+    /// It reads the clones only; it fetches nothing, so `main` is what the last `source add` or `source update` brought in. No sources is an answer, not a refusal.
+    #[command(verbatim_doc_comment)]
     List,
-    /// Fetch and fast-forward each source's clone (or only this one); never force.
+    /// Fetch and fast-forward each source's clone (or only the one named); never force.
+    ///
+    /// Run it before `rolesmith update`, which moves a project's roles to the local `main` this brings in and fetches nothing itself. It updates every source it can and then refuses, naming each that failed: a missing clone (remove the source and add it again), a fetch that failed, or a local `main` that moved apart from the library's.
+    #[command(verbatim_doc_comment)]
     Update {
         /// Only this source.
         name: Option<String>,
     },
-    /// Forget a source and delete its clone; refuse while a project or global install records it.
+    /// Forget a source and delete its clone.
+    ///
+    /// It refuses while an install still records the source: a project's `rolesmith.toml` (of every project rolesmith has synced into that still exists) or the user's `global.toml`. The refusal lists each, with `--json` as `error.projects`; run `rolesmith remove` of its roles there first.
+    #[command(verbatim_doc_comment)]
     Remove {
         /// The source to remove.
         name: String,
@@ -38,6 +61,7 @@ pub enum Action {
 
 impl Command for Args {
     const NAME: &'static str = "source";
+    const GROUP: &'static str = super::groups::MACHINE;
 
     fn output_shape() -> Value {
         let source = json!({
