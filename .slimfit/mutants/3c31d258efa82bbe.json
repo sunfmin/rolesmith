@@ -1,0 +1,15 @@
+{
+  "tree": "2f9cb0c48adb0c6fbce6da56c9ef66c994e1603b+d1fba762150c532c",
+  "picker": "codex:01a20664-881c-7f62-aafa-6a28e7483ff3:default",
+  "author": "claude-code:4a529947-c967-5436-88d7-ad373df084ab:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/commands/agent_context.rs:16:9: replace <impl Command for Args>::output_shape -> Value with Default::default()",
+        "why": "The added tests check long_help values in command entries, so they could still pass if agent-context publishes a null output schema.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  }
+}
