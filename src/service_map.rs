@@ -356,6 +356,8 @@ mod tests {
         );
         assert_eq!(asks_for("~/bin/opx", none), Asks::Unknown);
         assert_eq!(asks_for("A=1", none), Asks::Unknown);
+        // A word with `=` that does not start with a name is the program, not an assignment.
+        assert_eq!(asks_for("./a=b op", none), Asks::Unknown);
         assert_eq!(asks_for("", none), Asks::Unknown);
     }
 

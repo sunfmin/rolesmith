@@ -93,11 +93,12 @@ pub fn probe(command: &str, expected: &[String], bound: Duration) -> Outcome {
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    // SAFETY: setsid is async-signal-safe and touches nothing of this process's memory.
+    // SAFETY: setsid is async-signal-safe and touches nothing of this process's memory. Its one
+    // error is EPERM for a group leader, which a child just forked never is.
     unsafe {
-        cmd.pre_exec(|| match libc::setsid() {
-            -1 => Err(std::io::Error::last_os_error()),
-            _ => Ok(()),
+        cmd.pre_exec(|| {
+            libc::setsid();
+            Ok(())
         });
     }
     let mut child = match cmd.spawn() {

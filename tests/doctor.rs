@@ -1621,6 +1621,21 @@ fn env_and_doctor_fail_on_a_services_toml_they_cannot_read_rather_than_use_mytok
     }
 }
 
+#[test]
+fn doctor_fails_on_kept_probes_it_cannot_read_rather_than_take_none() {
+    let m = Machine::new(&[]);
+    signer(&m, &["signing"]);
+    m.map_service("signing", "signing-env", None);
+    std::fs::create_dir_all(m.path("data/rolesmith/probes.json")).unwrap();
+    let o = m.rolesmith(&["doctor", "signer"]);
+    assert_eq!(o.status.code(), Some(1));
+    let err = stderr(&o);
+    assert!(
+        err.contains("cannot read") && err.contains("probes.json"),
+        "{err}"
+    );
+}
+
 impl Machine {
     /// Run `rolesmith <args>` with `vars` set (`Some`) or removed (`None`) on top of the machine's
     /// environment.
@@ -1860,7 +1875,7 @@ fn doctor_probe_reads_each_source_once_and_answers_how_it_went_without_a_value()
 fn doctor_reports_a_kept_probe_until_the_command_changes() {
     let m = Machine::new(&[]);
     signer(&m, &["fast", "slow"]);
-    m.counting("fast-env", "echo A=1\n");
+    m.counting("fast-env", "sleep 0.3\necho A=1\n");
     m.map_service("fast", "fast-env", None);
     m.map_service("slow", "sleep 5", None);
 
@@ -1897,7 +1912,8 @@ fn doctor_reports_a_kept_probe_until_the_command_changes() {
     );
     let fast = &doc["services"][0]["probe"];
     assert_eq!(fast["outcome"], "unattended");
-    assert!(fast["seconds"].as_f64().unwrap() < 1.0, "{fast}");
+    let seconds = fast["seconds"].as_f64().unwrap();
+    assert!((0.25..1.0).contains(&seconds), "{fast}");
     assert!(fast["at"].as_str().unwrap().ends_with('Z'), "{fast}");
     assert_eq!(m.ran("fast-env"), "run\n", "only the probe ran it");
 }
