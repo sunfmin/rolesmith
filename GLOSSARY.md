@@ -16,6 +16,8 @@
 
 **Tool**: a program a role runs, described by `tools/<tool>/tool.toml`: how to install it (pinned), how to check it, and the credential it needs.
 
+**Host**: the machine a role's tools are checked and installed on: this one, or another reached by `ssh` (`--host`), which needs no rolesmith. Credentials are only ever read on this one. _Avoid_: remote, target (a target is an agent)
+
 **Service**: a credential a role's work reads, named by its mytokens entry in `role.toml`'s `services`. rolesmith holds only the name.
 
 **Target**: an agent a role is installed into (`claude-code`, `codex`, `agents`), and the skill directory that agent reads.

@@ -88,16 +88,11 @@ impl Command for Args {
         }
         let human = variables
             .iter()
-            .map(|(name, value)| format!("export {name}={}\n", shell_quote(value)))
+            .map(|(name, value)| format!("export {name}={}\n", crate::host::quote(value)))
             .collect();
         Ok(Output {
             json: json!({ "role": found.qualified(), "rev": found.rev, "variables": variables }),
             human,
         })
     }
-}
-
-/// `value` in single quotes for sh, each `'` written as `'\''`.
-fn shell_quote(value: &str) -> String {
-    format!("'{}'", value.replace('\'', r"'\''"))
 }

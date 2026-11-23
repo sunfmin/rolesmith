@@ -869,3 +869,200 @@ fn tool_install_refuses_a_script_that_fails_or_installs_another_version() {
          does not show the pinned version 2.0.0; the script's stderr is empty"
     );
 }
+
+impl Machine {
+    /// A stand-in `ssh` that logs each call to `ssh-calls`, takes only `-o BatchMode=yes --
+    /// <host> <command>...`, and runs the command as a remote sshd would (its words joined, by
+    /// `sh -c`) with `hosts/<host>/bin` first on `PATH` and none of this machine's `bin`. A host
+    /// without its directory cannot be reached: ssh's exit 255.
+    fn ssh(&self) {
+        self.program(
+            "ssh",
+            &format!(
+                "echo \"$*\" >> '{calls}'\n[ \"$1 $2 $3\" = '-o BatchMode=yes --' ] || {{ echo \"ssh stand-in: unexpected $*\" >&2; exit 2; }}\nh='{hosts}'/\"$4\"\n[ -d \"$h\" ] || {{ echo \"ssh: connect to host $4 port 22: Connection refused\" >&2; exit 255; }}\nshift 4\nPATH=\"$h/bin:/usr/bin:/bin\" exec /bin/sh -c \"$*\"\n",
+                calls = self.path("ssh-calls").display(),
+                hosts = self.path("hosts").display(),
+            ),
+        );
+    }
+
+    /// A program `name` on `host`'s `PATH`, not this machine's.
+    fn remote_program(&self, host: &str, name: &str, body: &str) {
+        let file = self.path(&format!("hosts/{host}/bin/{name}"));
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, format!("#!/bin/sh\n{body}")).unwrap();
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    /// `host`'s own brew: it offers `formula` at `version`, and installing it puts `provides` on
+    /// `host`'s `PATH`. It logs its calls to `hosts/<host>/brew-calls`.
+    fn remote_brew(&self, host: &str, formula: &str, version: &str, provides: &str) {
+        let dir = self.path(&format!("hosts/{host}"));
+        std::fs::create_dir_all(dir.join("formulae")).unwrap();
+        std::fs::write(dir.join("formulae").join(formula), version).unwrap();
+        self.remote_program(
+            host,
+            "brew",
+            &format!(
+                "echo \"$*\" >> '{d}/brew-calls'\ncase \"$1\" in\n  info) f='{d}/formulae'/\"$3\"; [ -f \"$f\" ] || {{ echo \"No available formula $3\" >&2; exit 1; }}; echo \"{{\\\"formulae\\\":[{{\\\"versions\\\":{{\\\"stable\\\":\\\"$(cat \"$f\")\\\"}}}}]}}\" ;;\n  install) p='{d}/bin/{provides}'; printf '#!/bin/sh\\nexit 0\\n' > \"$p\"; chmod +x \"$p\" ;;\n  *) exit 1 ;;\nesac\n",
+                d = dir.display(),
+            ),
+        );
+    }
+
+    fn ssh_calls(&self) -> String {
+        std::fs::read_to_string(self.path("ssh-calls")).unwrap_or_default()
+    }
+}
+
+/// A role `builder` with `metal` (a script tool pinned at 17C48, with a credential) and `asc`
+/// (brew), and the service `github`.
+fn remote_library(m: &Machine) {
+    let metal = format!(
+        "{}{ASC_CREDENTIAL}",
+        scripted(
+            "rolesmith-test-metal --version",
+            "rolesmith-test-download-metal",
+            "17C48"
+        )
+    );
+    let asc = brewed("asc --version", "asc", "7.0.0", "");
+    let role_toml = role(&["metal", "asc"], &["github"]);
+    m.source(&[
+        ("roles/builder/role.toml", &role_toml),
+        ("roles/builder/core.md", "Core.\n"),
+        ("tools/metal/tool.toml", &metal),
+        ("tools/asc/tool.toml", &asc),
+    ]);
+}
+
+#[test]
+fn doctor_with_host_runs_each_check_there_over_ssh_and_reads_entries_here() {
+    let m = Machine::new(&["asc-api-key", "github"]);
+    m.ssh();
+    remote_library(&m);
+    m.remote_program("laptop", "rolesmith-test-metal", "echo 'metal 17C48'\n");
+    m.remote_program("laptop", "asc", "exit 0\n");
+
+    let o = m.rolesmith(&["--json", "doctor", "builder", "--host", "laptop"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    let doc = json(&o);
+    conforms(&doc, &shape("doctor"));
+    assert_eq!(doc["host"], "laptop");
+    assert_eq!(doc["entries"], serde_json::json!(["github", "asc-api-key"]));
+    assert_eq!(
+        m.ssh_calls(),
+        "-o BatchMode=yes -- laptop sh -c 'rolesmith-test-metal --version'\n\
+         -o BatchMode=yes -- laptop sh -c 'asc --version'\n"
+    );
+    assert_eq!(m.mytokens_calls(), "list\n", "entries are read here");
+
+    // Without --host the checks run here, where metal is not installed.
+    let o = m.rolesmith(&["--json", "doctor", "builder"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert_eq!(json(&o)["error"]["missing"][0]["name"], "metal");
+}
+
+#[test]
+fn doctor_with_host_names_what_the_host_lacks_with_fixes_that_carry_the_host() {
+    let m = Machine::new(&["github"]);
+    m.ssh();
+    remote_library(&m);
+    // The laptop has metal at another version and no asc, though this machine has asc.
+    m.remote_program("laptop", "rolesmith-test-metal", "echo 'metal 16A1'\n");
+
+    let o = m.rolesmith(&["--json", "doctor", "builder", "--host", "laptop"]);
+    assert_eq!(o.status.code(), Some(1), "{}", stderr(&o));
+    let fix = "rolesmith tool install felix/builder --host laptop";
+    assert_eq!(
+        json(&o)["error"]["missing"],
+        serde_json::json!([
+            { "kind": "program", "name": "metal",
+              "reason": "check `rolesmith-test-metal --version` on laptop does not show the pinned version 17C48",
+              "fix": fix },
+            { "kind": "program", "name": "asc",
+              "reason": "check `asc --version` on laptop not installed: its command is not found",
+              "fix": fix },
+            { "kind": "entry", "name": "asc-api-key", "reason": "no mytokens entry",
+              "fix": "mytokens put asc-api-key --fields \"Issuer ID\",\"Key ID\"" },
+        ])
+    );
+    let err = stderr(&o);
+    assert!(
+        err.contains("lacks 3 thing(s), programs on laptop and entries on this machine:"),
+        "{err}"
+    );
+}
+
+#[test]
+fn doctor_and_tool_install_with_an_unreachable_host_fail_naming_it() {
+    let m = Machine::new(&["asc-api-key", "github"]);
+    m.ssh();
+    remote_library(&m);
+
+    for args in [
+        &["--json", "doctor", "builder", "--host", "gone"][..],
+        &["--json", "tool", "install", "builder", "--host", "gone"][..],
+    ] {
+        let o = m.rolesmith(args);
+        assert_eq!(o.status.code(), Some(1), "{args:?}: {}", stderr(&o));
+        let error = json(&o)["error"].clone();
+        assert_eq!(error["kind"], "failed", "{error}");
+        assert!(
+            error.get("missing").is_none(),
+            "not a list of missing things: {error}"
+        );
+        assert_eq!(
+            error["message"],
+            "cannot reach host gone: `ssh -o BatchMode=yes gone` exits 255: \
+             ssh: connect to host gone port 22: Connection refused",
+            "{args:?}"
+        );
+    }
+    assert_eq!(
+        m.ssh_calls().lines().count(),
+        2,
+        "the first failure stops each"
+    );
+}
+
+#[test]
+fn tool_install_with_host_installs_there_with_its_own_brew_and_scripts() {
+    let m = Machine::new(&[]);
+    m.ssh();
+    remote_library(&m);
+    m.formula("asc", "7.0.0", "asc");
+    m.remote_brew("laptop", "asc", "7.0.0", "asc");
+    m.remote_program(
+        "laptop",
+        "rolesmith-test-download-metal",
+        &format!(
+            "printf '#!/bin/sh\\necho metal 17C48\\n' > '{p}' && chmod +x '{p}'\n",
+            p = m.path("hosts/laptop/bin/rolesmith-test-metal").display()
+        ),
+    );
+
+    let o = m.rolesmith(&["--json", "tool", "install", "builder", "--host", "laptop"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    let doc = json(&o);
+    assert_eq!(doc["host"], "laptop");
+    assert_eq!(
+        doc["tools"],
+        serde_json::json!([
+            { "name": "asc", "method": "brew", "formula": "asc" },
+            { "name": "metal", "method": "script", "formula": null },
+        ])
+    );
+    assert_eq!(
+        std::fs::read_to_string(m.path("hosts/laptop/brew-calls")).unwrap(),
+        "info --json=v2 asc@7.0.0\ninfo --json=v2 asc\ninstall asc\n"
+    );
+    assert_eq!(m.brew_calls(), "", "this machine's brew is not asked");
+
+    let o = m.rolesmith(&["doctor", "builder", "--host", "laptop"]);
+    assert!(
+        !stderr(&o).contains("\n  program "),
+        "every program is there now: {}",
+        stderr(&o)
+    );
+}

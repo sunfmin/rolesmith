@@ -1,0 +1,27 @@
+{
+  "tree": "211a4934146603d18e40fa4eb524411d3f43f309+d1fba762150c532c",
+  "picker": "codex:01a206f4-d12b-76c3-89d2-e862081b7559:default",
+  "author": "claude-code:b9400e5a-6806-5229-b674-afb80f3ec5e2:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/library.rs:241:72: replace || with && in runs_sudo",
+        "why": "The tokenizer can misclassify a punctuated word containing sudo while still handling a bare sudo command.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/library.rs:210:24: replace match guard v.trim().is_empty() with false in Install::pinned",
+        "why": "The shown tests use nonblank pins, so accepting a whitespace-only version could go unnoticed.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/commands/tool.rs:231:5: replace installed_what -> Option<String> with Some(String::new())",
+        "why": "The remote install test checks JSON, so it would miss a false installation report for an already-present tool in human output.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  }
+}
