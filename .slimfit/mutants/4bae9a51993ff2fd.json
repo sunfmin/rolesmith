@@ -1,0 +1,33 @@
+{
+  "tree": "131a6af8b13013ad723a53636f67e282c25e90ac+d1fba762150c532c",
+  "picker": "codex:01a2080b-81ea-73a0-a4b3-d048e5c7a631:default",
+  "author": "claude-code:fdc4a36f-c4c6-5557-9e81-6665fcca8e76:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/probe.rs:197:19: replace match guard e.kind() == std::io::ErrorKind::NotFound with true in kept",
+        "why": "The tests cover an absent probe file but never check that an unreadable one produces an error.",
+        "outcome": "killed",
+        "first_outcome": "survived"
+      },
+      {
+        "name": "src/probe.rs:140:52: replace * with / in probe",
+        "why": "This can round every fast read to zero seconds, and the test only checks that the reported duration is below one second.",
+        "outcome": "killed",
+        "first_outcome": "survived"
+      },
+      {
+        "name": "src/service_map.rs:151:36: replace match guard is_name(name) with true in asks_for",
+        "why": "All tested assignment prefixes have valid names, leaving open whether an invalid prefix can hide the actual command word.",
+        "outcome": "killed",
+        "first_outcome": "survived"
+      },
+      {
+        "name": "src/probe.rs:238:49: replace - with + in rfc3339",
+        "why": "The correction is zero on every tested date and changes the result only on the final day of a 400-year calendar cycle.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  }
+}
