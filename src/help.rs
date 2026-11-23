@@ -124,18 +124,11 @@ fn push_keys(list: &mut String, schema: &Value, indent: &str) {
         list.push_str(&line);
         list.push('\n');
         let inner = format!("{indent}  ");
-        push_keys(list, property, &inner);
-        push_keys(list, &property["items"], &inner);
-        if let Some(extra) = property["additionalProperties"]
-            .as_object()
-            .and_then(|o| o.get("description"))
-            .and_then(Value::as_str)
-        {
-            list.push_str(&format!("{inner}- any other key: {extra}\n"));
-        }
-        let items_extra = property["items"]["additionalProperties"]["description"].as_str();
-        if let Some(extra) = items_extra {
-            list.push_str(&format!("{inner}- any other key: {extra}\n"));
+        for object in [property, &property["items"]] {
+            push_keys(list, object, &inner);
+            if let Some(extra) = object["additionalProperties"]["description"].as_str() {
+                list.push_str(&format!("{inner}- any other key: {extra}\n"));
+            }
         }
     }
 }
@@ -191,12 +184,9 @@ fn plural(items: &Value) -> String {
             reference.rsplit('/').next().unwrap_or(reference)
         );
     }
-    match items["type"].as_str() {
-        Some("object") => "objects".to_owned(),
-        Some("integer") => "integers".to_owned(),
-        Some(other) => format!("{other}s"),
-        None => "values".to_owned(),
-    }
+    items["type"]
+        .as_str()
+        .map_or_else(|| "values".to_owned(), |t| format!("{t}s"))
 }
 
 fn unquoted(value: &Value) -> String {
