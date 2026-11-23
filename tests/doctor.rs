@@ -1597,3 +1597,18 @@ fn doctor_runs_a_mapped_services_check_never_its_command_and_lists_one_without_a
         "{missing}"
     );
 }
+
+#[test]
+fn env_and_doctor_fail_on_a_services_toml_they_cannot_read_rather_than_use_mytokens() {
+    let m = Machine::new(&["signing"]);
+    m.source(&[
+        ("roles/signer/role.toml", &role(&[], &["signing"])),
+        ("roles/signer/core.md", "Core.\n"),
+    ]);
+    std::fs::create_dir_all(m.path("config/rolesmith/services.toml")).unwrap();
+    for args in [&["env", "signer"][..], &["doctor", "signer"]] {
+        let o = m.rolesmith(args);
+        assert_eq!(o.status.code(), Some(1), "{args:?}");
+        assert!(stderr(&o).contains("cannot read"), "{}", stderr(&o));
+    }
+}

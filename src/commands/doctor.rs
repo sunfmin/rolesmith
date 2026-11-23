@@ -109,13 +109,15 @@ fn one_role(address: &str, host: &Host) -> Result<Output, Failure> {
         host.flag()
     );
     let what = format!("{} at {}", found.qualified(), found.rev);
-    let diagnosis = diagnose(&needs, host, &fix, false, &what)?;
-    Ok(answer(
-        &what,
+    diagnose(
+        &needs,
         host,
-        diagnosis,
+        &fix,
+        false,
+        &what,
+        &what,
         json!({ "source": found.source, "role": found.name, "rev": found.rev }),
-    ))
+    )
 }
 
 fn project(dir: Option<PathBuf>, host: &Host) -> Result<Output, Failure> {
@@ -127,16 +129,18 @@ fn project(dir: Option<PathBuf>, host: &Host) -> Result<Output, Failure> {
         host.flag()
     );
     let what = format!("the roles of {shown}");
-    let found = diagnose(&needs, host, &fix, true, &what)?;
-    Ok(answer(
-        &format!("{what} ({})", roles_at(&read)),
+    diagnose(
+        &needs,
         host,
-        found,
+        &fix,
+        true,
+        &what,
+        &format!("{what} ({})", roles_at(&read)),
         json!({
             "project": shown,
             "roles": read.iter().map(|f| json!({ "source": f.source, "role": f.name, "rev": f.rev })).collect::<Vec<_>>(),
         }),
-    ))
+    )
 }
 
 /// Each role read, as `<source>/<role>@<short rev>`.
@@ -148,15 +152,18 @@ fn roles_at(read: &[Found]) -> String {
 }
 
 /// Check `needs` on `host` (entries on this machine); refuse with everything missing, each with
-/// its fix (`fix` for a program), naming the roles it comes from when `with_from`. Answers each
-/// program as `--json` lists it, and the human lines.
+/// its fix (`fix` for a program), naming the roles it comes from when `with_from` and what was
+/// checked as `what`. Otherwise answer `head` (the keys that say what was read, `read` in the human
+/// answer) with the host, the programs, the entries and the mapped services.
 fn diagnose(
     needs: &Needs,
     host: &Host,
     fix: &str,
     with_from: bool,
     what: &str,
-) -> Result<Diagnosis, Failure> {
+    read: &str,
+    head: Value,
+) -> Result<Output, Failure> {
     let from = |roles: &[String]| with_from.then(|| roles.to_vec());
     let mut missing = Vec::new();
     let mut programs = Vec::new();
@@ -259,35 +266,14 @@ fn diagnose(
             Missing::to_json,
         ));
     }
-    Ok(Diagnosis {
-        programs,
-        entries,
-        services,
-        human,
-    })
-}
-
-/// What a doctor that found nothing missing answers of the programs and the mapped services, as
-/// `--json` lists them, with the human lines.
-struct Diagnosis {
-    programs: Vec<Value>,
-    /// The mytokens entries looked for, each present.
-    entries: Vec<String>,
-    services: Vec<Value>,
-    human: String,
-}
-
-/// What a doctor that found nothing missing prints: `head` (what was checked, for the human
-/// answer, and the keys that say so) with the host, the programs, the entries and the services.
-fn answer(what: &str, host: &Host, found: Diagnosis, head: Value) -> Output {
-    let mut human = format!("{what}: nothing missing\n{}", found.human);
-    for e in &found.entries {
+    let mut human = format!("{read}: nothing missing\n{human}");
+    for e in &entries {
         human.push_str(&format!("- entry {e}: present\n"));
     }
     let mut json = head;
     json["host"] = json!(host.name());
-    json["programs"] = json!(found.programs);
-    json["services"] = json!(found.services);
-    json["entries"] = json!(found.entries);
-    Output { json, human }
+    json["programs"] = json!(programs);
+    json["services"] = json!(services);
+    json["entries"] = json!(entries);
+    Ok(Output { json, human })
 }

@@ -83,14 +83,14 @@ impl Command for Args {
             .collect();
         // Each variable with every (entry, field) it is read from: a program's [credential], a
         // Profile service's own field of that name, or a mapped service's printed name.
-        let mut sources: BTreeMap<String, BTreeSet<(String, String)>> = BTreeMap::new();
+        let mut sources: BTreeMap<&str, BTreeSet<(&str, &str)>> = BTreeMap::new();
         for cred in credentials
             .iter()
             .filter(|c| map.get(&c.mytokens).is_none())
         {
             for (name, field) in &cred.env {
-                let from = (cred.mytokens.clone(), field.clone());
-                sources.entry(name.clone()).or_default().insert(from);
+                let from = (cred.mytokens.as_str(), field.as_str());
+                sources.entry(name).or_default().insert(from);
             }
         }
         let mut unmapped: Vec<&String> = (role.toml.services.iter())
@@ -106,8 +106,7 @@ impl Command for Args {
                 return true;
             };
             for field in fields {
-                let from = (service.to_string(), field.clone());
-                sources.entry(field.clone()).or_default().insert(from);
+                sources.entry(field).or_default().insert((service, field));
             }
             false
         });
@@ -157,8 +156,7 @@ impl Command for Args {
         }
         for (service, vars) in &given {
             for name in vars.keys() {
-                let from = (service.to_string(), name.clone());
-                sources.entry(name.clone()).or_default().insert(from);
+                sources.entry(name).or_default().insert((service, name));
             }
         }
 
@@ -181,11 +179,11 @@ impl Command for Args {
         let mut variables = BTreeMap::new();
         for (name, from) in &sources {
             let (entry, field) = from.first().expect("every variable has a source");
-            let value = match given.get(entry.as_str()) {
-                Some(vars) => vars[field].clone(),
+            let value = match given.get(entry) {
+                Some(vars) => vars[*field].clone(),
                 None => machine::value(entry, field)?,
             };
-            variables.insert(name.clone(), value);
+            variables.insert(name.to_string(), value);
         }
         if let Some((program, args)) = self.command.split_first() {
             let e = std::process::Command::new(program)
@@ -208,7 +206,7 @@ impl Command for Args {
 /// A variable read from more than one (entry, field).
 struct Conflict<'a> {
     name: &'a str,
-    from: &'a BTreeSet<(String, String)>,
+    from: &'a BTreeSet<(&'a str, &'a str)>,
 }
 
 impl Conflict<'_> {
@@ -227,7 +225,7 @@ impl std::fmt::Display for Conflict<'_> {
         let from: Vec<String> = self
             .from
             .iter()
-            .map(|(entry, field)| match field.as_str() {
+            .map(|(entry, field)| match *field {
                 "" => entry.to_string(),
                 _ => format!("{entry} field \"{field}\""),
             })

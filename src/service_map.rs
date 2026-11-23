@@ -103,116 +103,80 @@ impl Mapped {
 /// what is wrong, never its text (it may hold a secret).
 pub fn parse(text: &str) -> Result<BTreeMap<String, String>, (usize, &'static str)> {
     let mut vars = BTreeMap::new();
-    let mut chars = text.chars().peekable();
-    let mut line = 1;
+    let mut chars = text.char_indices().peekable();
     loop {
-        // Between statements: blanks, newlines and comments.
-        while let Some(&c) = chars.peek() {
-            match c {
-                '\n' => line += 1,
-                ' ' | '\t' | '\r' | ';' => {}
-                '#' => {
-                    while chars.peek().is_some_and(|&c| c != '\n') {
-                        chars.next();
-                    }
-                    continue;
-                }
-                _ => break,
-            }
-            chars.next();
-        }
-        if chars.peek().is_none() {
-            return Ok(vars);
-        }
-        let at = line;
-        let mut word = String::new();
-        while let Some(&c) = chars.peek() {
-            if c == '=' || c.is_whitespace() {
+        // Between statements: blanks, newlines, `;` and comments.
+        while let Some(&(_, c)) = chars.peek() {
+            if c == '#' {
+                while chars.next_if(|&(_, c)| c != '\n').is_some() {}
+            } else if c.is_whitespace() || c == ';' {
+                chars.next();
+            } else {
                 break;
             }
-            word.push(c);
-            chars.next();
         }
-        if word == "export" {
-            while chars.peek().is_some_and(|&c| c == ' ' || c == '\t') {
-                chars.next();
-            }
-            word.clear();
-            while let Some(&c) = chars.peek() {
-                if c == '=' || c.is_whitespace() {
-                    break;
-                }
-                word.push(c);
-                chars.next();
-            }
+        let Some(&(start, _)) = chars.peek() else {
+            return Ok(vars);
+        };
+        let at = text[..start].matches('\n').count() + 1;
+        let mut name = word(&mut chars);
+        if name == "export" {
+            while chars.next_if(|&(_, c)| c == ' ' || c == '\t').is_some() {}
+            name = word(&mut chars);
         }
-        if !is_name(&word) {
+        if !is_name(&name) {
             return Err((at, "does not start with a variable name"));
         }
-        if chars.next() != Some('=') {
+        if chars.next().map(|(_, c)| c) != Some('=') {
             return Err((at, "has no `=` after its name"));
         }
-        let value = value(&mut chars, &mut line).map_err(|why| (at, why))?;
+        let value = value(&mut chars).map_err(|why| (at, why))?;
         // The statement ends at the end of its line, a `;` or a comment.
         while chars
-            .peek()
-            .is_some_and(|&c| c == ' ' || c == '\t' || c == '\r')
-        {
-            chars.next();
-        }
-        if !matches!(chars.peek(), None | Some('\n' | ';' | '#')) {
+            .next_if(|&(_, c)| matches!(c, ' ' | '\t' | '\r'))
+            .is_some()
+        {}
+        if !matches!(chars.peek().map(|&(_, c)| c), None | Some('\n' | ';' | '#')) {
             return Err((at, "holds more than one word after `=`"));
         }
-        vars.insert(word, value);
+        vars.insert(name, value);
     }
 }
 
+type Chars<'a> = std::iter::Peekable<std::str::CharIndices<'a>>;
+
+/// The characters up to `=` or whitespace.
+fn word(chars: &mut Chars) -> String {
+    let mut word = String::new();
+    while let Some((_, c)) = chars.next_if(|&(_, c)| c != '=' && !c.is_whitespace()) {
+        word.push(c);
+    }
+    word
+}
+
 /// One sh word, up to unquoted whitespace, `;` or the end.
-fn value(
-    chars: &mut std::iter::Peekable<std::str::Chars>,
-    line: &mut usize,
-) -> Result<String, &'static str> {
+fn value(chars: &mut Chars) -> Result<String, &'static str> {
     let mut value = String::new();
-    let take = |c: char, value: &mut String, line: &mut usize| {
-        if c == '\n' {
-            *line += 1;
-        }
-        value.push(c);
-    };
-    while let Some(&c) = chars.peek() {
-        if c.is_whitespace() || c == ';' {
-            break;
-        }
-        chars.next();
+    while let Some((_, c)) = chars.next_if(|&(_, c)| !c.is_whitespace() && c != ';') {
         match c {
-            '\'' => loop {
-                match chars.next() {
-                    None => return Err("opens a `'` it never closes"),
-                    Some('\'') => break,
-                    Some(c) => take(c, &mut value, line),
-                }
-            },
-            '"' => loop {
-                match chars.next() {
-                    None => return Err("opens a `\"` it never closes"),
-                    Some('"') => break,
-                    Some('\\') => match chars.next() {
-                        None => return Err("opens a `\"` it never closes"),
+            '\'' | '"' => loop {
+                match chars.next().map(|(_, q)| q) {
+                    None => return Err("opens a quote it never closes"),
+                    Some(q) if q == c => break,
+                    Some('\\') if c == '"' => match chars.next().map(|(_, e)| e) {
+                        None => return Err("opens a quote it never closes"),
                         // An escaped newline joins the lines, as sh reads it.
-                        Some('\n') => *line += 1,
+                        Some('\n') => {}
                         Some(e @ ('$' | '`' | '"' | '\\')) => value.push(e),
-                        Some(e) => {
-                            value.push('\\');
-                            take(e, &mut value, line);
-                        }
+                        Some(e) => value.extend(['\\', e]),
                     },
-                    Some(c) => take(c, &mut value, line),
+                    Some(q) => value.push(q),
                 }
             },
             '\\' => match chars.next() {
                 None => return Err("ends in a `\\`"),
-                Some('\n') => *line += 1,
-                Some(e) => value.push(e),
+                Some((_, '\n')) => {}
+                Some((_, e)) => value.push(e),
             },
             c => value.push(c),
         }
@@ -267,6 +231,23 @@ mod tests {
     }
 
     #[test]
+    fn a_line_is_counted_through_values_that_span_lines() {
+        for (text, value) in [
+            ("A='x\ny'\n\n-bad\n", "x\ny"),
+            ("A=\"x\\\ny\"\n\n-bad\n", "xy"),
+            ("A=x\\\ny\n\n-bad\n", "xy"),
+        ] {
+            assert_eq!(
+                parse(text).err(),
+                Some((4, "does not start with a variable name")),
+                "{text:?}"
+            );
+            let good = text.replace("-bad", "B=1");
+            assert_eq!(parse(&good).unwrap(), vars(&[("A", value), ("B", "1")]));
+        }
+    }
+
+    #[test]
     fn a_later_name_wins() {
         assert_eq!(parse("A=1\nA=2\n").unwrap(), vars(&[("A", "2")]));
     }
@@ -279,7 +260,7 @@ mod tests {
         );
         assert_eq!(
             parse("A=1\n\nB='open\nC=2\n").err(),
-            Some((3, "opens a `'` it never closes"))
+            Some((3, "opens a quote it never closes"))
         );
         assert_eq!(
             parse("1A=x").err(),
