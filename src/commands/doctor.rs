@@ -4,6 +4,7 @@
 //! machine, read by name with `mytokens list` only. Anything missing is a refusal, each with its
 //! fix.
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -13,7 +14,7 @@ use super::{Command, Failure, Output};
 use crate::host::{self, Host};
 use crate::machine::{self, Missing};
 use crate::needs::{self, Entry, Needs};
-use crate::probe::{self, Kept, Outcome};
+use crate::probe::{self, Kept, Outcome, Probed};
 use crate::service_map::{self, Asks, Mapped, ServiceMap};
 use crate::sources::{self, Found, Sources};
 
@@ -37,7 +38,7 @@ use crate::sources::{self, Found, Sources};
 ///
 /// ## Probing
 ///
-/// With `--probe` doctor reads each mapped service's command once, as `rolesmith env` would, but in a session of its own with no controlling terminal and stdin a pipe nothing writes to, for at most `--timeout` seconds (default 20). It never prints or keeps a value: what the command prints is read for its variable names and dropped. Each service's `probe.outcome` is `unattended` (it finished printing every variable a program's credential expects, in `seconds`), `needs a person` (it did not finish within the bound, and was killed with everything it started; or it failed asking for a terminal), `refused` (it exited non-zero, with its stderr, or printed a line that is not a variable) or `incomplete` (`missing` names the expected variables it did not print). A probe may itself raise a Touch ID or password prompt: the prompt appearing is the answer, that source needs a person; leave it unanswered and the bound ends it. With `--probe` any outcome but `unattended` is missing.
+/// With `--probe` doctor reads each mapped service's command once, as `rolesmith env` would, but in a session of its own with no controlling terminal and stdin a pipe nothing writes to, for at most `--timeout` seconds (its default below). It never prints or keeps a value: what the command prints is read for its variable names and dropped. Each service's `probe.outcome` is `unattended` (it finished printing every variable a program's credential expects, in `seconds`), `needs a person` (it did not finish within the bound, and was killed with everything it started; or it failed asking for a terminal), `refused` (it exited non-zero, with its stderr, or printed a line that is not a variable) or `incomplete` (`missing` names the expected variables it did not print). A probe may itself raise a Touch ID or password prompt: the prompt appearing is the answer, that source needs a person; leave it unanswered and the bound ends it. With `--probe` any outcome but `unattended` is missing.
 ///
 /// Each outcome is kept on this machine, with the command it probed and when (`probe.at`), and plain doctor, which runs no source, answers it: a service whose last probe of the same command said `needs a person` is missing, naming when, with the fix (a service account token, or a source that needs no person), so a check before an unattended run holds it instead of starting work that will stall. A service never probed, or probed with another command, is `unchecked`.
 ///
@@ -318,29 +319,29 @@ fn services(
     human: &mut String,
 ) -> Result<Vec<Value>, Failure> {
     let file = service_map::file()?;
-    let fresh: Vec<(String, Kept)> = match run.probe {
-        None => Vec::new(),
+    let kept: BTreeMap<String, Kept> = match run.probe {
+        None => probe::kept()?,
         Some(bound) => {
             let probed = mapped
                 .iter()
                 .map(|(e, m)| {
                     let outcome = probe::probe(&m.command, &e.variables, bound);
-                    let at = probe::now();
-                    let kept = Kept {
-                        command: m.command.clone(),
-                        at,
+                    let probed = Probed {
+                        at: probe::now(),
                         outcome,
                     };
-                    (e.name.clone(), kept)
+                    (
+                        e.name.clone(),
+                        Kept {
+                            command: m.command.clone(),
+                            probed,
+                        },
+                    )
                 })
-                .collect::<Vec<_>>();
-            probe::keep(probed.clone())?;
+                .collect();
+            probe::keep(&probed)?;
             probed
         }
-    };
-    let kept = match run.probe {
-        Some(_) => fresh.into_iter().collect(),
-        None => probe::kept()?,
     };
     let mut services = Vec::new();
     for (e, mapped) in mapped {
@@ -402,13 +403,8 @@ fn services(
                     run.again
                 ));
             }
-            Some(k) => {
-                let mut kept_doc = serde_json::to_value(k).expect("serializes");
-                kept_doc
-                    .as_object_mut()
-                    .expect("an object")
-                    .remove("command");
-                doc["probe"] = kept_doc;
+            Some(Kept { probed: k, .. }) => {
+                doc["probe"] = serde_json::to_value(k).expect("serializes");
                 let (when, refuses) = match run.probe {
                     Some(_) => (
                         String::new(),

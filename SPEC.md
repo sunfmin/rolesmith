@@ -465,7 +465,7 @@ person learns which of theirs do before any unattended run.
 
 - **Measured.** `rolesmith doctor --probe <role> | --project <dir> [--timeout <seconds>]` reads
   each mapped service's command once as `env` does, but in a session of its own (no controlling
-  terminal) with stdin a pipe nothing writes to, for at most the bound (default 20 s), and never
+  terminal) with stdin a pipe nothing writes to, for at most the bound (`--timeout`, default 20 s), and never
   prints or keeps a value. `probe.outcome` is `unattended` (finished, every variable the role's
   `[credential]`s expect printed; `seconds`), `needs a person` (not finished within the bound, then
   killed with its whole session; or failed saying it needs a terminal), `refused` (exited non-zero,

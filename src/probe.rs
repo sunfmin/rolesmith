@@ -36,14 +36,10 @@ pub enum Outcome {
 }
 
 impl Outcome {
-    /// Its name, as `outcome` carries it.
-    pub fn name(&self) -> &'static str {
-        match self {
-            Outcome::Unattended { .. } => "unattended",
-            Outcome::NeedsAPerson { .. } => "needs a person",
-            Outcome::Refused { .. } => "refused",
-            Outcome::Incomplete { .. } => "incomplete",
-        }
+    /// Its name: the `outcome` it is written with.
+    pub fn name(&self) -> String {
+        let doc = serde_json::to_value(self).expect("serializes");
+        doc["outcome"].as_str().expect("tagged").to_owned()
     }
 
     /// What it found, after its name.
@@ -56,15 +52,22 @@ impl Outcome {
     }
 }
 
-/// One probe's outcome as this host keeps it.
+/// One probe: when, and how it went; `doctor` answers it as `probe`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Kept {
-    /// The command it probed: the outcome counts only while the service maps to it.
-    pub command: String,
+pub struct Probed {
     /// When, in UTC (RFC 3339).
     pub at: String,
     #[serde(flatten)]
     pub outcome: Outcome,
+}
+
+/// One probe as this host keeps it, with the command it probed: it counts only while the service
+/// maps to that command.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Kept {
+    pub command: String,
+    #[serde(flatten)]
+    pub probed: Probed,
 }
 
 /// What a source says on stderr when it fails for want of a terminal to ask on.
@@ -199,14 +202,14 @@ pub fn kept() -> Result<BTreeMap<String, Kept>, Failure> {
 
 /// Keep `outcomes` (service, what it now keeps), each in place of what that service kept, under a
 /// lock so probes run at once lose none; the file is replaced whole.
-pub fn keep(outcomes: Vec<(String, Kept)>) -> Result<(), Failure> {
+pub fn keep(outcomes: &BTreeMap<String, Kept>) -> Result<(), Failure> {
     let file = file()?;
     let fail = |e: std::io::Error| Failure::new(format!("cannot write {}: {e}", file.display()));
     std::fs::create_dir_all(file.parent().expect("the file has a directory")).map_err(fail)?;
     let lock = std::fs::File::create(file.with_extension("lock")).map_err(fail)?;
     lock.lock().map_err(fail)?;
     let mut all = kept()?;
-    all.extend(outcomes);
+    all.extend(outcomes.clone());
     let partial = file.with_extension("json.partial");
     std::fs::write(
         &partial,

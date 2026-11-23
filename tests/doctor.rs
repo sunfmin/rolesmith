@@ -87,10 +87,7 @@ impl Machine {
     }
 
     fn rolesmith(&self, args: &[&str]) -> Output {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_rolesmith"));
-        cmd.args(args);
-        self.env(&mut cmd);
-        let o = cmd.output().expect("the binary runs");
+        let o = self.rolesmith_with(args, &[]);
         assert!(
             !self.path("sudo-ran").exists(),
             "{args:?} ran sudo: {}",
