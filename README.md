@@ -10,7 +10,7 @@ rolesmith calls no model. The agent you are working with does the writing; roles
 brief and checks the result.
 
 ```sh
-rolesmith source add felix https://github.com/sunfminforge/lore
+rolesmith source add felix https://github.com/sunfmin/lore
 rolesmith suggest                                  # roles that fit this project
 rolesmith use app-store-releaser --into claude-code
 eval "$(rolesmith env app-store-releaser)"         # its credentials, from mytokens
