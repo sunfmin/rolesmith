@@ -1,7 +1,8 @@
 //! `rolesmith env <role> [-- <command>...]`: the role's credentials, read from mytokens at that
-//! moment, printed as `export` lines or handed to a command; written nowhere (SPEC.md §7.1).
+//! moment (by its programs' `[credential]`, or a Profile service's own field names), printed as
+//! `export` lines or handed to a command; written nowhere (SPEC.md §7.1).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::os::unix::process::CommandExt;
 
 use serde_json::{Value, json};
@@ -12,7 +13,7 @@ use crate::sources::{self, Sources};
 
 /// Print a role's credentials as `export NAME='value'` lines, or run a command with them set.
 ///
-/// Run `eval "$(rolesmith env <role>)"`, or `rolesmith env <role> -- <command> [args]` to run the command in rolesmith's place with the variables added to its environment. Every variable of the role's programs' `[credential]` is read from mytokens at that moment; nothing is written to disk. It refuses a role with a service no program's `[credential]` maps to variables, listing each (with `--json`, `error.unmapped`), and reads nothing then.
+/// Run `eval "$(rolesmith env <role>)"`, or `rolesmith env <role> -- <command> [args]` to run the command in rolesmith's place with the variables added to its environment. Every variable of the role's programs' `[credential]` is read from mytokens at that moment; nothing is written to disk. A service no `[credential]` maps that `mytokens list` lists as a Profile is exported by its own field names: each field `NAME` becomes `NAME`, read with `mytokens get <service> --field NAME`, as `mytokens env <service>` would export it. It refuses a role with a service that is neither, listing each (with `--json`, `error.unmapped`), and a variable read from two different places, naming both (`error.conflicting`); it reads nothing then.
 ///
 /// ## Pitfall
 ///
@@ -56,16 +57,37 @@ impl Command for Args {
             .filter_map(|p| lib.tools.iter().find(|t| &t.name == p))
             .filter_map(|t| t.toml.credential.as_ref())
             .collect();
-        let unmapped: Vec<&String> = role
-            .toml
-            .services
-            .iter()
+        // Each variable with every (entry, field) it is read from: a program's [credential], or
+        // a Profile service's own field of that name.
+        let mut sources: BTreeMap<&str, BTreeSet<(&str, &str)>> = BTreeMap::new();
+        for cred in &credentials {
+            for (name, field) in &cred.env {
+                let from = (cred.mytokens.as_str(), field.as_str());
+                sources.entry(name).or_default().insert(from);
+            }
+        }
+        let mut unmapped: Vec<&String> = (role.toml.services.iter())
             .filter(|s| !credentials.iter().any(|c| &c.mytokens == *s))
             .collect();
+        let profiles = match unmapped.is_empty() {
+            true => BTreeMap::new(),
+            false => machine::profiles()?,
+        };
+        if !unmapped.is_empty() {
+            unmapped.retain(|service| {
+                let Some(fields) = profiles.get(*service) else {
+                    return true;
+                };
+                for field in fields {
+                    sources.entry(field).or_default().insert((service, field));
+                }
+                false
+            });
+        }
         if !unmapped.is_empty() {
             return Err(Failure::listing(
                 format!(
-                    "{}: no program's [credential] maps these services to variables; add one to a tool.toml (SPEC.md §3.5):",
+                    "{}: no program's [credential] maps these services to variables, and none is a mytokens Profile; add a [credential] to a tool.toml (SPEC.md §3.5), or make the entry a Profile:",
                     found.qualified()
                 ),
                 "unmapped",
@@ -73,11 +95,26 @@ impl Command for Args {
                 |s| json!(s),
             ));
         }
+        let conflicting: Vec<Conflict> = sources
+            .iter()
+            .filter(|(_, from)| from.len() > 1)
+            .map(|(name, from)| Conflict { name, from })
+            .collect();
+        if !conflicting.is_empty() {
+            return Err(Failure::listing(
+                format!(
+                    "{}: these variables are read from more than one place; keep one (a program's [credential], or the Profile's field):",
+                    found.qualified()
+                ),
+                "conflicting",
+                &conflicting,
+                Conflict::to_json,
+            ));
+        }
         let mut variables = BTreeMap::new();
-        for cred in credentials {
-            for (name, field) in &cred.env {
-                variables.insert(name.clone(), machine::value(&cred.mytokens, field)?);
-            }
+        for (name, from) in &sources {
+            let (entry, field) = from.first().expect("every variable has a source");
+            variables.insert(name.to_string(), machine::value(entry, field)?);
         }
         if let Some((program, args)) = self.command.split_first() {
             let e = std::process::Command::new(program)
@@ -94,5 +131,36 @@ impl Command for Args {
             json: json!({ "role": found.qualified(), "rev": found.rev, "variables": variables }),
             human,
         })
+    }
+}
+
+/// A variable read from more than one (entry, field).
+struct Conflict<'a> {
+    name: &'a str,
+    from: &'a BTreeSet<(&'a str, &'a str)>,
+}
+
+impl Conflict<'_> {
+    fn to_json(&self) -> Value {
+        let sources: Vec<Value> = self
+            .from
+            .iter()
+            .map(|(entry, field)| json!({ "entry": entry, "field": field }))
+            .collect();
+        json!({ "name": self.name, "sources": sources })
+    }
+}
+
+impl std::fmt::Display for Conflict<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let from: Vec<String> = self
+            .from
+            .iter()
+            .map(|(entry, field)| match *field {
+                "" => entry.to_string(),
+                _ => format!("{entry} field \"{field}\""),
+            })
+            .collect();
+        write!(f, "{}: {}", self.name, from.join(", "))
     }
 }

@@ -1,8 +1,8 @@
 //! What this machine has of what a role needs (SPEC.md §3.5, §7.1): whether a tool's `check`
-//! passes here, and which mytokens entries exist. An entry is known only by its name, read with
-//! `mytokens list`; its value is never read.
+//! passes here, which mytokens entries exist and which are Profiles, with their field names, all
+//! read with `mytokens list`; and, for `env` only, an entry's value.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::process::{Command, Stdio};
 
 use serde_json::{Value, json};
@@ -41,15 +41,48 @@ pub fn check_tool(host: &Host, tool: &ToolToml) -> Result<Check, Failure> {
     Ok(Check { passes, reason })
 }
 
-/// The names of the mytokens entries on this machine, from `mytokens list` (each line begins
-/// `<entry>/<account>`); never a value.
+/// The names of the mytokens entries on this machine, from `mytokens list`; never a value.
 pub fn entries() -> Result<BTreeSet<String>, Failure> {
+    Ok(listed()?.into_iter().map(|l| l.entry).collect())
+}
+
+/// The Profiles among the mytokens entries on this machine, each with its field names (the
+/// variables `mytokens env <entry>` exports), from `mytokens list`; never a value.
+pub fn profiles() -> Result<BTreeMap<String, Vec<String>>, Failure> {
+    Ok(listed()?
+        .into_iter()
+        .filter_map(|l| Some((l.entry, l.profile?)))
+        .collect())
+}
+
+/// One line of `mytokens list`: `<entry>/<account>\t<kind>\t<level>  — <description>` and, when
+/// it has fields, `  fields: <name>, <name>` last.
+struct Listed {
+    entry: String,
+    /// A Profile's field names; `None` for an entry of another kind.
+    profile: Option<Vec<String>>,
+}
+
+fn listed() -> Result<Vec<Listed>, Failure> {
     Ok(String::from_utf8_lossy(&mytokens(&["list"])?)
         .lines()
-        .filter_map(|line| line.split_whitespace().next())
-        .map(|first| first.split_once('/').map_or(first, |(entry, _)| entry))
-        .map(str::to_owned)
+        .filter_map(parse_listed)
         .collect())
+}
+
+fn parse_listed(line: &str) -> Option<Listed> {
+    let mut columns = line.split_whitespace();
+    let first = columns.next()?;
+    let entry = first.split_once('/').map_or(first, |(entry, _)| entry);
+    let profile = (columns.next() == Some("profile")).then(|| {
+        line.rsplit_once("  fields: ")
+            .map(|(_, names)| names.split(", ").map(|n| n.trim().to_owned()).collect())
+            .unwrap_or_default()
+    });
+    Some(Listed {
+        entry: entry.to_owned(),
+        profile,
+    })
 }
 
 /// What `mytokens <args>` prints, or why it could not; its stdin is closed.
@@ -149,5 +182,17 @@ mod tests {
             put_command("e", &["Key ID".into(), "Issuer ID".into()]),
             "mytokens put e --fields \"Key ID\",\"Issuer ID\""
         );
+    }
+
+    #[test]
+    fn a_listed_line_gives_its_entry_kind_and_last_fields() {
+        let l = parse_listed(
+            "apple-dev-signing/default\tprofile\tserver  — see fields: X  fields: APPLE_TEAM, ASC_KEY_ID",
+        )
+        .unwrap();
+        assert_eq!(l.entry, "apple-dev-signing");
+        assert_eq!(l.profile.unwrap(), ["APPLE_TEAM", "ASC_KEY_ID"]);
+        let l = parse_listed("asc/default\tstatic\tserver  — a key  fields: Key ID").unwrap();
+        assert_eq!((l.entry.as_str(), l.profile), ("asc", None));
     }
 }
