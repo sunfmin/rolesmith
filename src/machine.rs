@@ -96,11 +96,19 @@ pub struct Missing {
     pub name: String,
     pub reason: String,
     pub fix: String,
+    /// The roles that need it, as `<source>/<role>`, when more than one role was checked
+    /// (`doctor --project`); `None` for one role.
+    pub from: Option<Vec<String>>,
 }
 
 impl Missing {
     pub fn to_json(&self) -> Value {
-        json!({ "kind": self.kind, "name": self.name, "reason": self.reason, "fix": self.fix })
+        let mut doc =
+            json!({ "kind": self.kind, "name": self.name, "reason": self.reason, "fix": self.fix });
+        if let Some(from) = &self.from {
+            doc["from"] = json!(from);
+        }
+        doc
     }
 
     /// The JSON Schema of [`Missing::to_json`].
@@ -112,7 +120,9 @@ impl Missing {
                 "kind": { "enum": ["program", "entry"] },
                 "name": { "type": "string" },
                 "reason": { "type": "string" },
-                "fix": { "type": "string", "description": "the command that fixes it" }
+                "fix": { "type": "string", "description": "the command that fixes it" },
+                "from": { "type": "array", "items": { "type": "string" },
+                          "description": "with --project: the roles that need it, as <source>/<role>" }
             }
         })
     }
@@ -120,11 +130,11 @@ impl Missing {
 
 impl std::fmt::Display for Missing {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{} {}: {}; fix: {}",
-            self.kind, self.name, self.reason, self.fix
-        )
+        write!(f, "{} {}: {}", self.kind, self.name, self.reason)?;
+        if let Some(from) = &self.from {
+            write!(f, " (from {})", from.join(", "))?;
+        }
+        write!(f, "; fix: {}", self.fix)
     }
 }
 

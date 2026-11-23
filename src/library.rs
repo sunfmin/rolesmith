@@ -165,7 +165,7 @@ pub struct Tool {
 }
 
 /// `tool.toml` (§3.5).
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 pub struct ToolToml {
     pub description: String,
     pub check: String,
@@ -174,7 +174,7 @@ pub struct ToolToml {
 }
 
 /// `[install]`: the one method (`brew` or `script`, ADR 0005) and the pinned version.
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Install {
     pub brew: Option<String>,
@@ -243,7 +243,7 @@ fn runs_sudo(script: &str) -> bool {
 }
 
 /// `[credential]`.
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Credential {
     pub mytokens: String,

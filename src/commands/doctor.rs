@@ -1,18 +1,26 @@
-//! `rolesmith doctor <role> [--host <host>]`: what the role needs (SPEC.md §3.5, §7.1, §8). Each
-//! program's `check` passes, on this machine or on the host over ssh; each service and each
-//! program's credential has its mytokens entry on this machine, read by name with `mytokens list`
-//! only. Anything missing is a refusal, each with its fix.
+//! `rolesmith doctor <role> | --project <dir> [--host <host>]`: what a role, or every role a project
+//! records, needs (SPEC.md §3.5, §7.1, §8). Each program's `check` passes, on this machine or on the
+//! host over ssh; each service and each program's credential has its mytokens entry on this
+//! machine, read by name with `mytokens list` only. Anything missing is a refusal, each with its
+//! fix.
+
+use std::path::PathBuf;
 
 use serde_json::{Value, json};
 
 use super::{Command, Failure, Output};
-use crate::host::Host;
+use crate::host::{self, Host};
 use crate::machine::{self, Missing};
-use crate::sources::{self, Sources};
+use crate::needs::{self, Needs};
+use crate::sources::{self, Found, Sources};
 
 /// Check what a role needs on this machine: each program's `check` passes, and each service and credential has its mytokens entry.
 ///
 /// Run it before working under a role. It runs each program's `check` with `sh -c` (a `script` tool's check must also show its pinned version on stdout) and reads only which entries exist (`mytokens list`), never a value. It refuses when anything is missing, listing each with the command that fixes it (`rolesmith tool install <source>/<role>`, `mytokens put <entry> --fields ...`); with `--json` as `error.missing`. Do every fix, then run it again. A program without its `tool.toml` is refused as `show` refuses the role.
+///
+/// ## A project's roles
+///
+/// With `--project <dir>` in place of a role it checks every role the project's `rolesmith.toml` records, each at its recorded rev (never the source's `main`), and every role each requires, at that same rev: one command for all a project's agents need. A tool two roles name is checked once, and an entry two roles read is looked for once. Its answer is the shape a role's is, with `project` and the `roles` it read in place of `source`, `role` and `rev`; each program, and each item of `error.missing`, adds `from`, the roles that need it. A program's fix is then `rolesmith tool install --project <dir>`. A directory without `rolesmith.toml` is refused. A source the record names that this machine lacks is added from its `url`, as `rolesmith sync` adds it.
 ///
 /// ## Another host
 ///
@@ -21,7 +29,11 @@ use crate::sources::{self, Sources};
 #[command(verbatim_doc_comment)]
 pub struct Args {
     /// The role: <role> when one source has it, <source>/<role> otherwise.
-    pub role: String,
+    #[arg(required_unless_present = "project", conflicts_with = "project")]
+    pub role: Option<String>,
+    /// Every role this project's rolesmith.toml records, at its rev, instead of one role.
+    #[arg(long, value_name = "DIR")]
+    pub project: Option<PathBuf>,
     /// Run the checks on this host over ssh instead of on this machine.
     #[arg(long)]
     pub host: Option<String>,
@@ -33,136 +45,183 @@ impl Command for Args {
     fn output_shape() -> Value {
         json!({
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "description": "nothing is missing; a role that lacks anything here exits 1 and lists it under error.missing",
+            "description": "nothing is missing; roles that lack anything here exit 1 and list it under error.missing",
             "type": "object",
-            "required": ["source", "role", "rev", "host", "programs", "entries"],
+            "required": ["host", "programs", "entries"],
             "properties": {
-                "source": { "type": "string" },
-                "role": { "type": "string" },
-                "rev": { "type": "string", "description": "the full SHA the role was read at" },
+                "source": { "type": "string", "description": "with a role" },
+                "role": { "type": "string", "description": "with a role" },
+                "rev": { "type": "string", "description": "with a role: the full SHA it was read at" },
+                "project": { "type": "string", "description": "with --project: the project's root" },
+                "roles": { "type": "array", "description": "with --project: each role read, recorded or required, at its rev",
+                           "items": {
+                    "type": "object", "required": ["source", "role", "rev"],
+                    "properties": { "source": { "type": "string" }, "role": { "type": "string" },
+                                    "rev": { "type": "string" } }
+                } },
                 "host": { "type": ["string", "null"], "description": "the host the checks ran on; null for this machine" },
                 "programs": { "type": "array", "items": {
                     "type": "object", "required": ["name", "check"],
-                    "properties": { "name": { "type": "string" }, "check": { "type": "string" } }
+                    "properties": {
+                        "name": { "type": "string" },
+                        "check": { "type": "string" },
+                        "from": { "type": "array", "items": { "type": "string" },
+                                  "description": "with --project: the roles that name it, as <source>/<role>" }
+                    }
                 } },
                 "entries": { "type": "array", "items": { "type": "string" },
-                             "description": "the mytokens entries the role reads, each present" }
+                             "description": "the mytokens entries the roles read, each present" }
             }
         })
     }
 
     fn run(self) -> Result<Output, Failure> {
-        let record = Sources::load()?;
-        let found = sources::resolve(&record, &self.role, None)?;
-        let (lib, _tree) = sources::read_role(&found)?;
-        let role = &lib.roles[0];
         let host = Host::from_arg(self.host);
-        let fix_programs = format!(
-            "rolesmith tool install {}{}",
-            found.qualified(),
-            host.flag()
-        );
+        match self.role {
+            Some(role) => one_role(&role, &host),
+            None => project(self.project, &host),
+        }
+    }
+}
 
-        let mut missing = Vec::new();
-        let mut programs = Vec::new();
-        let mut human = String::new();
-        // Each entry the role reads, with the fields its credentials fill variables from.
-        let mut wanted: Vec<(String, Vec<String>)> = role
-            .toml
-            .services
-            .iter()
-            .map(|s| (s.clone(), Vec::new()))
-            .collect();
-        for name in &role.toml.programs {
-            let tool = lib
-                .tools
-                .iter()
-                .find(|t| &t.name == name)
-                .expect("a checked role has a tool.toml for each program");
-            let check = machine::check_tool(&host, &tool.toml)?;
-            if !check.passes {
+fn one_role(address: &str, host: &Host) -> Result<Output, Failure> {
+    let record = Sources::load()?;
+    let found = sources::resolve(&record, address, None)?;
+    let (lib, _tree) = sources::read_role(&found)?;
+    let mut needs = Needs::default();
+    needs.add(&found.source, &lib, &lib.roles[0]);
+    let fix = format!(
+        "rolesmith tool install {}{}",
+        found.qualified(),
+        host.flag()
+    );
+    let what = format!("{} at {}", found.qualified(), found.rev);
+    let found_programs = diagnose(&needs, host, &fix, false, &what)?;
+    Ok(answer(
+        &what,
+        host,
+        &needs,
+        found_programs,
+        json!({ "source": found.source, "role": found.name, "rev": found.rev }),
+    ))
+}
+
+fn project(dir: Option<PathBuf>, host: &Host) -> Result<Output, Failure> {
+    let (dir, read, needs) = needs::of_project(dir)?;
+    let shown = dir.display().to_string();
+    let fix = format!(
+        "rolesmith tool install --project {}{}",
+        host::quote_word(&shown),
+        host.flag()
+    );
+    let what = format!("the roles of {shown}");
+    let programs = diagnose(&needs, host, &fix, true, &what)?;
+    Ok(answer(
+        &format!("{what} ({})", roles_at(&read)),
+        host,
+        &needs,
+        programs,
+        json!({
+            "project": shown,
+            "roles": read.iter().map(|f| json!({ "source": f.source, "role": f.name, "rev": f.rev })).collect::<Vec<_>>(),
+        }),
+    ))
+}
+
+/// Each role read, as `<source>/<role>@<short rev>`.
+fn roles_at(read: &[Found]) -> String {
+    read.iter()
+        .map(|f| format!("{}@{}", f.qualified(), &f.rev[..f.rev.len().min(12)]))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Check `needs` on `host` (entries on this machine); refuse with everything missing, each with
+/// its fix (`fix` for a program), naming the roles it comes from when `with_from`. Answers each
+/// program as `--json` lists it, and the human lines.
+fn diagnose(
+    needs: &Needs,
+    host: &Host,
+    fix: &str,
+    with_from: bool,
+    what: &str,
+) -> Result<(Vec<Value>, String), Failure> {
+    let from = |roles: &[String]| with_from.then(|| roles.to_vec());
+    let mut missing = Vec::new();
+    let mut programs = Vec::new();
+    let mut human = String::new();
+    for p in &needs.programs {
+        let check = machine::check_tool(host, &p.toml)?;
+        if !check.passes {
+            missing.push(Missing {
+                kind: "program",
+                name: p.name.clone(),
+                reason: format!("check `{}`{} {}", p.toml.check, host.on(), check.reason),
+                fix: fix.to_owned(),
+                from: from(&p.from),
+            });
+        }
+        let mut doc = json!({ "name": p.name, "check": p.toml.check });
+        if with_from {
+            doc["from"] = json!(p.from);
+        }
+        programs.push(doc);
+        human.push_str(&format!(
+            "- program {}: `{}` passes{}\n",
+            p.name,
+            p.toml.check,
+            host.on()
+        ));
+    }
+
+    if !needs.entries.is_empty() {
+        let present = machine::entries()?;
+        for e in &needs.entries {
+            if !present.contains(&e.name) {
                 missing.push(Missing {
-                    kind: "program",
-                    name: name.clone(),
-                    reason: format!("check `{}`{} {}", tool.toml.check, host.on(), check.reason),
-                    fix: fix_programs.clone(),
+                    kind: "entry",
+                    name: e.name.clone(),
+                    reason: "no mytokens entry".to_owned(),
+                    fix: machine::put_command(&e.name, &e.fields),
+                    from: from(&e.from),
                 });
             }
-            programs.push(json!({ "name": name, "check": tool.toml.check }));
-            human.push_str(&format!(
-                "- program {name}: `{}` passes{}\n",
-                tool.toml.check,
-                host.on()
-            ));
-            if let Some(cred) = &tool.toml.credential {
-                if !wanted.iter().any(|(e, _)| e == &cred.mytokens) {
-                    wanted.push((cred.mytokens.clone(), Vec::new()));
-                }
-                let (_, fields) = wanted
-                    .iter_mut()
-                    .find(|(e, _)| e == &cred.mytokens)
-                    .expect("pushed above");
-                for field in cred.env.values().filter(|f| !f.is_empty()) {
-                    if !fields.contains(field) {
-                        fields.push(field.clone());
-                    }
-                }
-            }
         }
-
-        if !wanted.is_empty() {
-            let present = machine::entries()?;
-            for (entry, fields) in &wanted {
-                if !present.contains(entry) {
-                    missing.push(Missing {
-                        kind: "entry",
-                        name: entry.clone(),
-                        reason: "no mytokens entry".to_owned(),
-                        fix: machine::put_command(entry, fields),
-                    });
-                }
-            }
-        }
-
-        if !missing.is_empty() {
-            let place = match host.name() {
-                None => "on this machine".to_owned(),
-                Some(name) => format!("programs on {name} and entries on this machine"),
-            };
-            let header = format!(
-                "{} at {} lacks {} thing(s), {place}:",
-                found.qualified(),
-                found.rev,
-                missing.len()
-            );
-            return Err(Failure::listing(
-                header,
-                "missing",
-                &missing,
-                Missing::to_json,
-            ));
-        }
-
-        let entries: Vec<&String> = wanted.iter().map(|(e, _)| e).collect();
-        let mut human = format!(
-            "{} at {}: nothing missing
-{human}",
-            found.qualified(),
-            found.rev
-        );
-        for e in &entries {
-            human.push_str(&format!("- entry {e}: present\n"));
-        }
-        Ok(Output {
-            json: json!({
-                "source": found.source,
-                "role": found.name,
-                "rev": found.rev,
-                "host": host.name(),
-                "programs": programs,
-                "entries": entries,
-            }),
-            human,
-        })
     }
+
+    if !missing.is_empty() {
+        let place = match host.name() {
+            None => "on this machine".to_owned(),
+            Some(name) => format!("programs on {name} and entries on this machine"),
+        };
+        let header = format!("{what} lacks {} thing(s), {place}:", missing.len());
+        return Err(Failure::listing(
+            header,
+            "missing",
+            &missing,
+            Missing::to_json,
+        ));
+    }
+    Ok((programs, human))
+}
+
+/// What a doctor that found nothing missing prints: `head` (what was checked, for the human
+/// answer, and the keys that say so) with the host, the programs and the entries.
+fn answer(
+    what: &str,
+    host: &Host,
+    needs: &Needs,
+    (programs, lines): (Vec<Value>, String),
+    head: Value,
+) -> Output {
+    let entries: Vec<&String> = needs.entries.iter().map(|e| &e.name).collect();
+    let mut human = format!("{what}: nothing missing\n{lines}");
+    for e in &entries {
+        human.push_str(&format!("- entry {e}: present\n"));
+    }
+    let mut json = head;
+    json["host"] = json!(host.name());
+    json["programs"] = json!(programs);
+    json["entries"] = json!(entries);
+    Output { json, human }
 }

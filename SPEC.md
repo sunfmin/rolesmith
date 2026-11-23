@@ -193,6 +193,17 @@ machine's mytokens: a credential never leaves it, and whoever runs work on the h
 with it. When ssh cannot reach the host (it exits 255) the command fails (`error.kind` `failed`),
 naming the host, rather than listing every program as missing.
 
+`rolesmith doctor --project <dir>` and `rolesmith tool install --project <dir>` (either with
+`--host`) do the same for every role the project's `rolesmith.toml` records, each at its recorded
+rev and never the source's `main`, and for every role each requires, at that same rev (§5.1): one
+command for what all a project's agents need. A tool is checked and installed once however many
+roles name it (the same tool of the same source with the same `tool.toml`; one pinned differently at
+another rev is another tool), and an entry is looked for once. The answer is the shape a role's is,
+with `project` and the `roles` read in place of `source`, `role` and `rev`, and each program, tool
+and item of `error.missing` adds `from`, the roles (`<source>/<role>`) that need it; a program's fix
+is then `rolesmith tool install --project <dir>`. A directory without `rolesmith.toml` is refused. A
+source the record names that this machine lacks is added from its `url`, as `sync` adds it.
+
 `env` maps each environment variable to the field of the mytokens entry it is filled from; a variable mapped to `""` is filled from the entry's single value.
 
 ## 4. Projects
@@ -436,9 +447,9 @@ one JSON document, generated from the same definitions the parser uses.
 | `remove <role> [--project <dir> \| --global]` | drop it from the record, delete its generated files |
 | `prompt <role> [--rev <sha>]` | §5.3 |
 | `suggest [--dir <dir>]` | §5.5 |
-| `doctor <role> [--host <host>]` | for each program: tool.toml present (a role without one is refused as `show` refuses it), `check` passes (run by `sh -c`, exit 0); for each service and credential: mytokens entry present, read by `mytokens list` alone. Exit 1 if anything is missing, each with the command that fixes it (`rolesmith tool install <source>/<role> [--host <host>]`, `mytokens put <entry> [--fields ...]`); with `--host` the checks run on that host over ssh, the entries are still read here (§3.5) |
+| `doctor <role> \| --project <dir> [--host <host>]` | for each program: tool.toml present (a role without one is refused as `show` refuses it), `check` passes (run by `sh -c`, exit 0); for each service and credential: mytokens entry present, read by `mytokens list` alone. Exit 1 if anything is missing, each with the command that fixes it (`rolesmith tool install <source>/<role> [--host <host>]`, `mytokens put <entry> [--fields ...]`); with `--host` the checks run on that host over ssh, the entries are still read here; with `--project` every role the record names and each role it requires, at its recorded rev, each tool once (§3.5) |
 | `tool show <tool>` | the tool.toml on its source's `main`, and whether its check passes here; a tool is addressed as a role is (§2) |
-| `tool install <role> \| --tool <tool> [--host <host>]` | install each program whose check fails by its pinned method into the user's own prefix (§3.5), on that host over ssh with `--host`, in order; the first refusal stops it and names what was installed before it |
+| `tool install <role> \| --tool <tool> \| --project <dir> [--host <host>]` | install each program whose check fails by its pinned method into the user's own prefix (§3.5), on that host over ssh with `--host`, of every role a project records and the roles they require with `--project`, each tool once, in order; the first refusal stops it and names what was installed before it |
 | `env <role> [-- <command>...]` | §7.1 |
 | `new <role> --need "<text>" [--source <name>]` | scaffold `roles/<role>/` (`role.toml` with the need as its draft description, empty `core.md` and `prohibitions.toml`, no skills) in the source's working copy on a new branch `rolesmith/new-<role>` from `main`, and print the drafting brief; `--source` may be left out when there is one source; refuse a working copy with uncommitted changes, a role `main` has, and a branch that exists |
 | `propose [<role>] [--source <name>] [--closes <n>...]` | run `check` (of the role, or the whole working copy) and refuse with its problems if it fails; commit the working copy's changes on its current `rolesmith/*` branch (refuse on `main` or any other branch, and when the branch does not differ from `main`); push that branch to the source's `origin`, never `main`, never forced; open a pull request onto `main` with `gh pr create`, its body listing what changed per role (and outside any role) and a `Closes #<n>` line per `--closes`; print its URL. `--source` may be left out when there is one source |
