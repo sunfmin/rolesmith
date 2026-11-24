@@ -1,0 +1,44 @@
+{
+  "tree": "e4f1295764136d60099d4916a2eeb0ff20a60b4e+d1fba762150c532c",
+  "picker": "codex:01a20d33-cc7d-7a30-8be6-df98fb8ad5b5:default",
+  "author": "claude-code:f821e5b3-f851-5e98-82b6-eeaf48edb76f:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/commands/env.rs:173:44: replace > with >= in <impl Command for Args>::run",
+        "why": "This changes only the equality case, and the merged snapshot exercises printing and a successful `true` command with a GitHub mapping.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/service_map.rs:49:23: replace match guard e.kind() == std::io::ErrorKind::NotFound with true in ServiceMap::load",
+        "why": "The merged fixture supplies a readable service map, leaving room for the mutant to silently treat other read errors as an absent map.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/sources.rs:61:22: replace match guard Path::new(&dir).is_absolute() with true in xdg",
+        "why": "The snapshot uses fixture paths, so accepting a relative XDG override may go undetected.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/sources.rs:74:23: replace match guard e.kind() == std::io::ErrorKind::NotFound with true in Sources::load",
+        "why": "A working source clone leaves open whether an unreadable source registry is reported as an error.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/library.rs:459:27: replace match guard self.root.join(\"roles\").join(role).is_dir() with true in Checker<'_>::role_names",
+        "why": "The valid role fixture may leave acceptance of a regular file at the expected role directory path untested.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  },
+  "removed_tests": {
+    "rust": [
+      "tests/doctor.rs:673: env_writes_no_file_under_home_the_xdg_dirs_or_the_cwd"
+    ]
+  }
+}

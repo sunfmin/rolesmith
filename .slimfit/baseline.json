@@ -2,8 +2,8 @@
   "suites": {
     "rust": {
       "prod_lines": 6790,
-      "test_lines": 6930,
-      "tests": 188,
+      "test_lines": 6925,
+      "tests": 187,
       "failures": 0,
       "test_seconds": 0.933,
       "covered_lines": 4736,
@@ -29,12 +29,6 @@
       "test": "rolesmith::doctor::doctor_and_env_name_what_a_mapped_command_asks_for_from_the_table",
       "hash": "fe0b643a16f484b0",
       "reason": "Its assertions are the asks_for/hint table (op with and without a service-account token, sudo, mytokens, unknown) and env's stderr hint; the other test checks a mapped command's exported values, none of which map."
-    },
-    {
-      "suite": "rust",
-      "test": "rolesmith::doctor::env_prints_export_lines_that_sh_evals_back_to_each_value",
-      "hash": "eaebac11ba407d3d",
-      "reason": "Only test that sh evals the export lines back to an awkward value (quoting) for credential-mapped variables; the profile test checks only the line prefix, on a different role and Machine."
     },
     {
       "suite": "rust",
@@ -65,7 +59,7 @@
   "measured": {
     "rust": {
       "uncovered_lines": 173,
-      "test_seconds": 71.491
+      "test_seconds": 66.026
     }
   }
 }
