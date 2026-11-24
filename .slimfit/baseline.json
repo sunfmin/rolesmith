@@ -19,6 +19,16 @@
       "reason": "Its assertions check lesson close (the gh issue close call with --comment/--repo, the closed number/url, refusing non-lessons and closed issues, rejecting bad references); agent_context_lists_every_registered_command_with_its_flags_and_output_shape checks only the agent-context listing. No assertion maps, and the setups (a stubbed-gh GitHub source vs a bare run) are unrelated, so a merge would hide which behaviour failed. The overlap is shared CLI dispatch lines."
     }
   ],
+  "kept_files": [
+    {
+      "suite": "rust",
+      "file": "src/library.rs",
+      "prod_lines": 825,
+      "commits_90d": 14,
+      "commits_total": 14,
+      "reason": "Already deep: one entry point, load(root, only) -> Library | every Problem, hides reading, TOML/YAML parsing, line finding, requires closure and cycle check, external-skill fetch, tool pinning and the secret scan; callers use only load, the parsed types, valid_name, split_front_matter, Install::pinned and the limits. Its 14 commits in 90 days are features (requires, [[skill]], script install, brew stable, [service]) each adding its check to the one home of library validation, which is where they belong. Tests go through the binary; the three unit tests cover pure helpers only. Splitting the schema types from the Checker would move lines without hiding anything."
+    }
+  ],
   "mutants_from": "47cffd931da87f3107656a086cd23e445c8b6dbb",
   "measured": {
     "rust": {
