@@ -614,6 +614,22 @@ fn env_prints_export_lines_that_sh_evals_back_to_each_value() {
     let m = Machine::new(&["asc-api-key", "github"]);
     env_library(&m, &["github"]);
 
+    // It writes no file under home, the XDG dirs or the cwd, printing or running a command.
+    let dirs = ["home", "config", "data", "cache", "state", "work"];
+    std::fs::create_dir_all(m.path("work")).unwrap();
+    let before = m.snapshot(&dirs);
+    assert!(!before.is_empty(), "the source's clone is under data");
+    for args in [&["env", "releaser"][..], &["env", "releaser", "--", "true"]] {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_rolesmith"));
+        cmd.args(args).current_dir(m.path("work"));
+        m.env(&mut cmd);
+        cmd.env("XDG_CACHE_HOME", m.path("cache"))
+            .env("XDG_STATE_HOME", m.path("state"));
+        let o = cmd.output().unwrap();
+        assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    }
+    assert_eq!(m.snapshot(&dirs), before, "env wrote a file");
+
     let o = m.rolesmith(&["env", "releaser"]);
     assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
     let lines = String::from_utf8(o.stdout).unwrap();
@@ -677,27 +693,6 @@ fn env_runs_a_command_after_the_double_dash_with_the_variables_set() {
         "{}",
         stderr(&o)
     );
-}
-
-#[test]
-fn env_writes_no_file_under_home_the_xdg_dirs_or_the_cwd() {
-    let m = Machine::new(&["asc-api-key", "github"]);
-    env_library(&m, &[]);
-    let dirs = ["home", "config", "data", "cache", "state", "work"];
-    std::fs::create_dir_all(m.path("work")).unwrap();
-    let before = m.snapshot(&dirs);
-    assert!(!before.is_empty(), "the source's clone is under data");
-
-    for args in [&["env", "releaser"][..], &["env", "releaser", "--", "true"]] {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_rolesmith"));
-        cmd.args(args).current_dir(m.path("work"));
-        m.env(&mut cmd);
-        cmd.env("XDG_CACHE_HOME", m.path("cache"))
-            .env("XDG_STATE_HOME", m.path("state"));
-        let o = cmd.output().unwrap();
-        assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
-    }
-    assert_eq!(m.snapshot(&dirs), before);
 }
 
 #[test]
