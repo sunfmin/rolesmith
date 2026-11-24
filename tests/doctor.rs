@@ -495,6 +495,16 @@ fn tool_install_refuses_a_version_brew_does_not_offer_and_a_check_that_still_fai
     assert_eq!(o.status.code(), Some(2), "a role or --tool is required");
     let o = m.rolesmith(&["tool", "install", "rr", "--tool", "liar"]);
     assert_eq!(o.status.code(), Some(2), "not both");
+
+    // sh answers 127 for a program it cannot find.
+    m.program("brew", "exit 127\n");
+    let o = m.rolesmith(&["tool", "install", "--tool", "felix/unknown"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains("cannot run `brew info --json=v2 unknown@1.0.0`: brew is not found"),
+        "{}",
+        stderr(&o)
+    );
 }
 
 #[test]
@@ -1619,6 +1629,25 @@ fn env_and_doctor_fail_on_a_services_toml_they_cannot_read_rather_than_use_mytok
         assert_eq!(o.status.code(), Some(1), "{args:?}");
         assert!(stderr(&o).contains("cannot read"), "{}", stderr(&o));
     }
+    std::fs::remove_dir(m.path("config/rolesmith/services.toml")).unwrap();
+    std::fs::write(
+        m.path("config/rolesmith/services.toml"),
+        "[service.signing\n",
+    )
+    .unwrap();
+    for args in [&["env", "signer"][..], &["doctor", "signer"]] {
+        let o = m.rolesmith(args);
+        assert_eq!(o.status.code(), Some(1), "{args:?}");
+        assert!(
+            stderr(&o).contains("services.toml does not parse"),
+            "{}",
+            stderr(&o)
+        );
+    }
+    assert!(
+        !m.mytokens_calls().contains("get"),
+        "nothing is read from mytokens"
+    );
 }
 
 #[test]
@@ -1768,7 +1797,10 @@ fn doctor_probe_reads_each_source_once_and_answers_how_it_went_without_a_value()
     m.source(&[
         (
             "roles/signer/role.toml",
-            &role(&["asc"], &["fast", "slow", "reader", "failing"]),
+            &role(
+                &["asc"],
+                &["fast", "slow", "reader", "failing", "asking", "garbled"],
+            ),
         ),
         ("roles/signer/core.md", "Core.\n"),
         ("tools/asc/tool.toml", &tool("true", ASC_CREDENTIAL)),
@@ -1788,6 +1820,16 @@ fn doctor_probe_reads_each_source_once_and_answers_how_it_went_without_a_value()
     m.map_service("slow", "slow-env", None);
     m.map_service("reader", "reader-env", None);
     m.map_service("failing", "failing-env", None);
+    m.program(
+        "asking-env",
+        "echo 'sudo: a terminal is required to read the password' >&2\nexit 1\n",
+    );
+    m.map_service("asking", "asking-env", None);
+    m.program(
+        "garbled-env",
+        &format!("echo A={SECRET}\necho 'not a variable'\n"),
+    );
+    m.map_service("garbled", "garbled-env", None);
     m.program("asc-env", &format!("echo ASC_KEY_ID={SECRET}\n"));
     m.map_service("asc-api-key", "asc-env", None);
 
@@ -1823,6 +1865,18 @@ fn doctor_probe_reads_each_source_once_and_answers_how_it_went_without_a_value()
     let reason = by_name("failing")["reason"].as_str().unwrap().to_owned();
     assert!(reason.starts_with("refused"), "{reason}");
     assert!(reason.contains("exits 1: vault is locked"), "{reason}");
+    let reason = by_name("asking")["reason"].as_str().unwrap().to_owned();
+    assert!(reason.starts_with("needs a person"), "{reason}");
+    assert!(
+        reason.contains("exits 1 asking for a terminal: sudo: a terminal is required"),
+        "{reason}"
+    );
+    let reason = by_name("garbled")["reason"].as_str().unwrap().to_owned();
+    assert!(reason.starts_with("refused"), "{reason}");
+    assert!(
+        reason.contains("line 2 of what it prints has no `=` after its name"),
+        "{reason}"
+    );
     let reason = by_name("asc-api-key")["reason"]
         .as_str()
         .unwrap()
@@ -1855,7 +1909,7 @@ fn doctor_probe_reads_each_source_once_and_answers_how_it_went_without_a_value()
         .collect();
     assert_eq!(
         names,
-        ["slow", "reader"],
+        ["slow", "reader", "asking"],
         "only needs a person refuses: {missing}"
     );
     let item = &missing[0];
