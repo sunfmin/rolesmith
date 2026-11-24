@@ -5,15 +5,91 @@
     "source": "SPEC.md:82",
     "why": "rationale, history or advice to the reader (what core.md is for, where task-specific rules go, why roles left Guild), not a promise a run of rolesmith could break"
   },
+  "0a87be0eea88": {
+    "mark": "promise",
+    "sentence": "What is answered and recorded (`rolesmith.toml`, `global.toml`, the manifest, generated headers) is always the full SHA it resolved to, never the name.",
+    "source": "SPEC.md:67"
+  },
+  "1193784901a1": {
+    "mark": "not",
+    "sentence": "A pinned reference was chosen because a copy is a second home of the same text and drifts; the pin keeps every update explicit.",
+    "source": "docs/adr/0004-a-role-uses-skills-of-other-repositories-pinned-by-commit.md:39",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
+  },
   "1228135ed2d3": {
     "mark": "promise",
     "sentence": "`rolesmith check` and `rolesmith lesson add` refuse text matching any of the patterns in one table in the code (private key blocks, `ghp_`/`github_pat_`, `sk-`, AWS access keys, JWTs, long base64 or hex runs after `key`/`token`/`secret`/`password`), naming the file, line and pattern, never echoing the match.",
     "source": "SPEC.md:216"
   },
+  "14d3d7be4c43": {
+    "mark": "not",
+    "sentence": "The binary was only ad hoc signed: Intel Macs could not run it, and Gatekeeper rejected a copy downloaded in a browser.",
+    "source": "docs/adr/0002-releases-are-universal-signed-and-notarized-by-the-taps-workflow.md:9",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
+  },
+  "155a84c28a16": {
+    "mark": "promise",
+    "sentence": "install (§5); record in `rolesmith.toml` or `global.toml`, always with the full SHA `--rev` resolved to; idempotent: a role already recorded keeps its rev unless `--rev` is given (`update` moves it)",
+    "source": "SPEC.md:548"
+  },
+  "162398345656": {
+    "mark": "not",
+    "sentence": "`rolesmith.toml` and `global.toml` keep only the roles a person named.",
+    "source": "docs/adr/0003-a-role-names-the-roles-it-builds-on-in-its-role-toml.md:21",
+    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
+  },
+  "17bbe649131c": {
+    "mark": "not",
+    "sentence": "A standard (non-admin) Mac account installs by several: its own Homebrew in `~/homebrew`, pixi for what brew would build from source, mise for runtimes, `uv tool`, `npm` into `~/.local`, a checked binary in `~/.local/bin`, and Apple's system components through `xcodebuild`. One ADR and one block of code per method would grow without end, and each would only run a program the user could have named in a line of shell.",
+    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:10",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
+  },
+  "18dcf831a6d0": {
+    "mark": "promise",
+    "sentence": "run `check` (of the role, or the whole working copy) and refuse with its problems if it fails; commit the working copy's changes on its current `rolesmith/*` branch (refuse on `main` or any other branch, and when the branch does not differ from `main`); push that branch to the source's `origin`, never `main`, never forced; open a pull request onto `main` with `gh pr create`, its body listing what changed per role (and outside any role) and a `Closes #<n>` line per `--closes`; print its URL.",
+    "source": "SPEC.md:561"
+  },
+  "1cdb5e60cc6c": {
+    "mark": "promise",
+    "sentence": "Before comparing, the formula's own tap (`<user>/<repo>` of `<user>/<repo>/<name>`) is brought up to its remote with `git pull --ff-only` in `brew --repo <tap>`, never `brew update`, and at most once a day: a tap whose `.git/rolesmith-refreshed` was touched within 24 hours is not fetched, and the file is touched after each pull that succeeds.",
+    "source": "SPEC.md:192"
+  },
   "1ff7784929fa": {
     "mark": "promise",
     "sentence": "Everything rolesmith writes into a project besides it is **generated** from it: listed in `.rolesmith/manifest.json`, ignored by git (rolesmith adds the lines to `.gitignore`), rewritten identically by `rolesmith sync`. rolesmith deletes only files its manifest lists.",
     "source": "SPEC.md:131"
+  },
+  "2359d2b1b63a": {
+    "mark": "not",
+    "sentence": "Each runs as the user, without `sudo`, writing under the home directory only.",
+    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:45",
+    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
+  },
+  "258f4ea77a28": {
+    "mark": "promise",
+    "sentence": "An entry file no target of the record names loses the section; a record with no roles removes it from every entry file, and an entry file that held only the section is deleted, as `.gitignore`'s lines are.",
+    "source": "SPEC.md:275"
+  },
+  "271d3ca34a19": {
+    "mark": "promise",
+    "sentence": "An agent on a fresh clone has only `rolesmith.toml`, so the project's **entry file**, which it reads first and which is committed, tells it what to do: `use` and `sync` write one **managed section** into the entry file of each target the record installs into (`claude-code`: `CLAUDE.md`; `codex` and `agents`: `AGENTS.md`, at the project's root; ADR 0005). The section lies between a fixed first line and a fixed last line; rolesmith writes only between them and nothing outside.",
+    "source": "SPEC.md:258"
+  },
+  "2a64dca0ddfc": {
+    "mark": "promise",
+    "sentence": "Installing a role installs every role it requires, transitively (§5.1). `rolesmith check` refuses a name that is not a role of the library and a cycle (a role that requires itself, directly or through others), naming it; checking one role checks the roles it requires.",
+    "source": "SPEC.md:102"
+  },
+  "2c134361bb9d": {
+    "mark": "promise",
+    "sentence": "`use` and `sync` list the roles installed only because others require them as `required` (`name`, `source`, `rev`, `by`: the recorded roles requiring them).",
+    "source": "SPEC.md:301"
+  },
+  "2c993e00fd59": {
+    "mark": "not",
+    "sentence": "A project could already use several roles (`rolesmith use A B`, one `[[role]]` each in `rolesmith.toml`), but \"an iOS app coder is also a coder\" had no home: every project, and every factorium role directory, had to list the general coding role (code design, TDD, diagnosing bugs…) again beside the iOS one, and keep the two in step by hand.",
+    "source": "docs/adr/0003-a-role-names-the-roles-it-builds-on-in-its-role-toml.md:7",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
   },
   "335ed4d17ec6": {
     "mark": "promise",
@@ -25,11 +101,36 @@
     "sentence": "A role names the credentials it needs by their **mytokens** entry; rolesmith reads a value only to hand it to a process (`rolesmith env`), and never writes one to disk, to a library, to a project or to its own output files.",
     "source": "SPEC.md:24"
   },
+  "418d2c5afd45": {
+    "mark": "promise",
+    "sentence": "A library never holds this setting: `rolesmith check` refuses a `services.toml` at a library's root and a `[service]` table in `library.toml`, `role.toml` or `tool.toml` (`host-only`).",
+    "source": "SPEC.md:471"
+  },
+  "457ddc17a3e5": {
+    "mark": "promise",
+    "sentence": "`rolesmith doctor --project <dir>` and `rolesmith tool install --project <dir>` (either with `--host`) do the same for every role the project's `rolesmith.toml` records, each at its recorded rev and never the source's `main`, and for every role each requires, at that same rev (§5.1): one command for what all a project's agents need.",
+    "source": "SPEC.md:226"
+  },
+  "4b09ba3ee0db": {
+    "mark": "promise",
+    "sentence": "When ssh cannot reach the host (it exits 255) the command fails (`error.kind` `failed`), naming the host, rather than listing every program as missing.",
+    "source": "SPEC.md:223"
+  },
+  "52a627d4092b": {
+    "mark": "promise",
+    "sentence": "A cut needs only `gh` logged in as a user who may push rolesmith's tags and dispatch the tap's workflow; no tap token or deploy key on the host.",
+    "source": "docs/adr/0002-releases-are-universal-signed-and-notarized-by-the-taps-workflow.md:41"
+  },
   "5544a5c6bdd7": {
     "mark": "not",
     "sentence": "The question came from an App Store release (sunfmin/chessmirror#20): that know-how belongs to no one repo and should reach every similar project, on any agent.",
     "source": "docs/adr/0001-roles-leave-guild-and-people-schedule-their-drafting-and-distilling.md:12",
     "why": "rationale, history or advice to the reader (what core.md is for, where task-specific rules go, why roles left Guild), not a promise a run of rolesmith could break"
+  },
+  "5701b83b4255": {
+    "mark": "promise",
+    "sentence": "Where a service's values come from is the host's choice, never a library's (ADR 0006). A host keeps it in **`$XDG_CONFIG_HOME/rolesmith/services.toml`** (default `~/.config/rolesmith/`), beside `sources.toml`; a service it does not name is read from mytokens as in §7.1.",
+    "source": "SPEC.md:440"
   },
   "57d7aec30494": {
     "mark": "promise",
@@ -46,10 +147,33 @@
     "sentence": "A source's clone is of its library's `main`. `list` and `show` read roles from a commit of the clone (its local `main`, or `show --rev`), never from its working tree, so they print what an install at that commit writes; `show` refuses a role that `check` would refuse, with the same problems.",
     "source": "SPEC.md:61"
   },
+  "5adcb0a8945a": {
+    "mark": "promise",
+    "sentence": "Everything runs as the user, into the user's own prefix: never `sudo`, never a system directory.",
+    "source": "SPEC.md:213"
+  },
+  "5c6d01cb58f4": {
+    "mark": "not",
+    "sentence": "`remove` of the last role takes the section out, and deletes an entry file that held only it.",
+    "source": "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md:29",
+    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
+  },
+  "5dea44bc2b5f": {
+    "mark": "not",
+    "sentence": "`rolesmith check` refuses the setting in a library (`host-only`): a `services.toml` at its root, or a `[service]` table in `library.toml`, `role.toml` or `tool.toml`.",
+    "source": "docs/adr/0006-a-host-maps-a-service-to-a-command-that-prints-its-variables.md:28",
+    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
+  },
   "60fc922b0b2d": {
     "mark": "promise",
     "sentence": "A role name is lowercase ASCII letters, digits and single hyphens, 2–48 characters, unique within its library.",
     "source": "SPEC.md:55"
+  },
+  "612327bd1c3b": {
+    "mark": "not",
+    "sentence": "Invariant: **a tool counts as installed only when its check shows the version it pins.**",
+    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:24",
+    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
   },
   "62f484d224f5": {
     "mark": "not",
@@ -57,16 +181,54 @@
     "source": "docs/adr/0001-roles-leave-guild-and-people-schedule-their-drafting-and-distilling.md:13",
     "why": "rationale, history or advice to the reader (what core.md is for, where task-specific rules go, why roles left Guild), not a promise a run of rolesmith could break"
   },
+  "65e35d0afee2": {
+    "mark": "promise",
+    "sentence": "`stable` is for `brew` only.",
+    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:141"
+  },
+  "6a617db9a3b3": {
+    "mark": "promise",
+    "sentence": "`rolesmith update [<role>]` moves a project's role (default: every role) to its source's local `main`, rewrites `rolesmith.toml`'s `rev`, and syncs; it does not fetch, so `rolesmith source update` comes first.",
+    "source": "SPEC.md:344"
+  },
+  "6c700ea741e4": {
+    "mark": "promise",
+    "sentence": "Invariant: **an external skill's text has one home, its repository; the library holds only the pin.**",
+    "source": "docs/adr/0004-a-role-uses-skills-of-other-repositories-pinned-by-commit.md:25"
+  },
   "6e26740927af": {
     "mark": "promise",
     "sentence": "`skills/<skill>/SKILL.md` with YAML front matter `name` (equal to the directory name) and `description` (required, at most 1,024 characters, saying when to use it). Other files beside `SKILL.md` (scripts, references) are copied with it.",
     "source": "SPEC.md:96"
+  },
+  "742e3dd60180": {
+    "mark": "not",
+    "sentence": "The invariant becomes: a tool counts as installed only when its check shows the version it pins, or, for a brew tool following `stable`, when brew has its formula's stable version installed.",
+    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:144",
+    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
+  },
+  "77a2b9ccac89": {
+    "mark": "not",
+    "sentence": "It counts as installed only when brew has the formula's stable version installed (`brew info --json=v2 <formula>`: `versions.stable` among `installed[].version`, or a rebuild `<stable>_<n>`). One installed but older is missing, for `doctor` (naming both versions) and for `tool install`, which runs `brew upgrade <formula>` (or `brew install <formula>` when none is installed), then the check.",
+    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:132",
+    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
+  },
+  "78cc94a4f90a": {
+    "mark": "promise",
+    "sentence": "Installed with the core (§5), rendered as a list under the core memory: `rule` and `why` only.",
+    "source": "SPEC.md:129"
   },
   "78e2e586ce50": {
     "mark": "not",
     "sentence": "It is the role's standing memory: rules that hold for every task of the role.",
     "source": "SPEC.md:81",
     "why": "rationale, history or advice to the reader (what core.md is for, where task-specific rules go, why roles left Guild), not a promise a run of rolesmith could break"
+  },
+  "7b80820ccd6e": {
+    "mark": "not",
+    "sentence": "SPEC §2 let nothing but roles and tools into a library, so they could only be copied in, and a copy drifts from upstream.",
+    "source": "docs/adr/0004-a-role-uses-skills-of-other-repositories-pinned-by-commit.md:9",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
   },
   "7cbd55230cd5": {
     "mark": "promise",
@@ -83,10 +245,88 @@
     "sentence": "Every generated `SKILL.md` carries a first-line comment naming the source, role and rev it came from and saying it is generated.",
     "source": "SPEC.md:147"
   },
+  "80e9d00ec8ea": {
+    "mark": "promise",
+    "sentence": "ask `gh` for the role's open lessons (`lesson` and `role:<role>`); with none, say so and change nothing (`branch` and `brief` null); otherwise refuse a working copy with uncommitted changes, put it on a new branch `rolesmith/distill-<role>` from `main` (refuse one that exists), and print the distilling brief: the role's current `core.md`, prohibitions and skills, each open lesson (number, title, body, evidence), where each belongs (the narrowest place; core only for rules of every task), `lesson close` for one judged wrong, and the last step `check`, then `propose --closes <n>...`",
+    "source": "SPEC.md:565"
+  },
+  "81e2aea7c557": {
+    "mark": "promise",
+    "sentence": "The core skill of a role that requires others opens, before `core.md`, by naming the core skills of every role it requires, transitively, so one pointer to a role's core skill reaches them all.",
+    "source": "SPEC.md:297"
+  },
+  "83b8d2f16c07": {
+    "mark": "not",
+    "sentence": "Installing a role installs every role it requires, transitively, from the same source at the same rev, each with its own core skill and skills.",
+    "source": "docs/adr/0003-a-role-names-the-roles-it-builds-on-in-its-role-toml.md:18",
+    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
+  },
+  "866368c3c03e": {
+    "mark": "promise",
+    "sentence": "`probe.outcome` is `unattended` (finished, every variable the role's `[credential]`s expect printed; `seconds`), `needs a person` (not finished within the bound, then killed with its whole session; or failed saying it needs a terminal), `refused` (exited non-zero, with its stderr; or printed a line that is not a variable) or `incomplete` (`missing` names the expected variables it did not print). A probe may itself raise a Touch ID prompt; the prompt appearing is the answer.",
+    "source": "SPEC.md:495"
+  },
+  "8c7f107b5571": {
+    "mark": "not",
+    "sentence": "It forbids `rolesmith update`: a role's rev moves as a change to the project a person decides (SPEC §5.4). Only the rolesmith program is upgraded.",
+    "source": "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md:25",
+    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
+  },
   "8ca8268993a3": {
     "mark": "promise",
     "sentence": "A role is drafted when someone runs `rolesmith new`; lessons are distilled when someone runs `rolesmith distill`. Every change to a library lands as a pull request a person merges.",
     "source": "SPEC.md:21"
+  },
+  "8d94a5d9d7db": {
+    "mark": "not",
+    "sentence": "(A service-account-only 1Password mapping was proposed and withdrawn the same day, for this more general one.)",
+    "source": "docs/adr/0006-a-host-maps-a-service-to-a-command-that-prints-its-variables.md:35",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
+  },
+  "8fdd6be93ae5": {
+    "mark": "promise",
+    "sentence": "install each program whose check fails by its pinned method into the user's own prefix (§3.5), on that host over ssh with `--host`, of every role a project records and the roles they require with `--project`, each tool once, in order; the first refusal stops it and names what was installed before it",
+    "source": "SPEC.md:558"
+  },
+  "9099be4f287d": {
+    "mark": "not",
+    "sentence": "`script` is enough because every method is a command the user runs, and the pinned version in the check's output is what says the right thing was installed, whatever ran.",
+    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:38",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
+  },
+  "91cc3185365d": {
+    "mark": "not",
+    "sentence": "Before comparing, the formula's own tap is refreshed with `git pull --ff-only`, at most once a day (a stamp in the tap's `.git`), never with `brew update`: a host that sets `HOMEBREW_NO_AUTO_UPDATE` would otherwise never see a newer stable.",
+    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:137",
+    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
+  },
+  "9368b5196eda": {
+    "mark": "not",
+    "sentence": "`rolesmith env` read every credential from mytokens.",
+    "source": "docs/adr/0006-a-host-maps-a-service-to-a-command-that-prints-its-variables.md:7",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
+  },
+  "937e8a04d61c": {
+    "mark": "promise",
+    "sentence": "Every generated `SKILL.md` carries a comment on the first line of its front matter naming the source, role and rev it came from (for an external skill, also its path, URL and rev) and saying it is generated.",
+    "source": "SPEC.md:304"
+  },
+  "93cac93acfaa": {
+    "mark": "not",
+    "sentence": "For a script, rolesmith cannot see what the script installed, so the check's stdout must contain `version`; a check that exits 0 without it is missing (doctor reports it, `tool install` runs the script). A brew tool's version is held by its formula, so its check need only pass.",
+    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:24",
+    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
+  },
+  "97b9d38321b3": {
+    "mark": "not",
+    "sentence": "Options were `requires` in role.toml, or each project's (and role directory's) `rolesmith.toml` listing every role itself, which already worked.",
+    "source": "docs/adr/0003-a-role-names-the-roles-it-builds-on-in-its-role-toml.md:28",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
+  },
+  "985e7c1228f3": {
+    "mark": "promise",
+    "sentence": "Invariant: **the Developer ID identity and the notary key live only in sunfmin/homebrew-tap, and only its `release` workflow signs.**",
+    "source": "docs/adr/0002-releases-are-universal-signed-and-notarized-by-the-taps-workflow.md:20"
   },
   "99b069916e96": {
     "mark": "not",
@@ -94,10 +334,60 @@
     "source": "docs/adr/0001-roles-leave-guild-and-people-schedule-their-drafting-and-distilling.md:9",
     "why": "rationale, history or advice to the reader (what core.md is for, where task-specific rules go, why roles left Guild), not a promise a run of rolesmith could break"
   },
+  "9eb6193897a7": {
+    "mark": "not",
+    "sentence": "pixi, from conda-forge, for what brew could only build from source:",
+    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:57",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
+  },
+  "a2079f121976": {
+    "mark": "promise",
+    "sentence": "A source's clone is of its library's `main`. `list` and `show` read roles from a commit of the clone (its local `main`, or `show --rev`), never from its working tree, so they print what an install at that commit writes.",
+    "source": "SPEC.md:63"
+  },
+  "a49a032c9337": {
+    "mark": "not",
+    "sentence": "A project's generated skills are ignored by git (SPEC §4), so a fresh clone holds only `rolesmith.toml`. An agent started there does not know to run `rolesmith sync`, or that rolesmith exists, and its roles are not in force until a person reminds it.",
+    "source": "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md:7",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
+  },
+  "a4df514dfadc": {
+    "mark": "promise",
+    "sentence": "`rolesmith doctor <role> --host <host>` and `rolesmith tool install … --host <host>` do the same on another machine: each `check`, each `brew` command and each script runs there as `ssh -o BatchMode=yes -- <host> sh -c '<command>'` (a password prompt is never waited on), so a `brew` tool goes into that host's own brew and prefix.",
+    "source": "SPEC.md:216"
+  },
+  "a62aba6944a4": {
+    "mark": "not",
+    "sentence": "Until rolesmith#19 a cut (`packaging/release.sh cut`) built on the cutting host for aarch64 only and published from there: the archive to the tap's release, the formula (`depends_on arch: :arm64`) to the tap.",
+    "source": "docs/adr/0002-releases-are-universal-signed-and-notarized-by-the-taps-workflow.md:7",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
+  },
   "a817da97ef8c": {
     "mark": "promise",
     "sentence": "validate a library working copy (default: the current directory) or one role (§2, §3, §7.2); prints every problem, not the first, each with its file, line where there is one, and rule; exits 1 if there is any, and with `--json` lists them as `error.problems`",
     "source": "SPEC.md:245"
+  },
+  "ab77721095f5": {
+    "mark": "promise",
+    "sentence": "A pinned `brew` tool's version is held by its formula, so its check need only pass.",
+    "source": "SPEC.md:197"
+  },
+  "ab817d04ced2": {
+    "mark": "not",
+    "sentence": "Undo: drop the setting; every service is read from mytokens again.",
+    "source": "docs/adr/0006-a-host-maps-a-service-to-a-command-that-prints-its-variables.md:45",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
+  },
+  "ac69eb6b8250": {
+    "mark": "not",
+    "sentence": "Invariant: **which roles a project uses, at which rev, is written once, in `rolesmith.toml`; the section names no role and is the same in every project.**",
+    "source": "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md:18",
+    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
+  },
+  "b2bde020229d": {
+    "mark": "promise",
+    "sentence": "A tool's check passes when it exits 0 and, for a `script`, its stdout contains `version`: a check that exits 0 without showing the pinned version is missing, for `doctor` and for `tool install`. For a `brew` tool following `stable`, the check passes only when the versions brew has installed (`brew info --json=v2 <formula>`'s `installed`) include the formula's stable one (or a rebuild of it, `<stable>_<n>`); one installed but older is missing, its reason naming the installed and the stable versions.",
+    "source": "SPEC.md:187"
   },
   "bcfc0a476caa": {
     "mark": "promise",
@@ -124,10 +414,42 @@
     "sentence": "fetch and fast-forward each source's clone; never force",
     "source": "SPEC.md:241"
   },
+  "c74f871b7785": {
+    "mark": "promise",
+    "sentence": "The section's text is rolesmith's; changing it changes every project's entry file at its next `sync`, as a diff the project commits.",
+    "source": "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md:43"
+  },
+  "c8c894dc2841": {
+    "mark": "promise",
+    "sentence": "It is the same in every project and names no role: it tells the agent to install rolesmith when `command -v rolesmith` finds nothing (`brew install sunfmin/tap/rolesmith`) and otherwise upgrade it (`brew upgrade sunfmin/tap/rolesmith`), to run `rolesmith sync` when the skills are missing or `status` reports drift, to read each role's core skill, and to run `doctor` and `tool install` for what is missing, reporting a missing credential to a person; and not to run `update`, since a role's rev moves only as §5.4 says.",
+    "source": "SPEC.md:262"
+  },
   "ca13bb45a866": {
     "mark": "promise",
     "sentence": "one **core skill**, `rolesmith-<role>`, whose `SKILL.md` is `core.md` followed by the prohibitions, with the description \"Always in force in this project: <role description>\".",
     "source": "SPEC.md:144"
+  },
+  "cbe5789fff40": {
+    "mark": "promise",
+    "sentence": "A command's page says when to run it, what it reads and writes, what it refuses, and every key its `--json` prints, rendered from its output shape.",
+    "source": "SPEC.md:520"
+  },
+  "ce34e5f4d77d": {
+    "mark": "not",
+    "sentence": "So `update` never changes it, and it can never disagree with the record.",
+    "source": "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md:19",
+    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
+  },
+  "d0357ef713fe": {
+    "mark": "promise",
+    "sentence": "`rolesmith check` refuses a `script` without `version`, `brew` and `script` together, and a script that names `sudo` (rule `tool-sudo`). rolesmith never runs as root; a script writes only under the user's home, as brew does into `~/homebrew`.",
+    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:33"
+  },
+  "d041bb4cf7a3": {
+    "mark": "not",
+    "sentence": "`doctor` never runs the command: it runs the optional `check`, and lists a service without one as `unchecked`, which does not make it refuse.",
+    "source": "docs/adr/0006-a-host-maps-a-service-to-a-command-that-prints-its-variables.md:24",
+    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
   },
   "d4de9bb26d97": {
     "mark": "promise",
@@ -139,21 +461,101 @@
     "sentence": "Every change to a library is a pull request a person merges.",
     "source": "docs/adr/0001-roles-leave-guild-and-people-schedule-their-drafting-and-distilling.md:25"
   },
+  "d65aa0657012": {
+    "mark": "promise",
+    "sentence": "`rolesmith remove <role>` drops the role from `rolesmith.toml` and syncs, so only files its manifest lists are deleted, and a role another remaining role requires keeps its files.",
+    "source": "SPEC.md:352"
+  },
+  "d7be0d738ea2": {
+    "mark": "not",
+    "sentence": "What they require is derived at each install and listed in the manifest, never written into the record.",
+    "source": "docs/adr/0003-a-role-names-the-roles-it-builds-on-in-its-role-toml.md:21",
+    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
+  },
   "da3627fe75b5": {
     "mark": "promise",
     "sentence": "Markdown, at most 8,000 characters.",
     "source": "SPEC.md:81"
+  },
+  "dc21d91b7706": {
+    "mark": "promise",
+    "sentence": "A program's fix that `doctor` names then carries `--host <host>`. Services and credentials are still read only on this machine, from its mytokens or the commands it maps them to (§7.3): a credential never leaves it, and whoever runs work on the host brings the values with it.",
+    "source": "SPEC.md:220"
+  },
+  "ddd8607fbde3": {
+    "mark": "promise",
+    "sentence": "Plain `doctor` runs no source and answers the kept outcome while the service maps to the same command; a kept `needs a person` is missing (`kind` `service`), naming when, with the fix (a service account token, or a source that needs no person). A service never probed, or probed with another command, is `unchecked`.",
+    "source": "SPEC.md:502"
+  },
+  "de1d46f78c99": {
+    "mark": "not",
+    "sentence": "Invariant: **the choice of where a credential comes from belongs to the host, never to a library.**",
+    "source": "docs/adr/0006-a-host-maps-a-service-to-a-command-that-prints-its-variables.md:27",
+    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
+  },
+  "e1cf52a32370": {
+    "mark": "promise",
+    "sentence": "A command that cannot run or exits non-zero is refused with its exit and its stderr; a statement that is not a variable is refused by its line number, never its text.",
+    "source": "SPEC.md:462"
   },
   "e412303d6edd": {
     "mark": "promise",
     "sentence": "Every command is non-interactive, takes `--json` (one JSON document on stdout; human text otherwise), writes diagnostics to stderr, and exits 0 on success, 1 when it refused or something failed, 2 on a usage error.",
     "source": "SPEC.md:223"
   },
+  "ea43581d3451": {
+    "mark": "promise",
+    "sentence": "`doctor` runs `command` only with `--probe` (§7.4). A mapped service is not looked for in mytokens: its `check` runs on this machine (with `--host` too, as values are read only here); exit 0 is present, anything else is missing (`kind` `service`). One without a `check` is answered `unchecked` and does not make doctor refuse.",
+    "source": "SPEC.md:465"
+  },
+  "ea8387bde25a": {
+    "mark": "promise",
+    "sentence": "The record keeps only the roles a person named; what they require is derived at each install and listed in the manifest with the rest, never written into the record.",
+    "source": "SPEC.md:299"
+  },
+  "ec5d58a19860": {
+    "mark": "not",
+    "sentence": "A toolchain that publishes daily (sunfmin/flux-toolchain) cannot be kept current by a pin: the pin would be copied from the tap into the library every day, by a commit a day and a cross-repo write credential, for the same result.",
+    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:128",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
+  },
+  "ecd415125531": {
+    "mark": "promise",
+    "sentence": "for each program: tool.toml present (a role without one is refused as `show` refuses it), `check` passes (run by `sh -c`, exit 0); for each service and credential: mytokens entry present, read by `mytokens list` alone, or, for a service the host maps (§7.3), its `check` passes (without one it is `unchecked`, not missing). Exit 1 if anything is missing, each with the command that fixes it (`rolesmith tool install <source>/<role> [--host <host>]`, `mytokens put <entry> [--fields ...]`); with `--host` the checks run on that host over ssh, the entries are still read here; with `--project` every role the record names and each role it requires, at its recorded rev, each tool once (§3.5)",
+    "source": "SPEC.md:556"
+  },
+  "ece9ee8e4914": {
+    "mark": "promise",
+    "sentence": "`env` exports every variable the command prints, under its own name.",
+    "source": "SPEC.md:458"
+  },
+  "f0609bc1fdf3": {
+    "mark": "promise",
+    "sentence": "`rolesmith doctor --probe <role> | --project <dir> [--timeout <seconds>]` reads each mapped service's command once as `env` does, but in a session of its own (no controlling terminal) with stdin a pipe nothing writes to, for at most the bound (`--timeout`, default 20 s), and never prints or keeps a value.",
+    "source": "SPEC.md:492"
+  },
+  "f0a6274a372d": {
+    "mark": "not",
+    "sentence": "What a role builds on is declared in that role's `role.toml`: `requires = [\"coder\"]`, role names of the same library (SPEC §3.1). Invariant: **\"X is also a Y\" is written once, in X's role.toml; records name only the roles a person chose.**",
+    "source": "docs/adr/0003-a-role-names-the-roles-it-builds-on-in-its-role-toml.md:14",
+    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
+  },
+  "f0eea7880c5c": {
+    "mark": "promise",
+    "sentence": "validate a library working copy or one role; the library is the nearest of `--library` (default: the current directory) and its parents holding `library.toml`, as git finds its repository, so run in a role or a skill it checks the whole library as from the root, and outside any library it refuses as a directory with no `library.toml`, naming the directory it started from (§2, §3, §7.2); prints every problem, not the first, each with its file, line where there is one, and rule; exits 1 if there is any, and with `--json` lists them as `error.problems`",
+    "source": "SPEC.md:547"
+  },
   "f4728c3d92dc": {
     "mark": "not",
     "sentence": "(On the file's first line it would hide the front matter: agents read front matter only from a first line `---`.)",
     "source": "SPEC.md:163",
     "why": "rationale for where the comment goes (what agents read), not a promise of rolesmith's behaviour"
+  },
+  "f86045e23988": {
+    "mark": "not",
+    "sentence": "A personal account has no account-wide secrets, so slimfit's [ADR 0013](https://github.com/sunfmin/slimfit/blob/main/docs/adr/0013-releases-are-signed-and-notarized-by-the-taps-workflow.md) put them in one repo, sunfmin/homebrew-tap, whose `release` workflow signs every tool (contract: the tap's `.github/workflows/README.md`).",
+    "source": "docs/adr/0002-releases-are-universal-signed-and-notarized-by-the-taps-workflow.md:13",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
   },
   "fa021e72cfbe": {
     "mark": "promise",
@@ -164,5 +566,16 @@
     "mark": "promise",
     "sentence": "`source update` fetches and fast-forwards the local `main` (on whichever branch the working copy is); a `main` that moved apart from the library's is refused, never forced.",
     "source": "SPEC.md:64"
+  },
+  "fdc8a5ca654e": {
+    "mark": "not",
+    "sentence": "The section was chosen because it arrives with the clone, so a new machine needs no setup and every agent that reads an entry file gets it; committing generated skills would give them a second home beside the record.",
+    "source": "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md:33",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
+  },
+  "feb183956f03": {
+    "mark": "promise",
+    "sentence": "`rolesmith env <role>` prints `export NAME='value'` lines (values single-quoted for sh) for every variable of its programs' `[credential]` (§3.5), each read from mytokens at that moment (`mytokens get <entry> --field <field>`, or `mytokens get <entry>` for `\"\"`), for `eval \"$(rolesmith env <role>)\"`; `--json` gives them as `variables`. A service of the role that no program's `[credential]` names is read as a mytokens **Profile** when `mytokens list` lists it with kind `profile`: a Profile's fields are already variable names (what `mytokens env <entry>` exports), so each field is exported under its own name, read with `mytokens get <entry> --field <NAME>`. A service that is neither, and that this host does not map (§7.3), has no mapping to variables: `env` refuses the role, listing each such service (`error.unmapped`), and reads nothing.",
+    "source": "SPEC.md:415"
   }
 }

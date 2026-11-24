@@ -202,5 +202,18 @@ mod tests {
         for t in TARGETS {
             assert!(s.contains(&format!("`{}/`", t.skills)), "{s}");
         }
+        // What it tells the agent to do (SPEC.md §4).
+        for step in [
+            "If `command -v rolesmith` finds nothing, install it: `brew install sunfmin/tap/rolesmith`",
+            "Otherwise upgrade it: `brew upgrade sunfmin/tap/rolesmith`",
+            "or `rolesmith status` reports drift, run `rolesmith sync`",
+            "Read the core skill of each role",
+            "Run `rolesmith doctor <role>`",
+            "`rolesmith tool install <source>/<role>`",
+            "For a missing credential (a mytokens entry), tell a person",
+            "Never run `rolesmith update` here",
+        ] {
+            assert!(s.contains(step), "{step}: {s}");
+        }
     }
 }
