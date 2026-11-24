@@ -336,16 +336,22 @@ pub fn known_projects() -> Result<BTreeSet<PathBuf>, Failure> {
     match std::fs::read_to_string(&file) {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(BTreeSet::new()),
         Err(e) => Err(Failure::new(format!("cannot read {}: {e}", file.display()))),
-        Ok(text) => parse_projects(&text)
-            .map_err(|why| Failure::new(format!("{} does not parse: {why}", file.display()))),
+        Ok(text) => parse_projects(&file, &text),
     }
 }
 
-/// The project directories a projects file's `text` names, or why it does not parse.
-fn parse_projects(text: &str) -> Result<BTreeSet<PathBuf>, String> {
+/// The project directories the projects file at `file` names in `text`, or a refusal saying why
+/// it does not parse.
+fn parse_projects(file: &Path, text: &str) -> Result<BTreeSet<PathBuf>, Failure> {
     toml::from_str::<Projects>(text)
         .map(|p| p.projects)
-        .map_err(|e| e.message().trim().to_string())
+        .map_err(|e| {
+            Failure::new(format!(
+                "{} does not parse: {}",
+                file.display(),
+                e.message().trim()
+            ))
+        })
 }
 
 /// Add the project at `dir` to the projects rolesmith has installed into.
@@ -782,15 +788,21 @@ mod tests {
 
     #[test]
     fn a_projects_file_names_its_projects_and_refuses_what_it_does_not_know() {
+        let file = Path::new("/data/projects.toml");
+        let parse = |text| parse_projects(file, text).map_err(|f| f.message);
         assert_eq!(
-            parse_projects("projects = [\"/b\", \"/a\"]\n"),
+            parse("projects = [\"/b\", \"/a\"]\n"),
             Ok(BTreeSet::from([PathBuf::from("/a"), PathBuf::from("/b")]))
         );
-        assert_eq!(parse_projects(""), Ok(BTreeSet::new()));
-        let unknown = parse_projects("projects = []\nother = 1\n").unwrap_err();
+        assert_eq!(parse(""), Ok(BTreeSet::new()));
+        let unknown = parse("projects = []\nother = 1\n").unwrap_err();
+        assert!(
+            unknown.starts_with("/data/projects.toml does not parse: "),
+            "{unknown}"
+        );
         assert!(unknown.contains("other"), "{unknown}");
         assert_eq!(unknown, unknown.trim(), "the reason reads on one line");
-        assert!(parse_projects("projects = \"/a\"").is_err());
-        assert!(parse_projects("projects = [").is_err());
+        assert!(parse("projects = \"/a\"").is_err());
+        assert!(parse("projects = [").is_err());
     }
 }
