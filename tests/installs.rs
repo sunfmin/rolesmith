@@ -158,6 +158,12 @@ fn update_moves_the_rev_and_the_files() {
     assert_eq!(out["written"], json!([]));
     m.json(&["source", "update"]);
 
+    // `use` of a role already recorded keeps its rev though main moved: only `update` moves it.
+    let out = use_role(&m, &project, &[]);
+    assert_eq!(out["written"], json!([]), "{out}");
+    let record = std::fs::read_to_string(project.join("rolesmith.toml")).unwrap();
+    assert!(record.contains(&format!("rev = \"{first}\"")), "{record}");
+
     let out = m.json(&["update", "app-store-releaser", "--project", p]);
     assert_eq!(out["roles"][0]["rev"], second.as_str());
     let skill = ".claude/skills/rolesmith-app-store-releaser-submit-build/SKILL.md";
