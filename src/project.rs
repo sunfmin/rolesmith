@@ -336,16 +336,22 @@ pub fn known_projects() -> Result<BTreeSet<PathBuf>, Failure> {
     match std::fs::read_to_string(&file) {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(BTreeSet::new()),
         Err(e) => Err(Failure::new(format!("cannot read {}: {e}", file.display()))),
-        Ok(text) => toml::from_str::<Projects>(&text)
-            .map(|p| p.projects)
-            .map_err(|e| {
-                Failure::new(format!(
-                    "{} does not parse: {}",
-                    file.display(),
-                    e.message().trim()
-                ))
-            }),
+        Ok(text) => parse_projects(&file, &text),
     }
+}
+
+/// The project directories the projects file at `file` names in `text`, or a refusal saying why
+/// it does not parse.
+fn parse_projects(file: &Path, text: &str) -> Result<BTreeSet<PathBuf>, Failure> {
+    toml::from_str::<Projects>(text)
+        .map(|p| p.projects)
+        .map_err(|e| {
+            Failure::new(format!(
+                "{} does not parse: {}",
+                file.display(),
+                e.message().trim()
+            ))
+        })
 }
 
 /// Add the project at `dir` to the projects rolesmith has installed into.
@@ -774,4 +780,29 @@ fn update_gitignore(dir: &Path, generated: &Generated) -> Result<bool, Failure> 
         return Ok(true);
     }
     write_if_changed(&path, new.as_bytes(), false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_projects_file_names_its_projects_and_refuses_what_it_does_not_know() {
+        let file = Path::new("/data/projects.toml");
+        let parse = |text| parse_projects(file, text).map_err(|f| f.message);
+        assert_eq!(
+            parse("projects = [\"/b\", \"/a\"]\n"),
+            Ok(BTreeSet::from([PathBuf::from("/a"), PathBuf::from("/b")]))
+        );
+        assert_eq!(parse(""), Ok(BTreeSet::new()));
+        let unknown = parse("projects = []\nother = 1\n").unwrap_err();
+        assert!(
+            unknown.starts_with("/data/projects.toml does not parse: "),
+            "{unknown}"
+        );
+        assert!(unknown.contains("other"), "{unknown}");
+        assert_eq!(unknown, unknown.trim(), "the reason reads on one line");
+        assert!(parse("projects = \"/a\"").is_err());
+        assert!(parse("projects = [").is_err());
+    }
 }

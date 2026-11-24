@@ -1,0 +1,15 @@
+{
+  "tree": "52691dbe1c50e78c66a5b548a084a8c06bd5ff4f+d1fba762150c532c",
+  "picker": "codex:01a20d31-34dc-7700-8f43-7e68d112b953:default",
+  "author": "claude-code:03278136-c422-54b3-8fa5-0b6a1f3d0e59:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/project.rs:335:5: replace known_projects -> Result<BTreeSet<PathBuf>, Failure> with Ok(BTreeSet::new())",
+        "why": "The added test calls parse_projects directly, so known_projects could ignore a populated registry and still pass it.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  }
+}
