@@ -1,0 +1,33 @@
+{
+  "tip": "6d76212e2ffdf975b32851371b49fefec77f7781",
+  "from": "1398bab6a8069afafd3a06fa53cb186ec61f37ca",
+  "pool": 639,
+  "drawn": {
+    "rust": [
+      {
+        "name": "src/help.rs:73:5: replace with_answer -> clap::Command with Default::default()",
+        "outcome": "killed"
+      },
+      {
+        "name": "src/help.rs:158:25: replace != with == in kind",
+        "outcome": "killed"
+      },
+      {
+        "name": "src/project.rs:599:5: replace locate -> Result<Found, Failure> with Ok(Default::default())",
+        "outcome": "unviable"
+      },
+      {
+        "name": "src/machine.rs:112:5: replace value -> Result<String, Failure> with Ok(String::new())",
+        "outcome": "killed"
+      },
+      {
+        "name": "src/install.rs:66:45: replace == with != in install",
+        "outcome": "killed"
+      },
+      {
+        "name": "src/project.rs:99:27: replace match guard Path::new(&home).is_absolute() with false in Place::global",
+        "outcome": "killed"
+      }
+    ]
+  }
+}
