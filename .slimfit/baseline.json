@@ -17,6 +17,48 @@
       "test": "rolesmith::lessons::close_comments_the_reason_and_closes_only_an_open_lesson",
       "hash": "23ce101687928dff",
       "reason": "Its assertions check lesson close (the gh issue close call with --comment/--repo, the closed number/url, refusing non-lessons and closed issues, rejecting bad references); agent_context_lists_every_registered_command_with_its_flags_and_output_shape checks only the agent-context listing. No assertion maps, and the setups (a stubbed-gh GitHub source vs a bare run) are unrelated, so a merge would hide which behaviour failed. The overlap is shared CLI dispatch lines."
+    },
+    {
+      "suite": "rust",
+      "test": "rolesmith::doctor::a_stable_brew_tool_on_another_host_is_compared_and_upgraded_there",
+      "hash": "79b3c3e70d92f879",
+      "reason": "It checks the stable-brew compare and upgrade on --host (the 'on laptop' reason, the host's brew upgraded, this machine's brew never asked); the other test installs locally from nothing, a conflicting setup."
+    },
+    {
+      "suite": "rust",
+      "test": "rolesmith::doctor::doctor_and_env_name_what_a_mapped_command_asks_for_from_the_table",
+      "hash": "fe0b643a16f484b0",
+      "reason": "Its assertions are the asks_for/hint table (op with and without a service-account token, sudo, mytokens, unknown) and env's stderr hint; the other test checks a mapped command's exported values, none of which map."
+    },
+    {
+      "suite": "rust",
+      "test": "rolesmith::doctor::env_prints_export_lines_that_sh_evals_back_to_each_value",
+      "hash": "eaebac11ba407d3d",
+      "reason": "Only test that sh evals the export lines back to an awkward value (quoting) for credential-mapped variables; the profile test checks only the line prefix, on a different role and Machine."
+    },
+    {
+      "suite": "rust",
+      "test": "rolesmith::doctor::doctor_passes_when_every_program_checks_and_every_entry_exists",
+      "hash": "b7c6b3642100ddb0",
+      "reason": "Checks a passing doctor run locally (role, programs[0], human 'nothing missing' and 'entry present'); the host test runs checks over ssh and its no-host half needs metal missing locally, so folding would change what it checks."
+    },
+    {
+      "suite": "rust",
+      "test": "rolesmith::doctor::doctor_reports_a_missing_program_a_failing_check_and_a_missing_entry_each_with_its_fix",
+      "hash": "6b46c5e436be4039",
+      "reason": "Checks local failing reasons (exits 3, command not found), a fieldless entry fix and the stderr lines; the host test's reasons and fixes are --host ones on another setup."
+    },
+    {
+      "suite": "rust",
+      "test": "rolesmith::doctor::doctor_and_tool_install_refuse_a_project_without_rolesmith_toml",
+      "hash": "93a451a093ab560b",
+      "reason": "Checks the missing rolesmith.toml refusal and the usage conflicts of --project; the help-table test asserts only doctor --help text."
+    },
+    {
+      "suite": "rust",
+      "test": "rolesmith::doctor::doctor_help_tables_what_each_source_asks_for",
+      "hash": "4f8b48e09e56e56a",
+      "reason": "Checks doctor --help's asks-for table rows against service_map::KNOWN; help_exits_0_on_stdout only asserts the top-level index mentions agent-context."
     }
   ],
   "mutants_from": "47cffd931da87f3107656a086cd23e445c8b6dbb",
