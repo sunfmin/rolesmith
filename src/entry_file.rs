@@ -40,7 +40,7 @@ This project's roles for coding agents are recorded in `rolesmith.toml`: which r
 3. Read the core skill of each role, `rolesmith-<role>/SKILL.md` in that directory, before anything else; every one is in force for all your work here.
 4. Run `rolesmith doctor <role>` for each role `rolesmith.toml` records. For a missing program, run the fix it gives (`rolesmith tool install <source>/<role>`), then `rolesmith doctor <role>` again; say in your reply what would not install, and go on with the work that does not need it. For a missing credential (a mytokens entry), tell a person the fix doctor gives; never make one up.
 
-Never run `rolesmith update` here: moving a role to another revision is a change to the project a person decides.
+Never run `rolesmith update` during a task here: a role's revision moves only in a commit of its own, never inside another change.
 {END}
 ",
         dirs = dirs.join(", ")
@@ -211,7 +211,7 @@ mod tests {
             "Run `rolesmith doctor <role>`",
             "`rolesmith tool install <source>/<role>`",
             "For a missing credential (a mytokens entry), tell a person",
-            "Never run `rolesmith update` here",
+            "Never run `rolesmith update` during a task here: a role's revision moves only in a commit of its own, never inside another change.",
         ] {
             assert!(s.contains(step), "{step}: {s}");
         }
