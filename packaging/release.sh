@@ -16,7 +16,10 @@
 #   release.sh cut <vX.Y.Z>   build, push the tag to origin, run the tap's
 #                             release.yml on it and wait for that run, bounded
 #                             (RELEASE_WAIT_LIMIT seconds from the cut's start,
-#                             default 2400); publishes nothing from this host
+#                             default 2400; a failing gh is asked again until
+#                             then, and a run unfinished at the end is
+#                             cancelled before the tag is taken away);
+#                             publishes nothing from this host
 #   release.sh check-tag <vX.Y.Z>  exit 0 if cut would take the version, 2 if not
 #   release.sh dry            what the gate runs: build at the development form
 #                             X.Y.Z+<commits>.g<commit>[.dirty], check the
@@ -103,16 +106,27 @@ FORMULA
     ruby -c "$2/rolesmith.rb" >/dev/null
 }
 
+# end: when the cut ends, however it ends, a run it dispatched and has not
+# seen finish ($unfinished) is cancelled, then a tag it pushed ($pushed) is
+# taken away, in that order: a run left going without its tag fails.
+pushed=
+unfinished=
+end() {
+    [ -z "$unfinished" ] || gh run cancel "$unfinished" -R "$TAP" >&2 || true
+    [ -z "$pushed" ] || git push --quiet origin ":refs/tags/$pushed"
+}
+trap end EXIT
+
 # push_tag <tag>: origin has <tag> on HEAD. factorium's own tag step tags
 # HEAD after the cut and fails on a tag origin already holds, so a tag this
-# cut pushed is taken away again when the cut ends, however it ends.
+# cut pushed is taken away again when the cut ends (end).
 push_tag() {
     head=$(git rev-parse HEAD)
     # An annotated tag's peeled line (^{}) comes after it: the last line is the commit.
     there=$(git ls-remote origin "refs/tags/$1" "refs/tags/$1^{}" | tail -n1 | cut -f1)
     if [ -z "$there" ]; then
         git push --quiet origin "$head:refs/tags/$1"
-        trap 'git push --quiet origin ":refs/tags/$tag"' EXIT
+        pushed=$1
     elif [ "$there" != "$head" ]; then
         echo "release: origin's $1 is on $there, not HEAD ($head)" >&2
         exit 1
@@ -169,9 +183,11 @@ before=$(latest_run "$tag")
 push_tag "$tag"
 gh workflow run release.yml -R "$TAP" -f repo=rolesmith -f "tag=$tag"
 
+# In the waits, a gh that fails (GitHub's API answers HTTP 500 now and then)
+# is asked again until the limit, like a run not there or not done yet.
 run=
 while :; do
-    run=$(latest_run "$tag")
+    run=$(latest_run "$tag") || run=
     [ -n "$run" ] && [ "$run" != "$before" ] && break
     [ $(($(date +%s) - started)) -lt "$limit" ] || {
         echo "release: no release.yml run of rolesmith $tag in $TAP after ${limit}s" >&2
@@ -179,21 +195,25 @@ while :; do
     }
     sleep "${RELEASE_POLL:-5}"
 done
+unfinished=$run
 echo "release: waiting for https://github.com/$TAP/actions/runs/$run"
 while :; do
-    state=$(gh run view "$run" -R "$TAP" --json status,conclusion --jq '.status + " " + .conclusion')
+    state=$(gh run view "$run" -R "$TAP" --json status,conclusion --jq '.status + " " + .conclusion') ||
+        state="unknown (gh run view failed)"
     case "$state" in
     "completed success") break ;;
     completed*)
+        unfinished=
         echo "release: run $run of rolesmith $tag ended '$state'" >&2
         gh run view "$run" -R "$TAP" --log-failed >&2 || true
         exit 1
         ;;
     esac
     [ $(($(date +%s) - started)) -lt "$limit" ] || {
-        echo "release: run $run of rolesmith $tag still '$state' after ${limit}s: gh run view $run -R $TAP" >&2
+        echo "release: run $run of rolesmith $tag still '$state' after ${limit}s, cancelled: gh run view $run -R $TAP" >&2
         exit 1
     }
     sleep "${RELEASE_POLL:-15}"
 done
+unfinished=
 echo "release: rolesmith $tag is published ($(($(date +%s) - started))s)"

@@ -23,13 +23,26 @@ const FAKE_LIPO: &str = r#"#!/bin/sh
 case "$1" in -archs) echo "x86_64 arm64" ;; -create) cp "$4" "$3" ;; esac
 "#;
 
-// `workflow run` makes run <n+1>, which `run view` reports as $RUN_ENDS.
+// `workflow run` makes run <n+1>, which `run view` reports as $RUN_ENDS, after failing the first
+// $VIEW_FAILS times as GitHub's API does now and then. `run cancel` records whether the tag is still
+// on origin when it is called.
 const FAKE_GH: &str = r#"#!/bin/sh
 s=$FAKE_GH
 case "$1 $2" in
 "workflow run") echo "$*" >>"$s.calls"; echo $(( $(cat "$s.n") + 1 )) >"$s.n" ;;
 "run list") n=$(cat "$s.n"); [ "$n" = 0 ] || echo "$n" ;;
-"run view") case "$*" in *--log-failed*) echo "the run's failed log" ;; *) echo "$RUN_ENDS" ;; esac ;;
+"run view")
+    case "$*" in *--log-failed*) echo "the run's failed log"; exit 0 ;; esac
+    failed=$(cat "$s.failed" 2>/dev/null || echo 0)
+    if [ "$failed" -lt "${VIEW_FAILS:-0}" ]; then
+        echo $((failed + 1)) >"$s.failed"
+        echo "HTTP 500: Server Error (https://api.github.com/repos/sunfmin/homebrew-tap/actions/runs/$3)" >&2
+        exit 1
+    fi
+    echo "$RUN_ENDS" ;;
+"run cancel")
+    tag=$(git ls-remote origin "refs/tags/$TAG")
+    echo "$1 $2 $3 $4 $5 tag:${tag:+on origin}" >>"$s.calls" ;;
 *) exit 1 ;;
 esac
 "#;
@@ -61,6 +74,11 @@ impl Release {
     }
 
     fn run(&self, args: &[&str], run_ends: &str) -> Output {
+        self.run_with(args, run_ends, &[])
+    }
+
+    /// `run`, with `env` set over its defaults.
+    fn run_with(&self, args: &[&str], run_ends: &str, env: &[(&str, &str)]) -> Output {
         let path = format!(
             "{}:{}",
             self.dir.join("bin").display(),
@@ -76,6 +94,8 @@ impl Release {
             .env("RELEASE_POLL", "0")
             .env_remove("ROLESMITH_RELEASE")
             .env_remove("DIST")
+            .env("TAG", args.get(1).unwrap_or(&""))
+            .envs(env.iter().copied())
             .output()
             .expect("run release.sh")
     }
@@ -157,9 +177,8 @@ fn build_leaves_the_universal_binary_and_a_formula_for_the_tap_to_fill_in() {
     );
 }
 
-#[test]
-fn cut_runs_the_taps_workflow_waits_for_it_and_takes_away_the_tag_it_pushed() {
-    let r = Release::new("cut");
+/// A cut's repository in `r`, with a bare `origin` beside it.
+fn cut_repo(r: &Release) -> PathBuf {
     let repo = r.repo();
     let origin = r.dir.join("origin.git");
     git(&r.dir, &["init", "-q", "--bare", origin.to_str().unwrap()]);
@@ -172,6 +191,56 @@ fn cut_runs_the_taps_workflow_waits_for_it_and_takes_away_the_tag_it_pushed() {
         &repo,
         &["remote", "add", "origin", origin.to_str().unwrap()],
     );
+    repo
+}
+
+#[test]
+fn cut_rides_out_a_failing_run_view_until_the_run_answers() {
+    let r = Release::new("cut-500");
+    let repo = cut_repo(&r);
+    let out = r.run_with(
+        &["cut", "v1.2.3"],
+        "completed success",
+        &[("VIEW_FAILS", "2")],
+    );
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    assert!(
+        text(&out.stderr).contains("HTTP 500"),
+        "{}",
+        text(&out.stderr)
+    );
+    assert!(!r.gh_calls().contains("run cancel"), "{}", r.gh_calls());
+    assert_eq!(git(&repo, &["ls-remote", "origin", "refs/tags/v1.2.3"]), "");
+}
+
+#[test]
+fn cut_past_its_limit_cancels_the_run_before_it_takes_away_the_tag() {
+    let r = Release::new("cut-limit");
+    let repo = cut_repo(&r);
+    let out = r.run_with(
+        &["cut", "v1.2.3"],
+        "queued ",
+        &[("RELEASE_WAIT_LIMIT", "0")],
+    );
+    assert!(!out.status.success(), "a run still queued passes the cut");
+    assert!(
+        text(&out.stderr).contains("still 'queued "),
+        "{}",
+        text(&out.stderr)
+    );
+    assert!(
+        r.gh_calls()
+            .contains("run cancel 1 -R sunfmin/homebrew-tap tag:on origin"),
+        "the run was not cancelled while its tag was on origin: {}",
+        r.gh_calls()
+    );
+    assert_eq!(git(&repo, &["ls-remote", "origin", "refs/tags/v1.2.3"]), "");
+}
+
+#[test]
+fn cut_runs_the_taps_workflow_waits_for_it_and_takes_away_the_tag_it_pushed() {
+    let r = Release::new("cut");
+    let repo = cut_repo(&r);
     let tagged = || git(&repo, &["ls-remote", "origin", "refs/tags/v1.2.3"]);
 
     let out = r.run(&["cut", "v1.2.3"], "completed success");
