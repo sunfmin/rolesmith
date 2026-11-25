@@ -1,0 +1,46 @@
+{
+  "tree": "aa679ac1ded0ca362568e02686bf3afb4f139e4d+d1fba762150c532c",
+  "picker": "codex:01a2129b-79f5-7f50-8b37-6b5c5c34d564:default",
+  "author": "claude-code:13afc3f5-5733-548e-8732-cf1578ca7932:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/brew.rs:164:55: replace < with <= in change",
+        "why": "The merged test covers a fresh install and an upgrade from 1.0 to 2.0, leaving the equality boundary of the action selection untested.",
+        "outcome": "survived",
+        "first_outcome": "survived"
+      },
+      {
+        "name": "src/commands/tool.rs:306:5: replace installed_what -> Option<String> with None",
+        "why": "The remote install checks the exit status and the brew invocation, so dropping the installed value from the response could go unnoticed.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/service_map.rs:49:23: replace match guard e.kind() == std::io::ErrorKind::NotFound with true in ServiceMap::load",
+        "why": "The merged doctor cases do not distinguish an absent service map from one that exists but cannot be read.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/sources.rs:61:22: replace match guard Path::new(&dir).is_absolute() with true in xdg",
+        "why": "The merged cases use a temporary machine fixture and show no check that a relative XDG path is rejected.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/probe.rs:197:19: replace match guard e.kind() == std::io::ErrorKind::NotFound with true in kept",
+        "why": "A read failure could be treated as empty kept state while the merged doctor cases still pass.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  },
+  "removed_tests": {
+    "rust": [
+      "tests/doctor.rs:213: doctor_passes_when_every_program_checks_and_every_entry_exists",
+      "tests/doctor.rs:2160: tool_install_installs_a_stable_brew_tool_by_its_formula_alone",
+      "tests/doctor.rs:2197: a_stable_brew_tool_on_another_host_is_compared_and_upgraded_there"
+    ]
+  }
+}

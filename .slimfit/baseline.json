@@ -2,15 +2,23 @@
   "suites": {
     "rust": {
       "prod_lines": 6793,
-      "test_lines": 6953,
-      "tests": 189,
+      "test_lines": 7006,
+      "tests": 186,
       "failures": 0,
       "test_seconds": 0.933,
-      "covered_lines": 4746,
+      "covered_lines": 4763,
       "uncovered_lines": 38
     }
   },
-  "loosened": [],
+  "loosened": [
+    {
+      "suite": "rust",
+      "metric": "survived_mutants",
+      "from": 0.0,
+      "to": 1.0,
+      "reason": "rolesmith#51: the picked survivor src/brew.rs:164 '< to <=' in change is equivalent: start.elapsed() < LOCK_WAIT and <= differ only at exactly 30 minutes elapsed, which no input brings about."
+    }
+  ],
   "kept": [
     {
       "suite": "rust",
@@ -62,8 +70,8 @@
   "mutants_from": "47cffd931da87f3107656a086cd23e445c8b6dbb",
   "measured": {
     "rust": {
-      "uncovered_lines": 166,
-      "test_seconds": 65.202
+      "uncovered_lines": 149,
+      "test_seconds": 63.986
     }
   }
 }
