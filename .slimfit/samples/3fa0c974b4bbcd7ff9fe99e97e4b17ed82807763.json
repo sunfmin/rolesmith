@@ -1,0 +1,21 @@
+{
+  "tip": "3fa0c974b4bbcd7ff9fe99e97e4b17ed82807763",
+  "from": "6d76212e2ffdf975b32851371b49fefec77f7781",
+  "pool": 3,
+  "drawn": {
+    "rust": [
+      {
+        "name": "src/project.rs:346:5: replace parse_projects -> Result<BTreeSet<PathBuf>, Failure> with Ok(BTreeSet::new())",
+        "outcome": "killed"
+      },
+      {
+        "name": "src/project.rs:335:5: replace known_projects -> Result<BTreeSet<PathBuf>, Failure> with Ok(BTreeSet::from_iter([Default::default()]))",
+        "outcome": "killed"
+      },
+      {
+        "name": "src/project.rs:346:5: replace parse_projects -> Result<BTreeSet<PathBuf>, Failure> with Ok(BTreeSet::from_iter([Default::default()]))",
+        "outcome": "killed"
+      }
+    ]
+  }
+}
