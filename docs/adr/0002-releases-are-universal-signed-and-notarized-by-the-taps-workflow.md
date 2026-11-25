@@ -32,7 +32,10 @@ signing secret and no release workflow.
 - **The cut waits.** `cut` builds here, pushes the tag, runs
   `gh workflow run release.yml -R sunfmin/homebrew-tap -f repo=rolesmith -f tag=<tag>`, waits for
   that run bounded by `RELEASE_WAIT_LIMIT` (2400 s), and fails with its `--log-failed` when it
-  fails. It takes away a tag it pushed when it ends, since factorium tags HEAD itself afterwards.
+  fails. A failing `gh run list` or `gh run view` (GitHub answers HTTP 500 now and then) is asked
+  again until that limit (rolesmith#57). It takes away a tag it pushed when it ends, since factorium
+  tags HEAD itself afterwards, and first cancels a run it dispatched and has not seen finish, which
+  would fail without its tag.
 
 ## Consequences
 
