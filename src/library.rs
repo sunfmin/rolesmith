@@ -1006,6 +1006,32 @@ mod tests {
     }
 
     #[test]
+    fn a_role_description_must_be_one_line() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let role = root.join("roles/ab");
+        std::fs::create_dir_all(&role).unwrap();
+        std::fs::write(root.join("library.toml"), "name = \"felix\"\n").unwrap();
+        std::fs::write(role.join("core.md"), "# Core\n").unwrap();
+        let with = |description: &str| {
+            std::fs::write(
+                role.join("role.toml"),
+                format!("description = {description}\n"),
+            )
+            .unwrap();
+            load(root, None).err().unwrap_or_default()
+        };
+        assert!(with("\"one line\"").is_empty());
+        let found = with("\"\"\"one\nline\"\"\"");
+        assert!(
+            found.iter().any(|p| p.file == "roles/ab/role.toml"
+                && p.rule == Rule::RoleDescription
+                && p.reason == "description is more than one line"),
+            "{found:?}"
+        );
+    }
+
+    #[test]
     fn line_of_counts_from_one() {
         assert_eq!(line_of("a\nb\nc", 0), 1);
         assert_eq!(line_of("a\nb\nc", 2), 2);
