@@ -2,21 +2,59 @@
   "suites": {
     "rust": {
       "prod_lines": 6793,
-      "test_lines": 6953,
-      "tests": 189,
+      "test_lines": 7006,
+      "tests": 186,
       "failures": 0,
       "test_seconds": 0.933,
-      "covered_lines": 4746,
+      "covered_lines": 4763,
       "uncovered_lines": 38
     }
   },
-  "loosened": [],
+  "loosened": [
+    {
+      "suite": "rust",
+      "metric": "survived_mutants",
+      "from": 0.0,
+      "to": 1.0,
+      "reason": "rolesmith#51: the picked survivor src/brew.rs:164 '< to <=' in change is equivalent: start.elapsed() < LOCK_WAIT and <= differ only at exactly 30 minutes elapsed, which no input brings about."
+    }
+  ],
   "kept": [
     {
       "suite": "rust",
       "test": "rolesmith::lessons::close_comments_the_reason_and_closes_only_an_open_lesson",
       "hash": "23ce101687928dff",
       "reason": "Its assertions check lesson close (the gh issue close call with --comment/--repo, the closed number/url, refusing non-lessons and closed issues, rejecting bad references); agent_context_lists_every_registered_command_with_its_flags_and_output_shape checks only the agent-context listing. No assertion maps, and the setups (a stubbed-gh GitHub source vs a bare run) are unrelated, so a merge would hide which behaviour failed. The overlap is shared CLI dispatch lines."
+    },
+    {
+      "suite": "rust",
+      "test": "rolesmith::doctor::doctor_and_env_name_what_a_mapped_command_asks_for_from_the_table",
+      "hash": "fe0b643a16f484b0",
+      "reason": "Its assertions check doctor's asks_for/hint table for four mapped commands (op, mytokens, sudo, a script), the OP_SERVICE_ACCOUNT_TOKEN exemption and env's stderr hint; env_reads_a_service_this_host_maps_from_its_command_alone checks only the exported values of one mapped command. No assertion maps; the role's services differ (four vs one), and putting them on one role changes what env reads and exports, so the setups conflict."
+    },
+    {
+      "suite": "rust",
+      "test": "rolesmith::doctor::env_prints_export_lines_that_sh_evals_back_to_each_value",
+      "hash": "f7245fa5d9c757c7",
+      "reason": "Its assertions check credential-mapped exports (tool [credential] env names) of an awkward value that sh evals back, that env writes no file, the export order and the JSON role name; env_exports_a_profile_service_by_its_own_field_names checks a Profile's own field names. No assertion maps; the libraries and served values conflict (serve_values replaces the mytokens stand-in), so folding one changes what the other reads."
+    },
+    {
+      "suite": "rust",
+      "test": "rolesmith::doctor::doctor_with_host_names_what_the_host_lacks_with_fixes_that_carry_the_host",
+      "hash": "b38cd56d3e1e508e",
+      "reason": "Its assertions check what doctor --host reports missing on the host (reasons with 'on laptop', fixes carrying --host, the stderr header naming the host and this machine); doctor_reports_a_missing_program_a_failing_check_and_a_missing_entry_each_with_its_fix checks the local reasons and fixes on another library. No assertion maps; the libraries (builder vs releaser) and the programs present conflict."
+    },
+    {
+      "suite": "rust",
+      "test": "rolesmith::doctor::doctor_and_tool_install_refuse_a_project_without_rolesmith_toml",
+      "hash": "93a451a093ab560b",
+      "reason": "Its assertions check that doctor --project and tool install --project refuse a directory without rolesmith.toml, and the usage errors for a role or --tool with --project; doctor_help_tables_what_each_source_asks_for checks doctor's help text. No assertion maps; the only shared lines are the Machine stand-ins and CLI dispatch."
+    },
+    {
+      "suite": "rust",
+      "test": "rolesmith::doctor::doctor_help_tables_what_each_source_asks_for",
+      "hash": "4f8b48e09e56e56a",
+      "reason": "Its assertions check doctor --help's table of what each source asks for, row by row and against service_map::KNOWN; cli::help_exits_0_on_stdout checks only that the top-level --help exits 0 naming agent-context. No assertion maps; the shared lines are help rendering, and folding doctor's table into the top-level help test would hide which help failed."
     }
   ],
   "kept_files": [
@@ -40,8 +78,8 @@
   "mutants_from": "47cffd931da87f3107656a086cd23e445c8b6dbb",
   "measured": {
     "rust": {
-      "uncovered_lines": 166,
-      "test_seconds": 65.202
+      "uncovered_lines": 149,
+      "test_seconds": 63.986
     }
   }
 }
