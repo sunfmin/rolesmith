@@ -1,0 +1,6 @@
+{
+  "tree": "d251c25d27e9b9fea4b0b18cdfae21080badd36f+d1fba762150c532c",
+  "picker": "codex:01a21308-5a0f-7d43-a46c-7101fe07b556:default",
+  "author": "claude-code:183d6009-1a9b-567b-815d-7456ed3f76a6:opus",
+  "none": "Both mutants replace the entire section with text that lacks the updated instruction, which the test explicitly asserts is present."
+}
