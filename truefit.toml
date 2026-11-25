@@ -256,7 +256,7 @@ check = ["test"]
 # src/entry_file.rs the_section_names_every_skill_directory_and_no_role (each step it tells; `section()` takes no role, so it names none); tests/entry_file.rs (every entry file gets exactly `section()`)
 [[promise]]
 name = "managed-section-same-in-every-project-names-no-role"
-says = '''It is the same in every project and names no role: it tells the agent to install rolesmith when `command -v rolesmith` finds nothing (`brew install sunfmin/tap/rolesmith`) and otherwise upgrade it (`brew upgrade sunfmin/tap/rolesmith`), to run `rolesmith sync` when the skills are missing or `status` reports drift, to read each role's core skill, and to run `doctor` and `tool install` for what is missing, reporting a missing credential to a person; and not to run `update`, since a role's rev moves only as §5.4 says.'''
+says = '''It is the same in every project and names no role: it tells the agent to install rolesmith when `command -v rolesmith` finds nothing (`brew install sunfmin/tap/rolesmith`) and otherwise upgrade it (`brew upgrade sunfmin/tap/rolesmith`), to run `rolesmith sync` when the skills are missing or `status` reports drift, to read each role's core skill, and to run `doctor` and `tool install` for what is missing, reporting a missing credential to a person; and not to run `update` during a task, since a role's rev moves only in a commit of its own (§5.4).'''
 source = "SPEC.md:262"
 check = ["test"]
 

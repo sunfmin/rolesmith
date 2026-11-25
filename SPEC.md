@@ -264,8 +264,9 @@ in every project and names no role: it tells the agent to install rolesmith when
 rolesmith` finds nothing (`brew install sunfmin/tap/rolesmith`) and otherwise upgrade it (`brew
 upgrade sunfmin/tap/rolesmith`), to run `rolesmith sync` when the skills are missing or `status`
 reports drift, to read each role's core skill, and to run `doctor` and `tool install` for what is
-missing, reporting a missing credential to a person; and not to run `update`, since a role's rev
-moves only as §5.4 says. The section is committed, not ignored by git, and is not in the manifest.
+missing, reporting a missing credential to a person; and not to run `update` during a task, since a
+role's rev moves only in a commit of its own (§5.4). The section is committed, not ignored by
+git, and is not in the manifest.
 
 - A target's entry file that does not exist is created, unless the other entry file exists and
   imports (`@AGENTS.md`) or links (`](AGENTS.md)`) it, or is a symlink to it: then the section goes
@@ -343,9 +344,11 @@ prohibitions and skills. It writes nothing. With
 
 `rolesmith update [<role>]` moves a project's role (default: every role) to its source's local
 `main`, rewrites `rolesmith.toml`'s `rev`, and syncs; it does not fetch, so `rolesmith source update`
-comes first. `rolesmith status` says, per role, the pinned rev, the source's local `main`, how many
-commits the rev is behind and ahead of it, the roles it requires (`requires`), and the generated
-files of it and the roles it requires that differ from what the record generates or are missing
+comes first. A role's rev moves only in a commit of its own, made by a person or by an automation
+the project opts into (its library's cut, for example), never inside another change.
+`rolesmith status` says, per role, the pinned rev, the source's local `main`, how many commits the
+rev is behind and ahead of it, the roles it requires (`requires`), and the generated files
+of it and the roles it requires that differ from what the record generates or are missing
 (drift, which `sync` repairs). The roles a role requires move with it: they are at its rev. Like `sync`, it adds a source the machine
 lacks from the record's `url`.
 

@@ -101,15 +101,33 @@
     "sentence": "A role names the credentials it needs by their **mytokens** entry; rolesmith reads a value only to hand it to a process (`rolesmith env`), and never writes one to disk, to a library, to a project or to its own output files.",
     "source": "SPEC.md:24"
   },
+  "3f805bb873fd": {
+    "mark": "not",
+    "sentence": "rolesmith#55 rewrote the reason the section gives for forbidding `update`, to the commit-of-its-own invariant (a library's cut may make that commit): every project's section changes at its next `sync`, as a diff the project commits.",
+    "source": "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md:48",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
+  },
   "418d2c5afd45": {
     "mark": "promise",
     "sentence": "A library never holds this setting: `rolesmith check` refuses a `services.toml` at a library's root and a `[service]` table in `library.toml`, `role.toml` or `tool.toml` (`host-only`).",
     "source": "SPEC.md:471"
   },
+  "44ed416d62c3": {
+    "mark": "not",
+    "sentence": "Only the rolesmith program is upgraded.",
+    "source": "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md:28",
+    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
+  },
   "457ddc17a3e5": {
     "mark": "promise",
     "sentence": "`rolesmith doctor --project <dir>` and `rolesmith tool install --project <dir>` (either with `--host`) do the same for every role the project's `rolesmith.toml` records, each at its recorded rev and never the source's `main`, and for every role each requires, at that same rev (§5.1): one command for what all a project's agents need.",
     "source": "SPEC.md:226"
+  },
+  "46722a84815d": {
+    "mark": "not",
+    "sentence": "A role's rev moves only in a commit of its own, made by a person or by an automation the project opts into (its library's cut, for example), never inside another change.",
+    "source": "SPEC.md:347",
+    "why": "how a project moves a role's rev (who commits it, never inside another change), which people and the project's automations keep, not a promise a run of rolesmith could break; the section that tells agents so is checked by src/entry_file.rs's test"
   },
   "4b09ba3ee0db": {
     "mark": "promise",
@@ -266,12 +284,6 @@
     "sentence": "`probe.outcome` is `unattended` (finished, every variable the role's `[credential]`s expect printed; `seconds`), `needs a person` (not finished within the bound, then killed with its whole session; or failed saying it needs a terminal), `refused` (exited non-zero, with its stderr; or printed a line that is not a variable) or `incomplete` (`missing` names the expected variables it did not print). A probe may itself raise a Touch ID prompt; the prompt appearing is the answer.",
     "source": "SPEC.md:495"
   },
-  "8c7f107b5571": {
-    "mark": "not",
-    "sentence": "It forbids `rolesmith update`: a role's rev moves as a change to the project a person decides (SPEC §5.4). Only the rolesmith program is upgraded.",
-    "source": "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md:25",
-    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
-  },
   "8ca8268993a3": {
     "mark": "promise",
     "sentence": "A role is drafted when someone runs `rolesmith new`; lessons are distilled when someone runs `rolesmith distill`. Every change to a library lands as a pull request a person merges.",
@@ -382,6 +394,12 @@
     "mark": "not",
     "sentence": "Invariant: **which roles a project uses, at which rev, is written once, in `rolesmith.toml`; the section names no role and is the same in every project.**",
     "source": "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md:18",
+    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
+  },
+  "af97a42927ac": {
+    "mark": "not",
+    "sentence": "It forbids `rolesmith update` during a task: a role's rev moves only in a commit of its own, never inside another change (SPEC §5.4). The section runs at the start of every session, so an agent allowed to `update` there would move the rev inside an unrelated task's commit, and change its own instructions in the middle of that task.",
+    "source": "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md:25",
     "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
   },
   "b2bde020229d": {

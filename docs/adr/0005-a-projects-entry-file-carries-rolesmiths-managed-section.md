@@ -22,8 +22,11 @@ never disagree with the record.
 - The section tells the agent, before any task: install rolesmith if `command -v rolesmith` finds
   nothing, else `brew upgrade` it; `rolesmith sync` when the skills are missing or `status` reports
   drift; read each role's core skill; `doctor`, and `tool install` for a missing program, a missing
-  credential reported to a person. It forbids `rolesmith update`: a role's rev moves as a change to
-  the project a person decides (SPEC §5.4). Only the rolesmith program is upgraded.
+  credential reported to a person. It forbids `rolesmith update` during a task: a role's rev moves
+  only in a commit of its own, never inside another change (SPEC §5.4). The section runs at the
+  start of every session, so an agent allowed to `update` there would move the rev inside an
+  unrelated task's commit, and change its own instructions in the middle of that task. Only the
+  rolesmith program is upgraded.
 - An entry file that does not exist is created, unless the other one exists and imports or links it
   (or is a symlink to it): then the section goes there, so a project keeps one file.
 - `remove` of the last role takes the section out, and deletes an entry file that held only it.
@@ -41,6 +44,9 @@ second home beside the record.
 - An agent upgrades rolesmith at the start of each session; brew's auto-update interval bounds how
   often that reads the network.
 - The section's text is rolesmith's; changing it changes every project's entry file at its next
+  `sync`, as a diff the project commits.
+- rolesmith#55 rewrote the reason the section gives for forbidding `update`, to the commit-of-its-own
+  invariant (a library's cut may make that commit): every project's section changes at its next
   `sync`, as a diff the project commits.
 
 Issue: rolesmith#37.
