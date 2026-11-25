@@ -210,33 +210,6 @@ fn brewed(check: &str, formula: &str, version: &str, credential: &str) -> String
 const ASC_CREDENTIAL: &str = "[credential]\nmytokens = \"asc-api-key\"\nenv = { ASC_KEY_ID = \"Key ID\", ASC_ISSUER_ID = \"Issuer ID\" }\n";
 
 #[test]
-fn doctor_passes_when_every_program_checks_and_every_entry_exists() {
-    let m = Machine::new(&["asc-api-key", "github"]);
-    let role_toml = role(&["asc"], &["github"]);
-    let asc = tool("asc --version", ASC_CREDENTIAL);
-    m.source(&[
-        ("roles/releaser/role.toml", &role_toml),
-        ("roles/releaser/core.md", "Core.\n"),
-        ("tools/asc/tool.toml", &asc),
-    ]);
-
-    let o = m.rolesmith(&["--json", "doctor", "releaser"]);
-    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
-    let doc = json(&o);
-    conforms(&doc, &shape("doctor"));
-    assert_eq!(doc["role"], "releaser");
-    assert_eq!(doc["programs"][0]["name"], "asc");
-    assert_eq!(doc["entries"], serde_json::json!(["github", "asc-api-key"]));
-    assert_eq!(m.mytokens_calls(), "list\n", "only `mytokens list` is run");
-
-    let o = m.rolesmith(&["doctor", "releaser"]);
-    assert_eq!(o.status.code(), Some(0));
-    let human = String::from_utf8(o.stdout).unwrap();
-    assert!(human.contains("nothing missing"), "{human}");
-    assert!(human.contains("- entry asc-api-key: present"), "{human}");
-}
-
-#[test]
 fn doctor_reports_a_missing_program_a_failing_check_and_a_missing_entry_each_with_its_fix() {
     let m = Machine::new(&["github"]);
     let role_toml = role(&["asc", "xcodegen", "nothere"], &["github", "sentry"]);
@@ -963,6 +936,28 @@ fn doctor_with_host_runs_each_check_there_over_ssh_and_reads_entries_here() {
     let o = m.rolesmith(&["--json", "doctor", "builder"]);
     assert_eq!(o.status.code(), Some(1));
     assert_eq!(json(&o)["error"]["missing"][0]["name"], "metal");
+
+    // Once every program checks here too, doctor passes here.
+    m.program("rolesmith-test-metal", "echo 'metal 17C48'\n");
+    let o = m.rolesmith(&["--json", "doctor", "builder"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    let doc = json(&o);
+    conforms(&doc, &shape("doctor"));
+    assert_eq!(doc["role"], "builder");
+    assert_eq!(doc["programs"][0]["name"], "metal");
+    assert_eq!(doc["entries"], serde_json::json!(["github", "asc-api-key"]));
+    assert_eq!(doc["host"], Value::Null, "the checks ran here");
+
+    let o = m.rolesmith(&["doctor", "builder"]);
+    assert_eq!(o.status.code(), Some(0));
+    let human = String::from_utf8(o.stdout).unwrap();
+    assert!(human.contains("nothing missing"), "{human}");
+    assert!(human.contains("- entry asc-api-key: present"), "{human}");
+    assert!(
+        m.mytokens_calls().lines().all(|l| l == "list"),
+        "only `mytokens list` is run: {}",
+        m.mytokens_calls()
+    );
 }
 
 #[test]
@@ -2157,7 +2152,7 @@ fn a_brew_tool_following_stable_is_missing_while_older_and_tool_install_upgrades
 }
 
 #[test]
-fn tool_install_installs_a_stable_brew_tool_by_its_formula_alone() {
+fn a_stable_brew_tool_is_installed_by_its_formula_alone_and_upgraded_on_another_host_there() {
     let m = Machine::new(&[]);
     let d = m.path("");
     m.stable_brew(&d, "2.0");
@@ -2165,6 +2160,28 @@ fn tool_install_installs_a_stable_brew_tool_by_its_formula_alone() {
     // Its program is on PATH, but not from brew.
     m.flux_installed(&d, "");
     std::fs::remove_file(d.join("cellar")).unwrap();
+
+    // The laptop has its own brew, with 1.0 installed: it is compared and upgraded there.
+    m.ssh();
+    let laptop = m.path("hosts/laptop");
+    m.stable_brew(&laptop, "2.0");
+    m.flux_installed(&laptop, "1.0");
+    let o = m.rolesmith(&["--json", "doctor", "fluxed", "--host", "laptop"]);
+    assert_eq!(o.status.code(), Some(1), "{}", stderr(&o));
+    assert_eq!(
+        json(&o)["error"]["missing"][0]["reason"],
+        "check `rolesmith-test-flux --version` on laptop passes, but brew has sunfmin/tap/flux 1.0 installed, not its stable 2.0"
+    );
+    let o = m.rolesmith(&["--json", "tool", "install", "fluxed", "--host", "laptop"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    assert!(
+        std::fs::read_to_string(laptop.join("brew-calls"))
+            .unwrap()
+            .contains("\nupgrade sunfmin/tap/flux\n")
+    );
+    assert_eq!(m.brew_calls(), "", "this machine's brew is not asked");
+    let o = m.rolesmith(&["doctor", "fluxed", "--host", "laptop"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
 
     let o = m.rolesmith(&["--json", "doctor", "fluxed"]);
     assert_eq!(
@@ -2191,31 +2208,4 @@ fn tool_install_installs_a_stable_brew_tool_by_its_formula_alone() {
     );
     assert!(!m.brew_calls().contains('@'), "{}", m.brew_calls());
     assert_eq!(std::fs::read_to_string(d.join("cellar")).unwrap(), "2.0");
-}
-
-#[test]
-fn a_stable_brew_tool_on_another_host_is_compared_and_upgraded_there() {
-    let m = Machine::new(&[]);
-    m.ssh();
-    let d = m.path("hosts/laptop");
-    m.stable_brew(&d, "2.0");
-    m.flux_installed(&d, "1.0");
-    flux_library(&m);
-
-    let o = m.rolesmith(&["--json", "doctor", "fluxed", "--host", "laptop"]);
-    assert_eq!(o.status.code(), Some(1), "{}", stderr(&o));
-    assert_eq!(
-        json(&o)["error"]["missing"][0]["reason"],
-        "check `rolesmith-test-flux --version` on laptop passes, but brew has sunfmin/tap/flux 1.0 installed, not its stable 2.0"
-    );
-    let o = m.rolesmith(&["--json", "tool", "install", "fluxed", "--host", "laptop"]);
-    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
-    assert!(
-        std::fs::read_to_string(d.join("brew-calls"))
-            .unwrap()
-            .contains("\nupgrade sunfmin/tap/flux\n")
-    );
-    assert_eq!(m.brew_calls(), "", "this machine's brew is not asked");
-    let o = m.rolesmith(&["doctor", "fluxed", "--host", "laptop"]);
-    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
 }
