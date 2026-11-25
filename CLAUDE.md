@@ -11,13 +11,5 @@ changing behaviour, and change it in the same commit when behaviour changes.
   `mytokens` on `PATH`; no test reaches the network or a real keychain.
 - rolesmith never calls a model and never writes a secret (SPEC.md §1). A change that would is out of
   scope; say so on the issue.
-
-## Agent skills
-
-### Issue tracker
-
-Issues are in factorium's local tracker (`factorium issue … rolesmith`). See `docs/agents/issue-tracker.md`.
-
-### Domain docs
-
-single-context: `GLOSSARY.md` and `docs/adr/` at the root. See `docs/agents/domain.md`.
+- GitHub Issues on sunfmin/rolesmith are not this repo's tracker. (A library's GitHub issues are
+  where rolesmith files *lessons*, SPEC.md §6; that is the product, not this repo's work.)
