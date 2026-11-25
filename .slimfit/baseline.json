@@ -27,6 +27,14 @@
       "commits_90d": 14,
       "commits_total": 14,
       "reason": "Already deep: one entry point, load(root, only) -> Library | every Problem, hides reading, TOML/YAML parsing, line finding, requires closure and cycle check, external-skill fetch, tool pinning and the secret scan; callers use only load, the parsed types, valid_name, split_front_matter, Install::pinned and the limits. Its 14 commits in 90 days are features (requires, [[skill]], script install, brew stable, [service]) each adding its check to the one home of library validation, which is where they belong. Tests go through the binary; the three unit tests cover pure helpers only. Splitting the schema types from the Checker would move lines without hiding anything."
+    },
+    {
+      "suite": "rust",
+      "file": "src/project.rs",
+      "prod_lines": 638,
+      "commits_90d": 16,
+      "commits_total": 16,
+      "reason": "Already deep: callers use sync, install, drift, locate, named_position, Record::load/save, known_projects, Place and the TARGETS table; behind them it hides planning every role's files (requires closure, two-rev conflicts), rendering a role into installed skills (core skill, renamed SKILL.md front matter, symlink refusal), the foreign-file refusal, manifest diffing, write-if-changed with the exec bit, empty-dir cleanup, the .gitignore block and the projects file. Its 16 commits in 90 days are features (global installs, targets, requires, external skills, entry files, doctor --project) each adding to this one home of what an install writes. Tests go through the binary; the one unit test covers the pure parse_projects. Splitting the role renderer or .gitignore block into modules would move lines without narrowing any interface."
     }
   ],
   "mutants_from": "47cffd931da87f3107656a086cd23e445c8b6dbb",
