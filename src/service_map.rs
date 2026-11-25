@@ -359,6 +359,8 @@ mod tests {
         // A word with `=` that does not start with a name is the program, not an assignment.
         assert_eq!(asks_for("./a=b op", none), Asks::Unknown);
         assert_eq!(asks_for("", none), Asks::Unknown);
+        // A command sh would not read as words is not guessed at.
+        assert_eq!(asks_for("A='x op inject", none), Asks::Unknown);
     }
 
     #[test]
