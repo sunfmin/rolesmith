@@ -1194,6 +1194,14 @@ fn doctor_project_checks_every_recorded_and_required_role_each_tool_once_naming_
         ])
     );
     assert_eq!(doc["entries"], serde_json::json!(["asc-api-key", "github"]));
+
+    // A service this host maps names the roles that need it, as a program does.
+    m.map_service("github", "echo GITHUB_TOKEN=x", None);
+    let o = m.rolesmith(&["--json", "doctor", "--project", project]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    let services = json(&o)["services"].clone();
+    assert_eq!(services[0]["name"], "github", "{services}");
+    assert_eq!(services[0]["from"], serde_json::json!(["felix/base"]));
 }
 
 #[test]
@@ -1658,6 +1666,12 @@ fn doctor_fails_on_kept_probes_it_cannot_read_rather_than_take_none() {
         err.contains("cannot read") && err.contains("probes.json"),
         "{err}"
     );
+    std::fs::remove_dir(m.path("data/rolesmith/probes.json")).unwrap();
+    std::fs::write(m.path("data/rolesmith/probes.json"), "{ not json").unwrap();
+    let o = m.rolesmith(&["doctor", "signer"]);
+    assert_eq!(o.status.code(), Some(1));
+    let err = stderr(&o);
+    assert!(err.contains("probes.json does not parse"), "{err}");
 }
 
 impl Machine {
@@ -2005,8 +2019,8 @@ impl Machine {
     /// Installing or upgrading copies that version into `d/cellar` (what brew has installed) and
     /// puts `rolesmith-test-flux` on `d/bin`; while `d/locked` exists, the next one fails as brew
     /// does when another brew holds the formula's lock, and removes it; while `d/broken` exists, each
-    /// fails as a broken install does. Calls go to
-    /// `d/brew-calls`.
+    /// fails as a broken install does; while `d/unknown` exists, brew knows no such formula. Calls
+    /// go to `d/brew-calls`.
     fn stable_brew(&self, d: &Path, stable: &str) {
         let tap = d.join("Taps/sunfmin/homebrew-tap");
         let (bare, work) = (d.join("tap.git"), d.join("tap-work"));
@@ -2029,7 +2043,7 @@ impl Machine {
 T='@D/Taps/sunfmin/homebrew-tap'
 case "$1" in
   --repo) [ "$2" = sunfmin/tap ] || exit 1; echo "$T" ;;
-  info) [ "$3" = sunfmin/tap/flux ] || { echo "No available formula $3" >&2; exit 1; }
+  info) [ "$3" = sunfmin/tap/flux ] && [ ! -f '@D/unknown' ] || { echo "No available formula $3" >&2; exit 1; }
     i=; [ -f '@D/cellar' ] && i="{\"version\":\"$(cat '@D/cellar')\"}"
     echo "{\"formulae\":[{\"versions\":{\"stable\":\"$(cat "$T/flux.stable")\"},\"installed\":[$i]}]}" ;;
   install|upgrade) [ "$2" = sunfmin/tap/flux ] || exit 1
@@ -2165,6 +2179,15 @@ fn tool_install_installs_a_stable_brew_tool_by_its_formula_alone() {
     // Its program is on PATH, but not from brew.
     m.flux_installed(&d, "");
     std::fs::remove_file(d.join("cellar")).unwrap();
+
+    // A formula brew does not know is missing, saying so.
+    std::fs::write(d.join("unknown"), "").unwrap();
+    let o = m.rolesmith(&["--json", "doctor", "fluxed"]);
+    assert_eq!(
+        json(&o)["error"]["missing"][0]["reason"],
+        "check `rolesmith-test-flux --version` passes, but brew has no formula sunfmin/tap/flux: No available formula sunfmin/tap/flux"
+    );
+    std::fs::remove_file(d.join("unknown")).unwrap();
 
     let o = m.rolesmith(&["--json", "doctor", "fluxed"]);
     assert_eq!(
