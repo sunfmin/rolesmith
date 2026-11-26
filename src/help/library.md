@@ -2,7 +2,7 @@ What a library holds, file by file: what each key means and what an install make
 
 ## The layout
 
-```
+```text
 <library>/
   library.toml                 # name = "felix", description, rolesmith = "<least version>"
   roles/<role>/
