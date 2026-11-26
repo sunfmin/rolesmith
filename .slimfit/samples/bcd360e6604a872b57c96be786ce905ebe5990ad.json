@@ -1,0 +1,17 @@
+{
+  "tip": "bcd360e6604a872b57c96be786ce905ebe5990ad",
+  "from": "3fa0c974b4bbcd7ff9fe99e97e4b17ed82807763",
+  "pool": 2,
+  "drawn": {
+    "rust": [
+      {
+        "name": "src/entry_file.rs:21:5: replace section -> String with \"xyzzy\".into()",
+        "outcome": "killed"
+      },
+      {
+        "name": "src/entry_file.rs:21:5: replace section -> String with String::new()",
+        "outcome": "killed"
+      }
+    ]
+  }
+}
