@@ -39,7 +39,6 @@
     ]
   },
   "docs/adr/0004-a-role-uses-skills-of-other-repositories-pinned-by-commit.md": {
-    "copies": 1,
     "local_refs": 2,
     "pointers": [
       "SKILL.md"
