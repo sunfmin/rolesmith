@@ -140,7 +140,7 @@ check = ["test"]
 name = "no-timer-starts-drafting"
 says = '''Drafting a role and distilling lessons are started by a person, never by a timer or a scheduler.'''
 source = "docs/adr/0001-roles-leave-guild-and-people-schedule-their-drafting-and-distilling.md:22"
-kept = '''kept by absence: rolesmith is a CLI with no daemon, timer or scheduler; it does only what a person's command asks (SPEC.md §1)'''
+kept = '''kept by absence: rolesmith is a CLI with no daemon, timer or scheduler; it does only what a person's command asks'''
 
 [[promise]]
 name = "library-changes-only-as-merged-prs"

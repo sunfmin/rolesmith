@@ -12,15 +12,8 @@ upstream.
 
 ## Decision
 
-A role references an external skill by URL, path and pinned commit, and does not copy it:
-
-```toml
-[[skill]]
-name = "codebase-design"
-url = "https://github.com/mattpocock/skills"
-path = "skills/engineering/codebase-design"
-rev = "<full sha>"
-```
+A role references an external skill by URL, path and pinned commit, and does not copy it: a
+`[[skill]]` table of its role.toml (`rolesmith help library`).
 
 Invariant: **an external skill's text has one home, its repository; the library holds only the
 pin.**

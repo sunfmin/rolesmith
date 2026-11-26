@@ -95,6 +95,12 @@
     "sentence": "Everything rolesmith writes into a project besides it is **generated** from it: listed in `.rolesmith/manifest.json`, ignored by git (rolesmith adds the lines to `.gitignore`), rewritten identically by `rolesmith sync`. rolesmith deletes only files its manifest lists.",
     "source": "SPEC.md:131"
   },
+  "2002bf67a044": {
+    "mark": "not",
+    "sentence": "Three ways were laid out: keep Guild whole and add a way to install a role elsewhere; split roles out of Guild; or leave roles Guild-only.",
+    "source": "docs/adr/0001-roles-leave-guild-and-people-schedule-their-drafting-and-distilling.md:13",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
+  },
   "2359d2b1b63a": {
     "mark": "not",
     "sentence": "Each runs as the user, without `sudo`, writing under the home directory only.",
