@@ -1,4 +1,4 @@
-//! `suggest` and `use --auto` (SPEC.md §5.5) through the built binary: roles found for a project
+//! `suggest` and `use --auto` through the built binary: roles found for a project
 //! by what the project is.
 
 mod common;

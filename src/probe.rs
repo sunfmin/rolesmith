@@ -1,4 +1,4 @@
-//! `doctor --probe` (SPEC.md §7.3): a mapped service's command read once, the way `env` reads it
+//! `doctor --probe`: a mapped service's command read once, the way `env` reads it
 //! but with nothing that could answer a prompt, under a bound; and the outcome each probe keeps on
 //! this host, in `$XDG_DATA_HOME/rolesmith/probes.json`, by service, with the command it probed and
 //! when. A value it reads is parsed for its names and dropped: it is never answered or kept.

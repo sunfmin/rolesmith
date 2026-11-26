@@ -1,9 +1,33 @@
 {
+  "01b493ac6ae5": {
+    "mark": "not",
+    "sentence": "Options were a store of rolesmith's own, or names only with the values left in mytokens (or a host's command). Names only was chosen: a value has one home, the keychain it is kept in, and rolesmith cannot leak what it never keeps.",
+    "source": "docs/adr/0007-rolesmith-never-holds-a-secret.md:24",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
+  },
+  "01d5acaa457c": {
+    "mark": "not",
+    "sentence": "A role and its tools name entries (`services`, `[credential]`), never values.",
+    "source": "docs/adr/0007-rolesmith-never-holds-a-secret.md:18",
+    "why": "an ADR's restatement of a promise truefit.toml registers from the sentence that holds it (record-keeps-only-the-roles-a-person-named, managed-section-same-in-every-project-names-no-role, credential-values-only-to-a-process, a-host-chooses-where-a-service-is-read); one home per promise"
+  },
+  "03682cbafefd": {
+    "mark": "not",
+    "sentence": "Every refusal is one message on stderr, `rolesmith: <message>`; a usage error is clap's message.",
+    "source": "src/help/errors.md:11",
+    "why": "a help page's restatement of a promise truefit.toml registers from the sentence that holds it (non-interactive-json-exit-codes, check-prints-every-problem, doctor-checks-every-program-and-entry-with-its-fix, record-keeps-only-the-roles-a-person-named, tool-counts-installed-only-when-its-check-shows-the-pin); one home per promise"
+  },
   "037f54ea89e5": {
     "mark": "not",
     "sentence": "Anything that applies only to some tasks belongs in a skill.",
     "source": "SPEC.md:82",
     "why": "rationale, history or advice to the reader (what core.md is for, where task-specific rules go, why roles left Guild), not a promise a run of rolesmith could break"
+  },
+  "05ed1df79889": {
+    "mark": "not",
+    "sentence": "Anything only some tasks need belongs in a skill.",
+    "source": "src/help/library.md:46",
+    "why": "what core.md is for and where task-specific rules go: advice to whoever writes a role, not a promise a run of rolesmith could break"
   },
   "0a87be0eea88": {
     "mark": "promise",
@@ -49,10 +73,22 @@
     "sentence": "run `check` (of the role, or the whole working copy) and refuse with its problems if it fails; commit the working copy's changes on its current `rolesmith/*` branch (refuse on `main` or any other branch, and when the branch does not differ from `main`); push that branch to the source's `origin`, never `main`, never forced; open a pull request onto `main` with `gh pr create`, its body listing what changed per role (and outside any role) and a `Closes #<n>` line per `--closes`; print its URL.",
     "source": "SPEC.md:561"
   },
+  "1a024bfe2e29": {
+    "mark": "not",
+    "sentence": "Anything rolesmith wrote a value into would be copied to every machine and every reader of that library or project.",
+    "source": "docs/adr/0007-rolesmith-never-holds-a-secret.md:9",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
+  },
   "1cdb5e60cc6c": {
     "mark": "promise",
     "sentence": "Before comparing, the formula's own tap (`<user>/<repo>` of `<user>/<repo>/<name>`) is brought up to its remote with `git pull --ff-only` in `brew --repo <tap>`, never `brew update`, and at most once a day: a tap whose `.git/rolesmith-refreshed` was touched within 24 hours is not fetched, and the file is touched after each pull that succeeds.",
     "source": "SPEC.md:192"
+  },
+  "1e6808c9a392": {
+    "mark": "not",
+    "sentence": "The old one is removed (`rolesmith remove`, then the directory) only after every agent started from it has finished.",
+    "source": "src/help/composing.md:7",
+    "why": "advice to the reader on composing roles (what to require, what to name, when to remove a directory), not a promise a run of rolesmith could break"
   },
   "1ff7784929fa": {
     "mark": "promise",
@@ -100,6 +136,24 @@
     "mark": "promise",
     "sentence": "A role names the credentials it needs by their **mytokens** entry; rolesmith reads a value only to hand it to a process (`rolesmith env`), and never writes one to disk, to a library, to a project or to its own output files.",
     "source": "SPEC.md:24"
+  },
+  "35bb038cd3a8": {
+    "mark": "not",
+    "sentence": "Invariant: **\"X is also a Y\" is written once, in X's role.toml; records name only the roles a person chose.**",
+    "source": "docs/adr/0003-a-role-names-the-roles-it-builds-on-in-its-role-toml.md:15",
+    "why": "an ADR's restatement of a promise truefit.toml registers from the sentence that holds it (record-keeps-only-the-roles-a-person-named, managed-section-same-in-every-project-names-no-role, credential-values-only-to-a-process, a-host-chooses-where-a-service-is-read); one home per promise"
+  },
+  "3be3ee6f8c03": {
+    "mark": "not",
+    "sentence": "`core.md` is the role's standing memory: rules that hold for every task of the role.",
+    "source": "src/help/library.md:46",
+    "why": "what core.md is for and where task-specific rules go: advice to whoever writes a role, not a promise a run of rolesmith could break"
+  },
+  "3c546bb92e4a": {
+    "mark": "not",
+    "sentence": "A project's record keeps only the roles a person named.",
+    "source": "src/help/library.md:40",
+    "why": "a help page's restatement of a promise truefit.toml registers from the sentence that holds it (non-interactive-json-exit-codes, check-prints-every-problem, doctor-checks-every-program-and-entry-with-its-fix, record-keeps-only-the-roles-a-person-named, tool-counts-installed-only-when-its-check-shows-the-pin); one home per promise"
   },
   "3f805bb873fd": {
     "mark": "not",
@@ -204,6 +258,12 @@
     "sentence": "`stable` is for `brew` only.",
     "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:141"
   },
+  "669c2b84d973": {
+    "mark": "not",
+    "sentence": "It forbids `rolesmith update` during a task: a role's rev moves only in a commit of its own, never inside another change.",
+    "source": "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md:25",
+    "why": "an ADR's restatement of a promise truefit.toml registers from the sentence that holds it (record-keeps-only-the-roles-a-person-named, managed-section-same-in-every-project-names-no-role, credential-values-only-to-a-process, a-host-chooses-where-a-service-is-read); one home per promise"
+  },
   "6a617db9a3b3": {
     "mark": "promise",
     "sentence": "`rolesmith update [<role>]` moves a project's role (default: every role) to its source's local `main`, rewrites `rolesmith.toml`'s `rev`, and syncs; it does not fetch, so `rolesmith source update` comes first.",
@@ -268,10 +328,22 @@
     "sentence": "ask `gh` for the role's open lessons (`lesson` and `role:<role>`); with none, say so and change nothing (`branch` and `brief` null); otherwise refuse a working copy with uncommitted changes, put it on a new branch `rolesmith/distill-<role>` from `main` (refuse one that exists), and print the distilling brief: the role's current `core.md`, prohibitions and skills, each open lesson (number, title, body, evidence), where each belongs (the narrowest place; core only for rules of every task), `lesson close` for one judged wrong, and the last step `check`, then `propose --closes <n>...`",
     "source": "SPEC.md:565"
   },
+  "8168fb22dba4": {
+    "mark": "not",
+    "sentence": "`script = \"<shell>\"`: run with `sh -c`, as the user, never with `sudo`. rolesmith cannot see what a script installed, so its check passes only when its stdout shows the `version`, which must be a pin, never `stable`. pixi, mise, `uv tool`, `npm` into `~/.local`, a checked binary and Apple's components are each written as one:",
+    "source": "src/help/library.md:81",
+    "why": "a help page's restatement of a promise truefit.toml registers from the sentence that holds it (non-interactive-json-exit-codes, check-prints-every-problem, doctor-checks-every-program-and-entry-with-its-fix, record-keeps-only-the-roles-a-person-named, tool-counts-installed-only-when-its-check-shows-the-pin); one home per promise"
+  },
   "81e2aea7c557": {
     "mark": "promise",
     "sentence": "The core skill of a role that requires others opens, before `core.md`, by naming the core skills of every role it requires, transitively, so one pointer to a role's core skill reaches them all.",
     "source": "SPEC.md:297"
+  },
+  "8268151aa28c": {
+    "mark": "not",
+    "sentence": "An agent started outside any repository (a harness given a directory of roles, such as factorium's `--role <dir>`) gets a directory that holds only `rolesmith.toml` and the installs: `rolesmith use A B --into <target> --project <dir>`. Each combination of roles is its own directory.",
+    "source": "src/help/composing.md:4",
+    "why": "advice to the reader on composing roles (what to require, what to name, when to remove a directory), not a promise a run of rolesmith could break"
   },
   "83b8d2f16c07": {
     "mark": "not",
@@ -328,6 +400,12 @@
     "sentence": "For a script, rolesmith cannot see what the script installed, so the check's stdout must contain `version`; a check that exits 0 without it is missing (doctor reports it, `tool install` runs the script). A brew tool's version is held by its formula, so its check need only pass.",
     "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:24",
     "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
+  },
+  "965c42db7663": {
+    "mark": "not",
+    "sentence": "Undo: none short of a store of rolesmith's own; every command that reads a credential would change.",
+    "source": "docs/adr/0007-rolesmith-never-holds-a-secret.md:31",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
   },
   "97b9d38321b3": {
     "mark": "not",
@@ -417,6 +495,12 @@
     "sentence": "Drafting a role and distilling lessons are started by a person, never by a timer or a scheduler.",
     "source": "docs/adr/0001-roles-leave-guild-and-people-schedule-their-drafting-and-distilling.md:22"
   },
+  "c58be865f3ae": {
+    "mark": "not",
+    "sentence": "Where a host reads a service is the host's own setting (ADR 0006), never the library's.",
+    "source": "docs/adr/0007-rolesmith-never-holds-a-secret.md:18",
+    "why": "an ADR's restatement of a promise truefit.toml registers from the sentence that holds it (record-keeps-only-the-roles-a-person-named, managed-section-same-in-every-project-names-no-role, credential-values-only-to-a-process, a-host-chooses-where-a-service-is-read); one home per promise"
+  },
   "c600a9964325": {
     "mark": "promise",
     "sentence": "It runs only `brew`, as the user, into brew's own prefix: never `sudo`, never a system directory.",
@@ -436,6 +520,18 @@
     "mark": "promise",
     "sentence": "The section's text is rolesmith's; changing it changes every project's entry file at its next `sync`, as a diff the project commits.",
     "source": "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md:43"
+  },
+  "c7aa263c4fa4": {
+    "mark": "not",
+    "sentence": "`missing` (`doctor`): every thing the role needs that this machine lacks.",
+    "source": "src/help/errors.md:29",
+    "why": "a help page's restatement of a promise truefit.toml registers from the sentence that holds it (non-interactive-json-exit-codes, check-prints-every-problem, doctor-checks-every-program-and-entry-with-its-fix, record-keeps-only-the-roles-a-person-named, tool-counts-installed-only-when-its-check-shows-the-pin); one home per promise"
+  },
+  "c861b8ca9c7f": {
+    "mark": "not",
+    "sentence": "`problems` (`check`, `propose`, and every command that reads a role at a commit, such as `show`): every problem found, not only the first.",
+    "source": "src/help/errors.md:27",
+    "why": "a help page's restatement of a promise truefit.toml registers from the sentence that holds it (non-interactive-json-exit-codes, check-prints-every-problem, doctor-checks-every-program-and-entry-with-its-fix, record-keeps-only-the-roles-a-person-named, tool-counts-installed-only-when-its-check-shows-the-pin); one home per promise"
   },
   "c8c894dc2841": {
     "mark": "promise",
@@ -490,6 +586,12 @@
     "source": "docs/adr/0003-a-role-names-the-roles-it-builds-on-in-its-role-toml.md:21",
     "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
   },
+  "d88fbb320ca5": {
+    "mark": "not",
+    "sentence": "The section runs at the start of every session, so an agent allowed to `update` there would move the rev inside an unrelated task's commit, and change its own instructions in the middle of that task.",
+    "source": "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md:26",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
+  },
   "da3627fe75b5": {
     "mark": "promise",
     "sentence": "Markdown, at most 8,000 characters.",
@@ -516,10 +618,22 @@
     "sentence": "A command that cannot run or exits non-zero is refused with its exit and its stderr; a statement that is not a variable is refused by its line number, never its text.",
     "source": "SPEC.md:462"
   },
+  "e23fd722db40": {
+    "mark": "not",
+    "sentence": "A project's generated skills are ignored by git, so a fresh clone holds only `rolesmith.toml`. An agent started there does not know to run `rolesmith sync`, or that rolesmith exists, and its roles are not in force until a person reminds it.",
+    "source": "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md:7",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
+  },
   "e412303d6edd": {
     "mark": "promise",
     "sentence": "Every command is non-interactive, takes `--json` (one JSON document on stdout; human text otherwise), writes diagnostics to stderr, and exits 0 on success, 1 when it refused or something failed, 2 on a usage error.",
     "source": "SPEC.md:223"
+  },
+  "e46e74b27acd": {
+    "mark": "not",
+    "sentence": "The contract then let nothing but roles and tools into a library, so they could only be copied in, and a copy drifts from upstream.",
+    "source": "docs/adr/0004-a-role-uses-skills-of-other-repositories-pinned-by-commit.md:9",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
   },
   "ea43581d3451": {
     "mark": "promise",
@@ -530,6 +644,12 @@
     "mark": "promise",
     "sentence": "The record keeps only the roles a person named; what they require is derived at each install and listed in the manifest with the rest, never written into the record.",
     "source": "SPEC.md:299"
+  },
+  "ec40c7187394": {
+    "mark": "not",
+    "sentence": "A role some projects want and others do not (for example running tests on a real phone) is not required by anything; it is named in `rolesmith use` only for the projects that want it.",
+    "source": "src/help/composing.md:3",
+    "why": "advice to the reader on composing roles (what to require, what to name, when to remove a directory), not a promise a run of rolesmith could break"
   },
   "ec5d58a19860": {
     "mark": "not",
@@ -568,6 +688,12 @@
     "sentence": "(On the file's first line it would hide the front matter: agents read front matter only from a first line `---`.)",
     "source": "SPEC.md:163",
     "why": "rationale for where the comment goes (what agents read), not a promise of rolesmith's behaviour"
+  },
+  "f7afc89fad7a": {
+    "mark": "not",
+    "sentence": "A role that every agent of another role needs (\"an iOS app coder is also a coder\") is named in that role's `requires`, never listed again per project.",
+    "source": "src/help/composing.md:3",
+    "why": "advice to the reader on composing roles (what to require, what to name, when to remove a directory), not a promise a run of rolesmith could break"
   },
   "f86045e23988": {
     "mark": "not",

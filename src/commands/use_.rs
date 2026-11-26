@@ -1,6 +1,6 @@
 //! `rolesmith use <role>... --into <target>... [--project <dir> | --global] [--rev <rev>]`: record
-//! roles in a project's `rolesmith.toml` (or the user's `global.toml`) and install them (SPEC.md §4,
-//! §5.1, §5.2, §8); `use --auto` installs what `suggest` lists for a project (§5.5).
+//! roles in a project's `rolesmith.toml` (or the user's `global.toml`) and install them;
+//! `use --auto` installs what `suggest` lists for a project.
 
 use serde_json::Value;
 

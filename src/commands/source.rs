@@ -1,4 +1,4 @@
-//! `rolesmith source add|list|update|remove`: the libraries this machine knows (SPEC.md §2, §8).
+//! `rolesmith source add|list|update|remove`: the libraries this machine knows.
 
 use serde_json::{Value, json};
 

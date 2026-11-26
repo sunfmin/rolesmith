@@ -1,5 +1,5 @@
 //! `rolesmith distill <role>`: put the role's source on a new branch and print the distilling brief
-//! with the role's current text and its open lessons (SPEC.md §6, §8.1).
+//! with the role's current text and its open lessons.
 
 use serde_json::{Value, json};
 
@@ -171,7 +171,7 @@ fn bullets(items: Vec<String>) -> String {
         .join("\n")
 }
 
-/// The distilling brief, kept as a file so it is reviewed like code (§8.1), its blanks filled.
+/// The distilling brief, kept as a file so it is reviewed like code, its blanks filled.
 fn brief(
     role: &Role,
     source: &str,

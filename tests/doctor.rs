@@ -1,4 +1,4 @@
-//! `doctor`, `tool show`, `tool install` and `env` (SPEC.md §3.5, §7.1, §8) through the built
+//! `doctor`, `tool show`, `tool install` and `env` through the built
 //! binary, with a local bare repository as the library, stand-in programs on `PATH`, a `mytokens`
 //! stand-in that answers `list` and fails the test if anything reads a value (`get`, `env`) unless
 //! the test serves values (for `rolesmith env`), a `brew` stand-in that offers the formulae a test

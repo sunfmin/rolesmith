@@ -12,7 +12,7 @@ again beside the iOS one, and keep the two in step by hand.
 ## Decision
 
 What a role builds on is declared in that role's `role.toml`: `requires = ["coder"]`, role names of
-the same library (SPEC §3.1). Invariant: **"X is also a Y" is written once, in X's role.toml;
+the same library. Invariant: **"X is also a Y" is written once, in X's role.toml;
 records name only the roles a person chose.**
 
 - Installing a role installs every role it requires, transitively, from the same source at the same
@@ -23,7 +23,7 @@ records name only the roles a person chose.**
 - A role's core skill opens by naming the core skills of the roles it requires, so a factorium role
   directory's `CLAUDE.md` stays one line: "read `rolesmith-<role>`".
 - `check` refuses an unknown required role and a cycle; `prompt`, `status`, `update` and `remove`
-  account for required roles (SPEC §5).
+  account for required roles.
 
 Options were `requires` in role.toml, or each project's (and role directory's) `rolesmith.toml`
 listing every role itself, which already worked. `requires` was chosen because the fact is about the

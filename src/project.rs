@@ -1,4 +1,4 @@
-//! Where roles are installed (SPEC.md §4, §5.1, §5.2): a project, with its record `rolesmith.toml`,
+//! Where roles are installed: a project, with its record `rolesmith.toml`,
 //! the files generated from it into each target's skill directory, their manifest
 //! `.rolesmith/manifest.json`, and the `.gitignore` lines that ignore them; or the user (`--global`),
 //! with its record `global.toml` and manifest beside it in rolesmith's data directory, and the files
@@ -29,9 +29,9 @@ pub const GLOBAL_RECORD: &str = "global.toml";
 /// The manifest of the user's global installs, beside [`GLOBAL_RECORD`].
 pub const GLOBAL_MANIFEST: &str = "global.manifest.json";
 
-/// A target (§5.2): the agent's name, the directory it reads skills from (relative to the
+/// A target: the agent's name, the directory it reads skills from (relative to the
 /// project's root and, for a global install, to `HOME`), and the entry file it reads first in a
-/// project, where rolesmith writes its managed section (§4).
+/// project, where rolesmith writes its managed section.
 pub struct Target {
     pub name: &'static str,
     pub skills: &'static str,
@@ -47,7 +47,7 @@ pub struct Target {
 ///   the user's `$HOME/.agents/skills` (https://learn.chatgpt.com/docs/build-skills, where
 ///   https://developers.openai.com/codex/skills redirects; read 2026-11-22); it reads `AGENTS.md`.
 /// - agents: `.agents/skills`, and the user's `~/.agents/skills`: where `npx skills` installs and
-///   what Orca's agents read (SPEC.md §5.2); `AGENTS.md`, the file agents other than Claude Code
+///   what Orca's agents read; `AGENTS.md`, the file agents other than Claude Code
 ///   read.
 ///
 /// Two targets may share a directory (codex and agents do); a role installed into both writes its
@@ -265,7 +265,7 @@ pub fn drift(place: &Place, entry: &RoleEntry) -> Result<Drift, Failure> {
     Ok(Drift { files, requires })
 }
 
-/// A role installed only because roles of the record require it (§3.1): from the source and at
+/// A role installed only because roles of the record require it: from the source and at
 /// the rev of the roles that require it.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Required {

@@ -1,4 +1,4 @@
-//! `rolesmith propose` (SPEC.md §1.2, §8) through the built binary, with a local bare repository
+//! `rolesmith propose` through the built binary, with a local bare repository
 //! as the library's remote and a `gh` stand-in on `PATH` that records its arguments and prints a
 //! pull request URL; nothing reaches the network.
 

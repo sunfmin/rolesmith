@@ -1,5 +1,5 @@
 //! `rolesmith new <role> --need "<text>" [--source <name>]`: scaffold a role in a source's working
-//! copy on a new branch and print the drafting brief (SPEC.md §8, §8.1).
+//! copy on a new branch and print the drafting brief.
 
 use serde_json::{Value, json};
 
@@ -113,7 +113,7 @@ impl Command for Args {
     }
 }
 
-/// The drafting brief, kept as a file so it is reviewed like code (§8.1), its blanks filled.
+/// The drafting brief, kept as a file so it is reviewed like code, its blanks filled.
 fn brief(role: &str, source: &str, branch: &str, dir: &str, need: &str) -> String {
     format!(
         include_str!("../briefs/new.md"),

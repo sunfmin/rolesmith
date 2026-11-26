@@ -1,4 +1,4 @@
-//! A library's GitHub repository, as `gh` reaches it (SPEC.md §6, §10): which repository a source's
+//! A library's GitHub repository, as `gh` reaches it: which repository a source's
 //! URL names, and running `gh` against it.
 
 use std::io::Write;

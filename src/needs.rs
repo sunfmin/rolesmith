@@ -1,4 +1,4 @@
-//! What roles need of a machine (SPEC.md §3.5, §7.1): the tool of each program they name and the
+//! What roles need of a machine: the tool of each program they name and the
 //! mytokens entry of each service and credential they read, each once, with the roles that need it.
 //! `doctor` checks it and `tool install` installs it, for one role or for every role a project
 //! records.

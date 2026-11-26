@@ -20,6 +20,11 @@ pub struct Composing;
 #[topic(name = "errors")]
 pub struct Errors;
 
+#[doc = include_str!("help/library.md")]
+#[derive(Topic)]
+#[topic(name = "library")]
+pub struct Library;
+
 #[doc = include_str!("help/sources.md")]
 #[derive(Topic)]
 #[topic(name = "sources")]
@@ -31,6 +36,7 @@ pub fn manual() -> Help {
     Help::new(tree())
         .topic::<Composing>()
         .topic::<Errors>()
+        .topic::<Library>()
         .topic::<Sources>()
         .table::<ErrorKind>("error-kind")
         .constant("EXIT_OK", EXIT_OK)
@@ -46,6 +52,7 @@ pub fn manual() -> Help {
             indented(&keys(&crate::machine::Missing::shape())),
         )
         .constant("TARGETS", targets())
+        .constant("CONSUMER_TABLES", consumer_tables())
 }
 
 /// The parser's command tree, each registered command's text followed by what its `--json` prints
@@ -208,6 +215,15 @@ fn sentence(text: &str) -> String {
 /// A list nested one level, to follow its placeholder's own indent under an item of another list.
 fn indented(list: &str) -> String {
     list.trim_end().replace('\n', "\n  ")
+}
+
+/// The tables of other consumers a role.toml may carry, as their names in code spans.
+fn consumer_tables() -> String {
+    crate::library::CONSUMER_TABLES
+        .iter()
+        .map(|t| format!("`{t}`"))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 /// The targets `--into` takes, each with the directory it installs into.

@@ -1,4 +1,4 @@
-# rolesmith's promises (`truefit promise`): each sentence of SPEC.md, README.md and docs/adr/
+# rolesmith's promises (`truefit promise`): each sentence of the help topics, README.md and docs/adr/
 # that a run could break. Those of commands not built yet are `kept` until the issue that builds
 # the command adds its test and turns `kept` into `check = ["test"]`. Candidates that are rationale,
 # history or advice are marked `not` in .truefit/promises.json.
@@ -9,131 +9,131 @@
 standins = ["tests/fake-*", "tests/fakes"]
 
 [promises]
-sources = ["SPEC.md", "README.md", "docs/adr/*.md"]
+sources = ["src/help/*.md", "README.md", "docs/adr/*.md"]
 
 [[promise]]
 name = "never-calls-a-model"
 says = '''**It never calls a model.**'''
-source = "SPEC.md:17"
+source = "docs/adr/0001-roles-leave-guild-and-people-schedule-their-drafting-and-distilling.md:24"
 kept = '''kept by absence: rolesmith has no HTTP client or model SDK among its dependencies (Cargo.toml) and no command that would call one; no test can see a call that is not made'''
 
 [[promise]]
 name = "drafting-and-distilling-only-by-a-command"
 says = '''A role is drafted when someone runs `rolesmith new`; lessons are distilled when someone runs `rolesmith distill`. Every change to a library lands as a pull request a person merges.'''
-source = "SPEC.md:21"
+source = "docs/adr/0001-roles-leave-guild-and-people-schedule-their-drafting-and-distilling.md:22"
 kept = '''not built yet: rolesmith has only its CLI frame (rolesmith#1); the issues that build `new`, `distill` and the library pull requests add their tests and set check = ["test"]'''
 
 [[promise]]
 name = "never-holds-a-secret"
-says = '''**It never holds a secret.**'''
-source = "SPEC.md:24"
+says = '''rolesmith never holds a secret.'''
+source = "docs/adr/0007-rolesmith-never-holds-a-secret.md:14"
 kept = '''not built yet: no command reads a credential yet (the CLI's frame (rolesmith#1) and `rolesmith check` (rolesmith#2) are all that is built); the issue that builds `env` adds the test that no value reaches disk or output files and sets check = ["test"]'''
 
 [[promise]]
 name = "credential-values-only-to-a-process"
 says = '''A role names the credentials it needs by their **mytokens** entry; rolesmith reads a value only to hand it to a process (`rolesmith env`), and never writes one to disk, to a library, to a project or to its own output files.'''
-source = "SPEC.md:24"
+source = "docs/adr/0007-rolesmith-never-holds-a-secret.md:15"
 kept = '''not built yet: `rolesmith env` does not exist yet (the CLI's frame (rolesmith#1) and `rolesmith check` (rolesmith#2) are all that is built); its issue adds the test against the mytokens stand-in and sets check = ["test"]'''
 
 # tests/check.rs a_role_name_follows_the_rule
 [[promise]]
 name = "role-name-format"
 says = '''A role name is lowercase ASCII letters, digits and single hyphens, 2–48 characters, unique within its library.'''
-source = "SPEC.md:55"
+source = "src/help/sources.md:9"
 check = ["test"]
 
 # tests/check.rs core_md_is_at_most_8000_characters
 [[promise]]
 name = "core-md-at-most-8000-chars"
 says = '''Markdown, at most 8,000 characters.'''
-source = "SPEC.md:81"
+source = "src/library.rs:25"
 check = ["test"]
 
 # tests/check.rs a_skill_names_its_directory_and_says_when_to_use_it; tests/project.rs use_writes_exactly_the_generated_files_and_again_changes_nothing (the script beside SKILL.md)
 [[promise]]
 name = "skill-front-matter"
 says = '''`skills/<skill>/SKILL.md` with YAML front matter `name` (equal to the directory name) and `description` (required, at most 1,024 characters, saying when to use it). Other files beside `SKILL.md` (scripts, references) are copied with it.'''
-source = "SPEC.md:96"
+source = "src/help/library.md:61"
 check = ["test"]
 
 # tests/project.rs use_writes_exactly_the_generated_files_and_again_changes_nothing, a_fresh_clone_with_only_rolesmith_toml_syncs_to_the_same_files, a_new_rev_deletes_only_the_generated_files_it_no_longer_has, a_file_rolesmith_did_not_generate_is_never_overwritten
 [[promise]]
 name = "generated-files-listed-ignored-and-only-those-deleted"
 says = '''Everything rolesmith writes into a project besides it is **generated** from it: listed in `.rolesmith/manifest.json`, ignored by git (rolesmith adds the lines to `.gitignore`), rewritten identically by `rolesmith sync`. rolesmith deletes only files its manifest lists, and refuses to overwrite a file its manifest does not list.'''
-source = "SPEC.md:144"
+source = "src/commands/use_.rs:16"
 check = ["test"]
 
 # tests/project.rs use_writes_exactly_the_generated_files_and_again_changes_nothing, a_new_rev_deletes_only_the_generated_files_it_no_longer_has (CLAUDE.md, AGENTS.md and a user's own skill byte for byte)
 [[promise]]
 name = "never-edits-project-files"
 says = '''rolesmith never edits a project's `CLAUDE.md`, `AGENTS.md`, code, build files or settings.'''
-source = "SPEC.md:149"
+source = "src/commands/use_.rs:16"
 check = ["test"]
 
 # tests/project.rs use_writes_exactly_the_generated_files_and_again_changes_nothing
 [[promise]]
 name = "core-skill-shape"
 says = '''one **core skill**, `rolesmith-<role>`, whose `SKILL.md` is `core.md` followed by the prohibitions, with the description "Always in force in this project: <role description>".'''
-source = "SPEC.md:159"
+source = "src/commands/use_.rs:16"
 check = ["test"]
 
 # tests/project.rs use_writes_exactly_the_generated_files_and_again_changes_nothing; tests/external.rs a_required_role_brings_its_external_skill_identically_without_the_network_once_cached
 [[promise]]
 name = "generated-skill-names-its-source"
 says = '''Every generated `SKILL.md` carries a comment on the first line of its front matter naming the source, role and rev it came from (for an external skill, also its path, URL and rev) and saying it is generated.'''
-source = "SPEC.md:304"
+source = "src/help/library.md:61"
 check = ["test"]
 
 [[promise]]
 name = "suggest-lists-every-match"
 says = '''`rolesmith suggest [--dir <dir>]` lists roles of every source whose `[match]` the project meets, with which rule matched.'''
-source = "SPEC.md:179"
+source = "src/commands/suggest.rs:11"
 kept = '''not built yet: `rolesmith suggest` does not exist yet (the CLI's frame (rolesmith#1) and `rolesmith check` (rolesmith#2) are all that is built); its issue adds the test and sets check = ["test"]'''
 
 # tests/doctor.rs env_prints_export_lines_that_sh_evals_back_to_each_value, env_exports_a_profile_service_by_its_own_field_names, env_exports_a_profile_beside_credentials_and_refuses_a_name_from_two_sources, env_refuses_a_service_no_credential_maps_and_a_failing_read
 [[promise]]
 name = "env-exports-every-credential-variable"
 says = '''`rolesmith env <role>` prints `export NAME='value'` lines (values single-quoted for sh) for every variable of its programs' `[credential]` (§3.5), each read from mytokens at that moment (`mytokens get <entry> --field <field>`, or `mytokens get <entry>` for `""`), for `eval "$(rolesmith env <role>)"`; `--json` gives them as `variables`. A service of the role that no program's `[credential]` names is read as a mytokens **Profile** when `mytokens list` lists it with kind `profile`: a Profile's fields are already variable names (what `mytokens env <entry>` exports), so each field is exported under its own name, read with `mytokens get <entry> --field <NAME>`. A service that is neither, and that this host does not map (§7.3), has no mapping to variables: `env` refuses the role, listing each such service (`error.unmapped`), and reads nothing.'''
-source = "SPEC.md:415"
+source = "src/commands/env.rs:20"
 check = ["test"]
 
 [[promise]]
 name = "doctor-never-reads-a-value"
-says = '''`rolesmith doctor` reads only whether each entry exists (`mytokens list`), never its value.'''
-source = "SPEC.md:211"
+says = '''`rolesmith doctor` reads only whether an entry exists (`mytokens list`), never its value.'''
+source = "docs/adr/0007-rolesmith-never-holds-a-secret.md:22"
 kept = '''not built yet: `rolesmith doctor` does not exist yet (the CLI's frame (rolesmith#1) and `rolesmith check` (rolesmith#2) are all that is built); its issue adds the test and sets check = ["test"]'''
 
 [[promise]]
 name = "secret-patterns-refused-never-echoed"
-says = '''`rolesmith check` and `rolesmith lesson add` refuse text matching any of the patterns in one table in the code (private key blocks, `ghp_`/`github_pat_`, `sk-`, AWS access keys, JWTs, long base64 or hex runs after `key`/`token`/`secret`/`password`), naming the file, line and pattern, never echoing the match.'''
-source = "SPEC.md:216"
+says = '''`rolesmith check` and `rolesmith lesson add` refuse text that looks like a secret, by one table of patterns in the code (`src/secrets.rs`), naming the file, line and pattern, never echoing the match.'''
+source = "docs/adr/0007-rolesmith-never-holds-a-secret.md:20"
 kept = '''`rolesmith check` refuses and never echoes a match (tests/check.rs a_planted_key_is_refused_and_never_echoed); `lesson add` is not built yet: its issue adds that test and sets check = ["test"]'''
 
 # tests/cli.rs version_exits_0_*, an_unknown_flag_is_a_usage_error_exit_2_on_stderr, a_usage_error_with_json_prints_one_error_document, json_output_is_exactly_one_line_document; src/cli.rs a_failure_exits_1_*
 [[promise]]
 name = "non-interactive-json-exit-codes"
 says = '''Every command is non-interactive, takes `--json` (one JSON document on stdout; human text otherwise), writes diagnostics to stderr, and exits 0 on success, 1 when it refused or something failed, 2 on a usage error.'''
-source = "SPEC.md:223"
+source = "src/help/errors.md:3"
 check = ["test"]
 
 # tests/cli.rs agent_context_lists_every_registered_command_with_its_flags_and_output_shape, agent_context_lists_the_json_flag_on_each_command; src/cli.rs the_parser_definition_is_consistent
 [[promise]]
 name = "agent-context-from-the-parser"
 says = '''`rolesmith agent-context` prints every command, flag and JSON shape as one JSON document, generated from the same definitions the parser uses.'''
-source = "SPEC.md:225"
+source = "src/commands/agent_context.rs:12"
 check = ["test"]
 
 [[promise]]
 name = "update-never-forces"
 says = '''fetch and fast-forward each source's clone; never force'''
-source = "SPEC.md:241"
+source = "src/commands/source.rs:44"
 kept = '''not built yet: `rolesmith update` does not exist yet (the CLI's frame (rolesmith#1) and `rolesmith check` (rolesmith#2) are all that is built); its issue adds the test and sets check = ["test"]'''
 
 # tests/check.rs several_broken_rules_are_all_reported, a_missing_tool_is_reported_even_when_its_role_is_broken_otherwise, one_role_can_be_checked, check_inside_a_library_checks_the_whole_library, check_outside_a_library_names_where_it_started
 [[promise]]
 name = "check-prints-every-problem"
 says = '''validate a library working copy or one role; the library is the nearest of `--library` (default: the current directory) and its parents holding `library.toml`, as git finds its repository, so run in a role or a skill it checks the whole library as from the root, and outside any library it refuses as a directory with no `library.toml`, naming the directory it started from (§2, §3, §7.2); prints every problem, not the first, each with its file, line where there is one, and rule; exits 1 if there is any, and with `--json` lists them as `error.problems`'''
-source = "SPEC.md:547"
+source = "src/commands/check.rs:12"
 check = ["test"]
 
 [[promise]]
@@ -151,253 +151,253 @@ kept = '''not built yet: nothing writes to a library yet (the CLI's frame (roles
 # tests/sources.rs list_and_show_never_read_the_working_tree_and_show_refuses_what_check_refuses, show_prints_the_role_and_reads_it_at_a_rev
 [[promise]]
 name = "list-and-show-read-a-commit-and-refuse-what-check-refuses"
-says = '''`list` and `show` read roles from a commit of the clone (its local `main`, or `show --rev`), never from its working tree, so they print what an install at that commit writes.'''
-source = "SPEC.md:63"
+says = '''`list`, `show`, `prompt` and `suggest` read roles from a commit of the clone, its local `main` (or `--rev <rev>`), never from its working tree: they show what an install at that commit writes.'''
+source = "src/help/sources.md:13"
 check = ["test"]
 
 # tests/sources.rs update_off_main_moves_main_and_leaves_the_branch_checked_out, update_never_forces_a_main_that_moved_apart, add_list_update_and_remove_a_source
 [[promise]]
 name = "source-update-fast-forwards-main-never-forces"
-says = '''`source update` fetches and fast-forwards the local `main` (on whichever branch the working copy is); a `main` that moved apart from the library's is refused, never forced.'''
-source = "SPEC.md:64"
+says = '''`source update` fetches and fast-forwards each clone's local `main`, never forced; `update` then moves the recorded revs to it.'''
+source = "src/commands/source.rs:44"
 check = ["test"]
 
 # tests/doctor.rs tool_install_* (a `sudo` stand-in fails any run that calls it; every `brew` call is asserted exactly, with no prefix or system path)
 [[promise]]
 name = "tool-install-runs-only-brew-never-sudo"
 says = '''Everything runs as the user, into the user's own prefix: never `sudo`, never a system directory.'''
-source = "SPEC.md:213"
+source = "src/commands/tool.rs:42"
 check = ["test"]
 
 # tests/lessons.rs close_comments_the_reason_and_closes_only_an_open_lesson, a_bare_lesson_number_needs_its_source_when_there_are_two
 [[promise]]
 name = "lesson-close-only-an-open-lesson-with-the-reason"
 says = '''`lesson close` takes `<n>` when the machine has one source and `<source>#<n>` otherwise (as `lesson list` prints them); it closes only an open issue labelled `lesson`, with the reason as its comment.'''
-source = "SPEC.md:251"
+source = "src/commands/lesson.rs:58"
 check = ["test"]
 
 # tests/installs.rs use_rev_main_records_the_sha_main_points_to; tests/sources.rs show_prints_the_role_and_reads_it_at_a_rev
 [[promise]]
 name = "the-full-sha-is-recorded-never-the-name"
-says = '''What is answered and recorded (`rolesmith.toml`, `global.toml`, the manifest, generated headers) is always the full SHA it resolved to, never the name.'''
-source = "SPEC.md:67"
+says = '''Everything answered or recorded keeps the full SHA it resolved to, never the name.'''
+source = "src/help/sources.md:14"
 check = ["test"]
 
 # tests/requires.rs use_installs_a_chain_of_required_roles_and_records_only_the_named_one, check_refuses_an_unknown_required_role_and_a_cycle_naming_them (checking one role reaches the role it requires)
 [[promise]]
 name = "required-roles-install-transitively-and-check-refuses-unknown-and-cycles"
 says = '''Installing a role installs every role it requires, transitively (§5.1). `rolesmith check` refuses a name that is not a role of the library and a cycle (a role that requires itself, directly or through others), naming it; checking one role checks the roles it requires.'''
-source = "SPEC.md:102"
+source = "src/help/library.md:40"
 check = ["test"]
 
 # tests/installs.rs a_prohibitions_consumer_sub_table_changes_nothing_use_renders_and_show_shows_it
 [[promise]]
 name = "prohibitions-render-rule-and-why-only"
-says = '''Installed with the core (§5), rendered as a list under the core memory: `rule` and `why` only.'''
-source = "SPEC.md:129"
+says = '''An install renders the prohibitions as a list under the core memory, `rule` and `why` only.'''
+source = "src/help/library.md:57"
 check = ["test"]
 
 # tests/doctor.rs tool_install_runs_a_script_until_the_check_shows_the_pinned_version, tool_install_refuses_a_script_that_fails_or_installs_another_version, a_brew_tool_following_stable_is_missing_while_older_and_tool_install_upgrades_it
 [[promise]]
 name = "tool-counts-installed-only-when-its-check-shows-the-pin"
 says = '''A tool's check passes when it exits 0 and, for a `script`, its stdout contains `version`: a check that exits 0 without showing the pinned version is missing, for `doctor` and for `tool install`. For a `brew` tool following `stable`, the check passes only when the versions brew has installed (`brew info --json=v2 <formula>`'s `installed`) include the formula's stable one (or a rebuild of it, `<stable>_<n>`); one installed but older is missing, its reason naming the installed and the stable versions.'''
-source = "SPEC.md:187"
+source = "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:24"
 check = ["test"]
 
 # tests/doctor.rs a_brew_tool_following_stable_is_missing_while_older_and_tool_install_upgrades_it (stamp 2 h old: not fetched; 25 h: pulled; the brew stand-in refuses `update`)
 [[promise]]
 name = "tap-refreshed-at-most-once-a-day-never-by-brew-update"
 says = '''Before comparing, the formula's own tap (`<user>/<repo>` of `<user>/<repo>/<name>`) is brought up to its remote with `git pull --ff-only` in `brew --repo <tap>`, never `brew update`, and at most once a day: a tap whose `.git/rolesmith-refreshed` was touched within 24 hours is not fetched, and the file is touched after each pull that succeeds.'''
-source = "SPEC.md:192"
+source = "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:137"
 check = ["test"]
 
 # tests/doctor.rs doctor_passes_when_every_program_checks_and_every_entry_exists (a brew tool whose check prints nothing passes)
 [[promise]]
 name = "a-pinned-brew-tool-check-need-only-pass"
-says = '''A pinned `brew` tool's version is held by its formula, so its check need only pass.'''
-source = "SPEC.md:197"
+says = '''the formula holds the pinned version, so the check need only pass.'''
+source = "src/help/library.md:80"
 check = ["test"]
 
 # tests/doctor.rs doctor_with_host_runs_each_check_there_over_ssh_and_reads_entries_here, tool_install_with_host_installs_there_with_its_own_brew_and_scripts (the ssh stand-in refuses any call without `-o BatchMode=yes --`)
 [[promise]]
 name = "host-runs-each-command-over-batchmode-ssh"
 says = '''`rolesmith doctor <role> --host <host>` and `rolesmith tool install … --host <host>` do the same on another machine: each `check`, each `brew` command and each script runs there as `ssh -o BatchMode=yes -- <host> sh -c '<command>'` (a password prompt is never waited on), so a `brew` tool goes into that host's own brew and prefix.'''
-source = "SPEC.md:216"
+source = "src/commands/tool.rs:55"
 check = ["test"]
 
 # tests/doctor.rs doctor_with_host_names_what_the_host_lacks_with_fixes_that_carry_the_host, doctor_with_host_runs_each_check_there_over_ssh_and_reads_entries_here
 [[promise]]
 name = "with-host-fixes-carry-the-host-and-credentials-stay-here"
 says = '''A program's fix that `doctor` names then carries `--host <host>`. Services and credentials are still read only on this machine, from its mytokens or the commands it maps them to (§7.3): a credential never leaves it, and whoever runs work on the host brings the values with it.'''
-source = "SPEC.md:220"
+source = "src/commands/doctor.rs:51"
 check = ["test"]
 
 # tests/doctor.rs doctor_and_tool_install_with_an_unreachable_host_fail_naming_it
 [[promise]]
 name = "an-unreachable-host-fails-naming-it"
 says = '''When ssh cannot reach the host (it exits 255) the command fails (`error.kind` `failed`), naming the host, rather than listing every program as missing.'''
-source = "SPEC.md:223"
+source = "src/commands/doctor.rs:51"
 check = ["test"]
 
 # tests/doctor.rs doctor_project_reads_each_role_at_its_recorded_rev_not_the_source_main, doctor_project_checks_every_recorded_and_required_role_each_tool_once_naming_its_roles, tool_install_project_installs_each_tool_of_every_role_once
 [[promise]]
 name = "project-doctor-and-install-at-the-recorded-rev"
 says = '''`rolesmith doctor --project <dir>` and `rolesmith tool install --project <dir>` (either with `--host`) do the same for every role the project's `rolesmith.toml` records, each at its recorded rev and never the source's `main`, and for every role each requires, at that same rev (§5.1): one command for what all a project's agents need.'''
-source = "SPEC.md:226"
+source = "src/commands/doctor.rs:47"
 check = ["test"]
 
 # tests/entry_file.rs text_outside_the_section_is_kept_and_a_hand_edit_inside_it_is_written_back, two_targets_of_one_entry_file_write_one_section_and_each_file_gets_its_own, a_missing_claude_md_is_created_with_the_section_alone_and_removed_with_the_last_role
 [[promise]]
 name = "managed-section-written-only-between-its-lines"
 says = '''An agent on a fresh clone has only `rolesmith.toml`, so the project's **entry file**, which it reads first and which is committed, tells it what to do: `use` and `sync` write one **managed section** into the entry file of each target the record installs into (`claude-code`: `CLAUDE.md`; `codex` and `agents`: `AGENTS.md`, at the project's root; ADR 0005). The section lies between a fixed first line and a fixed last line; rolesmith writes only between them and nothing outside.'''
-source = "SPEC.md:258"
+source = "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md:15"
 check = ["test"]
 
 # src/entry_file.rs the_section_names_every_skill_directory_and_no_role (each step it tells; `section()` takes no role, so it names none); tests/entry_file.rs (every entry file gets exactly `section()`)
 [[promise]]
 name = "managed-section-same-in-every-project-names-no-role"
 says = '''It is the same in every project and names no role: it tells the agent to install rolesmith when `command -v rolesmith` finds nothing (`brew install sunfmin/tap/rolesmith`) and otherwise upgrade it (`brew upgrade sunfmin/tap/rolesmith`), to run `rolesmith sync` when the skills are missing or `status` reports drift, to read each role's core skill, and to run `doctor` and `tool install` for what is missing, reporting a missing credential to a person; and not to run `update` during a task, since a role's rev moves only in a commit of its own (§5.4).'''
-source = "SPEC.md:262"
+source = "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md:19"
 check = ["test"]
 
 # tests/entry_file.rs a_missing_claude_md_is_created_with_the_section_alone_and_removed_with_the_last_role; src/entry_file.rs the_section_is_appended_after_a_blank_line_and_taken_out_with_it, a_section_alone_is_a_file_of_nothing_and_text_after_it_is_kept
 [[promise]]
 name = "managed-section-removed-with-the-last-role"
 says = '''An entry file no target of the record names loses the section; a record with no roles removes it from every entry file, and an entry file that held only the section is deleted, as `.gitignore`'s lines are.'''
-source = "SPEC.md:275"
+source = "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md:32"
 check = ["test"]
 
 # tests/requires.rs use_installs_a_chain_of_required_roles_and_records_only_the_named_one
 [[promise]]
 name = "core-skill-names-every-required-core-skill"
-says = '''The core skill of a role that requires others opens, before `core.md`, by naming the core skills of every role it requires, transitively, so one pointer to a role's core skill reaches them all.'''
-source = "SPEC.md:297"
+says = '''The role's core skill opens by naming the core skills of every role it requires, so one pointer to it reaches them all.'''
+source = "src/help/library.md:40"
 check = ["test"]
 
 # tests/requires.rs use_installs_a_chain_of_required_roles_and_records_only_the_named_one, a_role_required_twice_is_installed_once
 [[promise]]
 name = "record-keeps-only-the-roles-a-person-named"
 says = '''The record keeps only the roles a person named; what they require is derived at each install and listed in the manifest with the rest, never written into the record.'''
-source = "SPEC.md:299"
+source = "docs/adr/0003-a-role-names-the-roles-it-builds-on-in-its-role-toml.md:21"
 check = ["test"]
 
 # tests/requires.rs use_installs_a_chain_of_required_roles_and_records_only_the_named_one, a_role_required_twice_is_installed_once
 [[promise]]
 name = "use-and-sync-list-required-roles"
 says = '''`use` and `sync` list the roles installed only because others require them as `required` (`name`, `source`, `rev`, `by`: the recorded roles requiring them).'''
-source = "SPEC.md:301"
+source = "src/commands/sync.rs:66"
 check = ["test"]
 
 # tests/installs.rs update_moves_the_rev_and_the_files (before `source update` nothing moves); tests/global.rs global_status_and_update_follow_the_source_and_leave_the_project_alone
 [[promise]]
 name = "update-moves-to-local-main-without-fetching"
 says = '''`rolesmith update [<role>]` moves a project's role (default: every role) to its source's local `main`, rewrites `rolesmith.toml`'s `rev`, and syncs; it does not fetch, so `rolesmith source update` comes first.'''
-source = "SPEC.md:344"
+source = "src/commands/update.rs:10"
 check = ["test"]
 
 # tests/installs.rs remove_leaves_the_project_as_it_was_before_use; tests/requires.rs remove_keeps_a_role_another_remaining_role_requires; tests/project.rs a_file_rolesmith_did_not_generate_is_never_overwritten
 [[promise]]
 name = "remove-deletes-only-manifest-files-and-keeps-required-roles"
 says = '''`rolesmith remove <role>` drops the role from `rolesmith.toml` and syncs, so only files its manifest lists are deleted, and a role another remaining role requires keeps its files.'''
-source = "SPEC.md:352"
+source = "src/commands/remove.rs:12"
 check = ["test"]
 
 # tests/doctor.rs env_reads_a_service_this_host_maps_from_its_command_alone, env_and_doctor_fail_on_a_services_toml_they_cannot_read_rather_than_use_mytokens; tests/check.rs a_hosts_service_setting_is_refused_in_a_library
 [[promise]]
 name = "a-host-chooses-where-a-service-is-read"
 says = '''Where a service's values come from is the host's choice, never a library's (ADR 0006). A host keeps it in **`$XDG_CONFIG_HOME/rolesmith/services.toml`** (default `~/.config/rolesmith/`), beside `sources.toml`; a service it does not name is read from mytokens as in §7.1.'''
-source = "SPEC.md:440"
+source = "docs/adr/0006-a-host-maps-a-service-to-a-command-that-prints-its-variables.md:27"
 check = ["test"]
 
 # tests/doctor.rs env_reads_a_service_this_host_maps_from_its_command_alone, env_refuses_a_credential_variable_the_mapped_command_does_not_print
 [[promise]]
 name = "env-exports-every-variable-a-mapped-command-prints"
 says = '''`env` exports every variable the command prints, under its own name.'''
-source = "SPEC.md:458"
+source = "src/commands/env.rs:24"
 check = ["test"]
 
 # tests/doctor.rs env_refuses_a_mapped_command_that_fails_and_exports_nothing
 [[promise]]
 name = "a-mapped-command-refusal-never-echoes-a-statement"
 says = '''A command that cannot run or exits non-zero is refused with its exit and its stderr; a statement that is not a variable is refused by its line number, never its text.'''
-source = "SPEC.md:462"
+source = "src/commands/env.rs:40"
 check = ["test"]
 
 # tests/doctor.rs doctor_runs_a_mapped_services_check_never_its_command_and_lists_one_without_a_check_unchecked
 [[promise]]
 name = "doctor-runs-a-mapped-check-never-its-command"
 says = '''`doctor` runs `command` only with `--probe` (§7.4). A mapped service is not looked for in mytokens: its `check` runs on this machine (with `--host` too, as values are read only here); exit 0 is present, anything else is missing (`kind` `service`). One without a `check` is answered `unchecked` and does not make doctor refuse.'''
-source = "SPEC.md:465"
+source = "src/commands/doctor.rs:23"
 check = ["test"]
 
 # tests/check.rs a_hosts_service_setting_is_refused_in_a_library
 [[promise]]
 name = "a-library-never-holds-a-service-mapping"
 says = '''A library never holds this setting: `rolesmith check` refuses a `services.toml` at a library's root and a `[service]` table in `library.toml`, `role.toml` or `tool.toml` (`host-only`).'''
-source = "SPEC.md:471"
+source = "docs/adr/0006-a-host-maps-a-service-to-a-command-that-prints-its-variables.md:28"
 check = ["test"]
 
 # tests/doctor.rs doctor_probe_reads_each_source_once_and_answers_how_it_went_without_a_value (`--timeout 1`: a slow source is killed and answered `needs a person`)
 [[promise]]
 name = "a-probe-reads-once-within-its-bound-and-keeps-no-value"
 says = '''`rolesmith doctor --probe <role> | --project <dir> [--timeout <seconds>]` reads each mapped service's command once as `env` does, but in a session of its own (no controlling terminal) with stdin a pipe nothing writes to, for at most the bound (`--timeout`, default 20 s), and never prints or keeps a value.'''
-source = "SPEC.md:492"
+source = "src/commands/doctor.rs:41"
 check = ["test"]
 
 # tests/doctor.rs doctor_probe_reads_each_source_once_and_answers_how_it_went_without_a_value, doctor_reports_a_kept_probe_until_the_command_changes
 [[promise]]
 name = "probe-outcome-is-one-of-four"
 says = '''`probe.outcome` is `unattended` (finished, every variable the role's `[credential]`s expect printed; `seconds`), `needs a person` (not finished within the bound, then killed with its whole session; or failed saying it needs a terminal), `refused` (exited non-zero, with its stderr; or printed a line that is not a variable) or `incomplete` (`missing` names the expected variables it did not print). A probe may itself raise a Touch ID prompt; the prompt appearing is the answer.'''
-source = "SPEC.md:495"
+source = "src/commands/doctor.rs:41"
 check = ["test"]
 
 # tests/doctor.rs doctor_reports_a_kept_probe_until_the_command_changes, doctor_fails_on_kept_probes_it_cannot_read_rather_than_take_none
 [[promise]]
 name = "plain-doctor-runs-no-source-and-answers-the-kept-probe"
 says = '''Plain `doctor` runs no source and answers the kept outcome while the service maps to the same command; a kept `needs a person` is missing (`kind` `service`), naming when, with the fix (a service account token, or a source that needs no person). A service never probed, or probed with another command, is `unchecked`.'''
-source = "SPEC.md:502"
+source = "src/commands/doctor.rs:43"
 check = ["test"]
 
 # tests/cli.rs each_command_help_says_every_key_its_json_answers
 [[promise]]
 name = "a-command-page-names-every-json-key"
 says = '''A command's page says when to run it, what it reads and writes, what it refuses, and every key its `--json` prints, rendered from its output shape.'''
-source = "SPEC.md:520"
+source = "src/help.rs:79"
 check = ["test"]
 
 # tests/installs.rs use_rev_main_records_the_sha_main_points_to, update_moves_the_rev_and_the_files (`use` again after main moved keeps the rev); tests/project.rs use_writes_exactly_the_generated_files_and_again_changes_nothing
 [[promise]]
 name = "use-records-the-full-sha-and-keeps-a-recorded-rev"
 says = '''install (§5); record in `rolesmith.toml` or `global.toml`, always with the full SHA `--rev` resolved to; idempotent: a role already recorded keeps its rev unless `--rev` is given (`update` moves it)'''
-source = "SPEC.md:548"
+source = "src/commands/use_.rs:18"
 check = ["test"]
 
 # tests/doctor.rs doctor_passes_when_every_program_checks_and_every_entry_exists, doctor_reports_a_missing_program_a_failing_check_and_a_missing_entry_each_with_its_fix, doctor_refuses_a_role_whose_program_has_no_tool_toml, doctor_runs_a_mapped_services_check_never_its_command_and_lists_one_without_a_check_unchecked, doctor_with_host_runs_each_check_there_over_ssh_and_reads_entries_here, doctor_project_checks_every_recorded_and_required_role_each_tool_once_naming_its_roles
 [[promise]]
 name = "doctor-checks-every-program-and-entry-with-its-fix"
 says = '''for each program: tool.toml present (a role without one is refused as `show` refuses it), `check` passes (run by `sh -c`, exit 0); for each service and credential: mytokens entry present, read by `mytokens list` alone, or, for a service the host maps (§7.3), its `check` passes (without one it is `unchecked`, not missing). Exit 1 if anything is missing, each with the command that fixes it (`rolesmith tool install <source>/<role> [--host <host>]`, `mytokens put <entry> [--fields ...]`); with `--host` the checks run on that host over ssh, the entries are still read here; with `--project` every role the record names and each role it requires, at its recorded rev, each tool once (§3.5)'''
-source = "SPEC.md:556"
+source = "src/commands/doctor.rs:23"
 check = ["test"]
 
 # tests/doctor.rs tool_install_installs_each_failing_program_pinned_and_leaves_a_passing_one_alone, tool_install_refuses_a_version_brew_does_not_offer_and_a_check_that_still_fails, tool_install_project_installs_each_tool_of_every_role_once, tool_install_with_host_installs_there_with_its_own_brew_and_scripts
 [[promise]]
 name = "tool-install-stops-at-the-first-refusal-naming-what-it-installed"
 says = '''install each program whose check fails by its pinned method into the user's own prefix (§3.5), on that host over ssh with `--host`, of every role a project records and the roles they require with `--project`, each tool once, in order; the first refusal stops it and names what was installed before it'''
-source = "SPEC.md:558"
+source = "src/commands/tool.rs:42"
 check = ["test"]
 
 # tests/propose.rs propose_commits_pushes_the_branch_and_opens_the_pull_request, propose_refuses_main_another_branch_a_failing_check_and_nothing_to_propose, a_failing_gh_is_reported_after_the_push
 [[promise]]
 name = "propose-pushes-its-branch-never-main-never-forced"
 says = '''run `check` (of the role, or the whole working copy) and refuse with its problems if it fails; commit the working copy's changes on its current `rolesmith/*` branch (refuse on `main` or any other branch, and when the branch does not differ from `main`); push that branch to the source's `origin`, never `main`, never forced; open a pull request onto `main` with `gh pr create`, its body listing what changed per role (and outside any role) and a `Closes #<n>` line per `--closes`; print its URL.'''
-source = "SPEC.md:561"
+source = "src/commands/propose.rs:22"
 check = ["test"]
 
 # tests/distill.rs distill_branches_and_prints_a_brief_with_both_lessons_and_the_role, with_no_open_lessons_distill_says_so_and_makes_no_branch, distill_refuses_uncommitted_changes_and_a_branch_that_exists
 [[promise]]
 name = "distill-branches-only-with-open-lessons"
 says = '''ask `gh` for the role's open lessons (`lesson` and `role:<role>`); with none, say so and change nothing (`branch` and `brief` null); otherwise refuse a working copy with uncommitted changes, put it on a new branch `rolesmith/distill-<role>` from `main` (refuse one that exists), and print the distilling brief: the role's current `core.md`, prohibitions and skills, each open lesson (number, title, body, evidence), where each belongs (the narrowest place; core only for rules of every task), `lesson close` for one judged wrong, and the last step `check`, then `propose --closes <n>...`'''
-source = "SPEC.md:565"
+source = "src/commands/distill.rs:13"
 check = ["test"]
 
 # tests/release.rs cut_runs_the_taps_workflow_waits_for_it_and_takes_away_the_tag_it_pushed (the cut runs with a `gh` stand-in and no tap token)

@@ -1,4 +1,4 @@
-//! `use` and `sync` (SPEC.md §4, §5.1) through the built binary: a role installed into a project
+//! `use` and `sync` through the built binary: a role installed into a project
 //! for Claude Code, and a fresh clone of the project brought to the same files.
 
 mod common;

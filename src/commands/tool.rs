@@ -1,7 +1,7 @@
 //! `rolesmith tool show <tool>`: a tool's tool.toml on its source's local `main`, and whether its
 //! check passes on this machine. `rolesmith tool install <role> | --tool <tool>`: each program
 //! whose check fails, installed by its pinned method into the user's own prefix, on this machine or
-//! on `--host` over ssh (SPEC.md §3.5, §8).
+//! on `--host` over ssh.
 
 use std::path::PathBuf;
 

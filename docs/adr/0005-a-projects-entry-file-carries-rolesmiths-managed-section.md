@@ -4,9 +4,9 @@ Status: accepted, 2026-11-23 (the control session, for Felix; rolesmith#37)
 
 ## Context
 
-A project's generated skills are ignored by git (SPEC §4), so a fresh clone holds only
+A project's generated skills are ignored by git, so a fresh clone holds only
 `rolesmith.toml`. An agent started there does not know to run `rolesmith sync`, or that rolesmith
-exists, and its roles are not in force until a person reminds it. SPEC §4 forbade rolesmith to edit
+exists, and its roles are not in force until a person reminds it. The contract then forbade rolesmith to edit
 `CLAUDE.md` or `AGENTS.md`, the files an agent reads first.
 
 ## Decision
@@ -23,7 +23,7 @@ never disagree with the record.
   nothing, else `brew upgrade` it; `rolesmith sync` when the skills are missing or `status` reports
   drift; read each role's core skill; `doctor`, and `tool install` for a missing program, a missing
   credential reported to a person. It forbids `rolesmith update` during a task: a role's rev moves
-  only in a commit of its own, never inside another change (SPEC §5.4). The section runs at the
+  only in a commit of its own, never inside another change. The section runs at the
   start of every session, so an agent allowed to `update` there would move the rev inside an
   unrelated task's commit, and change its own instructions in the middle of that task. Only the
   rolesmith program is upgraded.

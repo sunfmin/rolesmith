@@ -1,4 +1,4 @@
-//! The libraries a machine knows, as sources (SPEC.md §2): their record in
+//! The libraries a machine knows, as sources: their record in
 //! `$XDG_CONFIG_HOME/rolesmith/sources.toml`, their clones under
 //! `$XDG_DATA_HOME/rolesmith/sources/<name>/`, and the roles they hold at a commit.
 //!
@@ -16,7 +16,7 @@ use crate::commands::Failure;
 use crate::library::{self, Library};
 use crate::problem::Problem;
 
-/// The branch of a library that is its current state (§5.4).
+/// The branch of a library that is its current state.
 pub const MAIN: &str = "main";
 
 /// `sources.toml`: each source by its name.
@@ -315,7 +315,7 @@ impl Found {
     }
 }
 
-/// Resolve a role address (§2): `<source>/<role>`, or `<role>` when exactly one source has it at
+/// Resolve a role address: `<source>/<role>`, or `<role>` when exactly one source has it at
 /// `rev` (default: each source's local `main`). An ambiguous bare name is refused, listing the
 /// addresses that would work.
 pub fn resolve(sources: &Sources, address: &str, rev: Option<&str>) -> Result<Found, Failure> {

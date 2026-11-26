@@ -1,4 +1,4 @@
-//! A project's entry files (SPEC.md §4): the `CLAUDE.md` or `AGENTS.md` an agent reads first,
+//! A project's entry files: the `CLAUDE.md` or `AGENTS.md` an agent reads first,
 //! committed with the project. rolesmith writes one **managed section** into the entry file of
 //! each target the record installs into, between fixed lines, and nothing outside them. The
 //! section is the same in every project: it names no role, so `rolesmith.toml` stays the one home
@@ -202,7 +202,7 @@ mod tests {
         for t in TARGETS {
             assert!(s.contains(&format!("`{}/`", t.skills)), "{s}");
         }
-        // What it tells the agent to do (SPEC.md §4).
+        // What it tells the agent to do.
         for step in [
             "If `command -v rolesmith` finds nothing, install it: `brew install sunfmin/tap/rolesmith`",
             "Otherwise upgrade it: `brew upgrade sunfmin/tap/rolesmith`",

@@ -1,4 +1,4 @@
-//! The targets (SPEC.md §5.2): `codex` and `agents` install the same files as `claude-code`, under
+//! The targets: `codex` and `agents` install the same files as `claude-code`, under
 //! their own skill directory, in a project and for the user; an unknown target is a usage error.
 
 mod common;

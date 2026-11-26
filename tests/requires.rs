@@ -1,4 +1,4 @@
-//! A role builds on other roles of its library: `requires` in role.toml (SPEC.md §3.1, §5),
+//! A role builds on other roles of its library: `requires` in role.toml,
 //! checked, installed with the role that requires it, and accounted for by `prompt`, `status`,
 //! `update` and `remove`, through the built binary.
 

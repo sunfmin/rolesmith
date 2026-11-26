@@ -1,4 +1,4 @@
-//! The repositories external skills come from (SPEC.md §3.4), kept in rolesmith's own cache:
+//! The repositories external skills come from, kept in rolesmith's own cache:
 //! `$XDG_DATA_HOME/rolesmith/skills/<repository>/`, with a bare repository `repo.git` and, per
 //! rev a role pins, the tree of that commit `<rev>/`. A rev's tree is written once and never
 //! changes, so a cache that holds it answers without git or the network.

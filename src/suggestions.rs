@@ -1,4 +1,4 @@
-//! Which roles fit a project by what it is (SPEC.md §5.5): each role's `[match]` on its source's
+//! Which roles fit a project by what it is: each role's `[match]` on its source's
 //! local `main`, met by the project's paths and files. `suggest` prints [`suggest`]'s answer and
 //! `use --auto` installs it, so the two cannot disagree.
 

@@ -1,4 +1,4 @@
-//! The frame of SPEC.md §8, through the built binary.
+//! The frame every command runs in, through the built binary.
 
 use std::process::{Command, Output};
 
@@ -170,7 +170,7 @@ fn help_prints_the_index_each_command_under_its_group_and_each_topic() {
             "{line:?} in {index}"
         );
     }
-    for topic in ["composing", "errors", "sources"] {
+    for topic in ["composing", "errors", "library", "sources"] {
         assert!(
             index[topics..].contains(&format!("- `rolesmith help {topic}`: ")),
             "{topic} in {index}"
@@ -198,7 +198,7 @@ fn help_all_is_the_whole_manual_and_each_topic_answers() {
     for (name, _) in commands_by_name(&doc) {
         assert!(manual.contains(&format!("`rolesmith {name}`")), "{name}");
     }
-    for topic in ["composing", "errors", "sources"] {
+    for topic in ["composing", "errors", "library", "sources"] {
         let o = rolesmith(&["help", topic]);
         assert_eq!(o.status.code(), Some(0), "help {topic}");
         let text = stdout(&o);
@@ -220,7 +220,7 @@ fn an_unknown_topic_is_a_usage_error_listing_the_topics() {
     assert_eq!(o.status.code(), Some(2));
     assert!(o.stdout.is_empty());
     let err = std::str::from_utf8(&o.stderr).unwrap();
-    for topic in ["composing", "errors", "sources"] {
+    for topic in ["composing", "errors", "library", "sources"] {
         assert!(err.contains(&format!("`{topic}`")), "{err}");
     }
     let o = rolesmith(&["--json", "help", "no-such-topic"]);
@@ -352,5 +352,31 @@ fn the_errors_topic_lists_checks_rules_and_a_problems_keys() {
         "  - `kind`: one of `program`, `entry`",
     ] {
         assert!(errors.contains(key), "{key:?} in {errors}");
+    }
+}
+
+#[test]
+fn help_library_says_what_each_file_of_a_library_holds() {
+    let o = rolesmith(&["help", "library"]);
+    assert_eq!(o.status.code(), Some(0));
+    let library = stdout(&o);
+    for point in [
+        "## role.toml",
+        "requires = [",
+        "[[skill]]",
+        "[match]",
+        "## core.md and prohibitions.toml",
+        "[[prohibition]]",
+        "## Skills",
+        "## tool.toml",
+        "[credential]",
+        "script = ",
+        "version = \"stable\"",
+        "`guild`",
+    ] {
+        assert!(
+            library.contains(point),
+            "the topic has {point:?}: {library}"
+        );
     }
 }

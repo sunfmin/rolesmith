@@ -1,4 +1,4 @@
-//! The frame every command runs in (SPEC.md §8): parsing, `--help` from the manual, `--json`,
+//! The frame every command runs in: parsing, `--help` from the manual, `--json`,
 //! stderr, exit codes.
 
 use std::ffi::OsString;

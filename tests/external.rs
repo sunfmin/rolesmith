@@ -1,6 +1,6 @@
-//! A role uses skills of another repository, pinned by commit: `[[skill]]` in role.toml (SPEC.md
-//! §3.4), checked, installed from rolesmith's cache, and listed by `show` and `prompt`, through the
-//! built binary. A local bare repository stands in for the remote one.
+//! A role uses skills of another repository, pinned by commit: `[[skill]]` in role.toml, checked,
+//! installed from rolesmith's cache, and listed by `show` and `prompt`, through the built binary.
+//! A local bare repository stands in for the remote one.
 
 mod common;
 

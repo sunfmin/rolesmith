@@ -1,5 +1,5 @@
 //! `rolesmith suggest [--dir <dir>]`: the roles of every source whose `[match]` the project meets,
-//! with the rule that matched (SPEC.md §5.5).
+//! with the rule that matched.
 
 use std::path::PathBuf;
 
