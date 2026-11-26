@@ -387,6 +387,15 @@ fn new_refuses_a_dirty_working_copy_an_existing_role_and_a_taken_branch() {
         "rolesmith/new-web' already exists",
     );
 
+    // A working copy whose main is gone has nothing to branch from: refused, and no branch made.
+    m.git(&clone, &["checkout", "--quiet", "-b", "elsewhere"]);
+    m.git(&clone, &["branch", "--quiet", "-D", "main"]);
+    refused(&["new", "api", "--need", "x"], "has no local main at");
+    assert_eq!(
+        m.git(&clone, &["branch", "--list", "rolesmith/new-api"]),
+        ""
+    );
+
     let (other, _) = published(&m, "other", &[]);
     m.json(&["source", "add", "other", other.url()]);
     refused(&["new", "api", "--need", "x"], "more than one source");
