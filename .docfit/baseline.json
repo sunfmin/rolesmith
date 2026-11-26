@@ -1,0 +1,80 @@
+{
+  "GLOSSARY.md": {
+    "pointers": [
+      "AGENTS.md",
+      "core.md",
+      "global.toml",
+      "library.toml",
+      "role.toml",
+      "rolesmith.toml",
+      "services.toml",
+      "sources.toml"
+    ]
+  },
+  "README.md": {
+    "pointers": [
+      "AGENTS.md",
+      "rolesmith.toml"
+    ]
+  },
+  "SPEC.md": {
+    "rehome": 42275
+  },
+  "docs/adr/0001-roles-leave-guild-and-people-schedule-their-drafting-and-distilling.md": {
+    "local_refs": 1
+  },
+  "docs/adr/0002-releases-are-universal-signed-and-notarized-by-the-taps-workflow.md": {
+    "local_refs": 3,
+    "pointers": [
+      ".github/workflows/README.md",
+      "ADR 0013"
+    ]
+  },
+  "docs/adr/0003-a-role-names-the-roles-it-builds-on-in-its-role-toml.md": {
+    "local_refs": 2,
+    "pointers": [
+      "global.toml",
+      "role.toml",
+      "rolesmith.toml"
+    ]
+  },
+  "docs/adr/0004-a-role-uses-skills-of-other-repositories-pinned-by-commit.md": {
+    "copies": 1,
+    "local_refs": 2,
+    "pointers": [
+      "SKILL.md"
+    ]
+  },
+  "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md": {
+    "bytes": 3130,
+    "local_refs": 3,
+    "paragraph": 700,
+    "pointers": [
+      "AGENTS.md",
+      "rolesmith.toml"
+    ]
+  },
+  "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md": {
+    "bytes": 6324,
+    "copies": 1,
+    "local_refs": 4
+  },
+  "docs/adr/0006-a-host-maps-a-service-to-a-command-that-prints-its-variables.md": {
+    "local_refs": 1,
+    "pointers": [
+      "library.toml",
+      "role.toml",
+      "services.toml",
+      "tool.toml"
+    ]
+  },
+  "factorium.toml": {
+    "local_refs": 2
+  },
+  "rust-toolchain.toml": {
+    "local_refs": 1
+  },
+  "truefit.toml": {
+    "local_refs": 13
+  }
+}
