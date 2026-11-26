@@ -55,6 +55,18 @@
       "test": "rolesmith::doctor::doctor_help_tables_what_each_source_asks_for",
       "hash": "4f8b48e09e56e56a",
       "reason": "Its assertions check doctor --help's table of what each source asks for, row by row and against service_map::KNOWN; cli::help_exits_0_on_stdout checks only that the top-level --help exits 0 naming agent-context. No assertion maps; the shared lines are help rendering, and folding doctor's table into the top-level help test would hide which help failed."
+    },
+    {
+      "suite": "rust",
+      "test": "rolesmith::requires::status_and_update_carry_the_required_roles",
+      "hash": "c66f520f360a4485",
+      "reason": "Its assertions (status lists the required chain, a hand edit of a required role's file is drift of the requiring role, update moves required roles to the new rev, update of a required-only role is refused) have no counterpart in global_status_and_update_follow_the_source_and_leave_the_project_alone, whose role requires nothing and is installed --global; folding them in would change its library and its global-vs-project setup"
+    },
+    {
+      "suite": "rust",
+      "test": "rolesmith::requires::prompt_includes_the_required_roles",
+      "hash": "6449a2c141f4245b",
+      "reason": "It asserts the whole prompt markdown with the 'builds on' line and the '# Required role felix/base' section; show_and_prompt_list_an_external_skill_with_its_url_and_rev checks only an external skill's line on a library with an upstream; no other test checks a required role in prompt, and merging would mix two setups and hide which behaviour failed"
     }
   ],
   "kept_files": [
@@ -73,6 +85,14 @@
       "commits_90d": 16,
       "commits_total": 16,
       "reason": "Already deep: callers use sync, install, drift, locate, named_position, Record::load/save, known_projects, Place and the TARGETS table; behind them it hides planning every role's files (requires closure, two-rev conflicts), rendering a role into installed skills (core skill, renamed SKILL.md front matter, symlink refusal), the foreign-file refusal, manifest diffing, write-if-changed with the exec bit, empty-dir cleanup, the .gitignore block and the projects file. Its 16 commits in 90 days are features (global installs, targets, requires, external skills, entry files, doctor --project) each adding to this one home of what an install writes. Tests go through the binary; the one unit test covers the pure parse_projects. Splitting the role renderer or .gitignore block into modules would move lines without narrowing any interface."
+    },
+    {
+      "suite": "rust",
+      "file": "src/commands/doctor.rs",
+      "prod_lines": 393,
+      "commits_90d": 12,
+      "commits_total": 12,
+      "reason": "Already deep: its one interface is the doctor command (Args::run); behind it it hides resolving one role or every recorded and required role of a project at its rev, running each program's check here or on a host over ssh, reading mytokens by name only, splitting needs into mytokens entries and services.toml-mapped services, running each service's check, naming what its command asks for, probing it without a person and keeping the outcome, and turning every gap into one refusal with its fix. The work itself lives in deeper modules it composes (needs, machine, host, probe, service_map); nothing else calls into doctor.rs, and its tests go through the binary (no unit tests reach past it). Its 12 commits in 90 days are features (tool show split, --host, --project, script and brew-stable tools, mapped services, --probe), each adding its check to the one home of what doctor reports. Moving services() into probe or service_map would only move lines and put doctor's human and JSON answer into a lower module; Run is the small per-mode description the two entry points share."
     }
   ],
   "mutants_from": "47cffd931da87f3107656a086cd23e445c8b6dbb",

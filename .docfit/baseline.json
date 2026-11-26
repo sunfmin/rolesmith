@@ -42,9 +42,6 @@
     ]
   },
   "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md": {
-    "bytes": 3115,
-    "local_refs": 3,
-    "paragraph": 688,
     "pointers": [
       "AGENTS.md",
       "rolesmith.toml"

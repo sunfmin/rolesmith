@@ -219,6 +219,12 @@
     "sentence": "A source's clone is of its library's `main`. `list` and `show` read roles from a commit of the clone (its local `main`, or `show --rev`), never from its working tree, so they print what an install at that commit writes; `show` refuses a role that `check` would refuse, with the same problems.",
     "source": "SPEC.md:61"
   },
+  "592c92c25f4a": {
+    "mark": "not",
+    "sentence": "The section forbids `rolesmith update` during a task because it runs at the start of every session: an agent allowed to `update` there would move the rev inside an unrelated task's commit, and change its own instructions in the middle of that task.",
+    "source": "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md:21",
+    "why": "an ADR's account of why the managed section forbids update (rationale), not a promise a run of rolesmith could break; the forbidding is registered as managed-section-same-in-every-project-names-no-role"
+  },
   "5adcb0a8945a": {
     "mark": "promise",
     "sentence": "Everything runs as the user, into the user's own prefix: never `sudo`, never a system directory.",
