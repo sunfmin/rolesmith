@@ -1,6 +1,6 @@
 # 0001. Roles leave Guild, and people schedule their drafting and distilling
 
-Status: accepted, 2026-11-22 (Felix, in the control session; sunfmin/guild#93)
+Status: accepted, 2026-11-22 (Felix, in the control session)
 
 ## Context
 
@@ -10,7 +10,7 @@ starts. A role is therefore usable only as a Guild instance, on a Mac with guild
 the tailnet: not in a Claude Code session, not in Orca on a phone, not by someone who runs no Hub.
 
 The question came from an App Store release (sunfmin/chessmirror#20): that know-how belongs to no one
-repo and should reach every similar project, on any agent. guild#93 laid out three ways: keep Guild
+repo and should reach every similar project, on any agent. Three ways were laid out: keep Guild
 whole and add a way to install a role elsewhere; split roles out of Guild; or leave roles Guild-only.
 
 Felix, 2026-11-22: 「我想做二。提炼经验和创建角色，由人来调度。这样的话，一个命令行。工具就可以被任何一个agent使用。」
