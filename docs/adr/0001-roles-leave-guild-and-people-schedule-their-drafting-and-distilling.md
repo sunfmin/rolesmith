@@ -31,4 +31,6 @@ Felix, 2026-11-22: 「我想做二。提炼经验和创建角色，由人来调�
 ## Consequences
 
 - Guild's trainer crew and its scheduled distilling retire once Guild reads roles through rolesmith.
+  An instance's start then runs `rolesmith use <role> --into <engine> --project <instance dir> --rev
+  <sha>`, and Guild's own role keys move under `[guild]` of role.toml: Guild's changes, made in Guild.
 - A role is shared by sharing its library; whoever installs it brings their own credentials.

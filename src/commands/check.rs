@@ -1,5 +1,5 @@
 //! `rolesmith check [<role>] [--library <dir>]`: validate a library working copy, or one of its
-//! roles, against SPEC.md §2, §3 and §7.2, and report every problem, not only the first.
+//! roles, against the rules of `rolesmith help errors`, and report every problem, not only the first.
 
 use std::path::PathBuf;
 

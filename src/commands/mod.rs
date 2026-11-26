@@ -1,4 +1,4 @@
-//! The one place commands are registered (SPEC.md §8).
+//! The one place commands are registered.
 //!
 //! A command is a module here with a `pub struct Args` that derives `clap::Args` and implements
 //! [`Command`]; its help is the Markdown doc comment on that struct (`verbatim_doc_comment`), and

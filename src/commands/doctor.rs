@@ -1,5 +1,5 @@
 //! `rolesmith doctor <role> | --project <dir> [--host <host>]`: what a role, or every role a project
-//! records, needs (SPEC.md §3.5, §7.1, §8). Each program's `check` passes, on this machine or on the
+//! records, needs. Each program's `check` passes, on this machine or on the
 //! host over ssh; each service and each program's credential has its mytokens entry on this
 //! machine, read by name with `mytokens list` only. Anything missing is a refusal, each with its
 //! fix.

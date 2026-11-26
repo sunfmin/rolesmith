@@ -1,5 +1,5 @@
 //! `rolesmith propose [<role>] [--source <name>] [--closes <n>...]`: what an agent changed in a
-//! source's working copy becomes a pull request a person merges (SPEC.md §1.2, §8). It checks the
+//! source's working copy becomes a pull request a person merges. It checks the
 //! library, commits on the working copy's `rolesmith/*` branch, pushes that branch (never `main`,
 //! never forced) and opens the pull request through `gh`.
 

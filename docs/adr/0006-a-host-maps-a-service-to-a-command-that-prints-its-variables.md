@@ -19,7 +19,7 @@ command = "op inject -i ~/.config/rolesmith/asc-api-key.env"
 check = "op whoami"
 ```
 
-A service the host does not map is read from mytokens, as before (SPEC §7.1). `env` runs the command
+A service the host does not map is read from mytokens, as before. `env` runs the command
 (`sh -c`, stdin closed) when it reads, and exports what it prints; a `[credential]` of the service
 names what it must print. `doctor` never runs the command: it runs the optional `check`, and lists a
 service without one as `unchecked`, which does not make it refuse.

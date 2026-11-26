@@ -12,3 +12,4 @@ ignore = ["src/**", "tests/**"]
 "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md" = "adr"
 "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md" = "adr"
 "docs/adr/0006-a-host-maps-a-service-to-a-command-that-prints-its-variables.md" = "adr"
+"docs/adr/0007-rolesmith-never-holds-a-secret.md" = "adr"

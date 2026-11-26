@@ -6,14 +6,14 @@ Status: accepted, 2026-11-23 (Felix, in the localcontrol session; rolesmith#30)
 
 A general coding role wants skills that live elsewhere and are kept there: `codebase-design`, `tdd`,
 `diagnosing-bugs`, `domain-modeling` and `writing-for-agents` from mattpocock/skills;
-`complexity-review` and `single-source-of-truth` from sunfmin/product-team. SPEC §2 let nothing
+`complexity-review` and `single-source-of-truth` from sunfmin/product-team. The contract then let nothing
 but roles and tools into a library, so they could only be copied in, and a copy drifts from
 upstream.
 
 ## Decision
 
 A role references an external skill by URL, path and pinned commit, and does not copy it: a
-`[[skill]]` table of its role.toml (SPEC §3.1, §3.4).
+`[[skill]]` table of its role.toml (`rolesmith help library`).
 
 Invariant: **an external skill's text has one home, its repository; the library holds only the
 pin.**
@@ -37,7 +37,7 @@ keeps every update explicit.
 
 - Undo: copy the skills into the role and drop `[[skill]]`.
 - `check`, and an install on a machine whose cache lacks the rev, need to reach the repository.
-- rolesmith's secret check (SPEC §7.2) covers the library's text, not an external skill's; what
+- rolesmith's secret check (ADR 0007) covers the library's text, not an external skill's; what
   the pin names is reviewed in its repository.
 
 Issue: rolesmith#30.

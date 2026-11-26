@@ -1,4 +1,4 @@
-//! The one table of patterns that look like a secret (SPEC.md §7.2). `rolesmith check` and
+//! The one table of patterns that look like a secret. `rolesmith check` and
 //! `rolesmith lesson add` refuse text matching any of them. A match is named by its pattern,
 //! never echoed.
 

@@ -1,6 +1,6 @@
 //! `rolesmith status [--project <dir> | --global]`: per role of a project (or of the global
 //! installs), its pinned rev, its source's `main`, and whether its generated files are what the
-//! record generates (SPEC.md §5.4).
+//! record generates.
 
 use serde_json::{Value, json};
 

@@ -1,4 +1,4 @@
-//! Where this host reads a service's credentials (SPEC.md §7.1, ADR 0006): its own
+//! Where this host reads a service's credentials (ADR 0006): its own
 //! `$XDG_CONFIG_HOME/rolesmith/services.toml` maps a service to a command whose stdout is the
 //! service's variables, with an optional `check`; a service it does not map is read from mytokens.
 //! The setting is the host's, never a library's.

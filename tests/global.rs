@@ -1,4 +1,4 @@
-//! `--global` installs (SPEC.md §5.2): a role for the user, in `HOME`'s skill directories, recorded
+//! `--global` installs: a role for the user, in `HOME`'s skill directories, recorded
 //! in `$XDG_DATA_HOME/rolesmith/global.toml`, and nothing written into the project the command runs
 //! in. `HOME` and the XDG directories are temporary ones (tests/common).
 

@@ -1,4 +1,4 @@
-//! `rolesmith lesson add|list|close` (SPEC.md §6, §7.2) through the built binary, with a stand-in
+//! `rolesmith lesson add|list|close` through the built binary, with a stand-in
 //! `gh` that records what it was asked and answers what each test leaves it.
 
 mod common;

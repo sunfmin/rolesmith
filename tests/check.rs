@@ -1,4 +1,4 @@
-//! `rolesmith check` (SPEC.md §2, §3, §7.2) on temporary libraries, through the built binary.
+//! `rolesmith check` on temporary libraries, through the built binary.
 
 use std::path::Path;
 use std::process::{Command, Output};

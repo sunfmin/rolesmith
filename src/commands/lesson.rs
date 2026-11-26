@@ -1,5 +1,5 @@
 //! `rolesmith lesson add|list|close`: lessons as issues on a library's GitHub repository, labelled
-//! `lesson` and `role:<role>`, opened and closed through `gh` (SPEC.md §6, §7.2).
+//! `lesson` and `role:<role>`, opened and closed through `gh`.
 ///
 /// Each subcommand's `rolesmith lesson <subcommand> --help` says when to run it and what it answers.
 use std::io::Read;
@@ -30,7 +30,7 @@ pub struct Args {
 pub enum Action {
     /// Open a lesson on the role's library; its text comes on stdin, the first line its title.
     ///
-    /// The rest of the text is the issue's body, which ends with `Evidence: <url>` and `Handed in by: <source>`. The labels are created on the repository when it lacks them. When the library is public it reminds you to keep project details (customer names, private URLs) general.
+    /// The rest of the text is the issue's body, which ends with `Evidence: <url>` and `Handed in by: <source>`. The labels are created on the repository when it lacks them. When the library is public it reminds you to keep project details (customer names, private URLs) general. A lesson that must stay private goes to a private library, kept as a second source.
     ///
     /// ## Refusals
     ///

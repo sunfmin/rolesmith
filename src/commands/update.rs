@@ -1,6 +1,5 @@
 //! `rolesmith update [<role>] [--project <dir> | --global]`: move a project's (or the global
-//! installs') roles to their source's `main`, rewrite their `rev` in the record, and sync
-//! (SPEC.md §5.4).
+//! installs') roles to their source's `main`, rewrite their `rev` in the record, and sync.
 
 use serde_json::Value;
 

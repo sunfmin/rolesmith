@@ -4,15 +4,15 @@ Status: accepted, 2026-11-23 (the control session, for Felix)
 
 ## Context
 
-A project's generated skills are ignored by git (SPEC §4), so a fresh clone holds only
+A project's generated skills are ignored by git, so a fresh clone holds only
 `rolesmith.toml`. An agent started there does not know to run `rolesmith sync`, or that rolesmith
-exists, and its roles are not in force until a person reminds it. SPEC §4 forbade rolesmith to edit
+exists, and its roles are not in force until a person reminds it. The contract then forbade rolesmith to edit
 `CLAUDE.md` or `AGENTS.md`, the files an agent reads first.
 
 ## Decision
 
 `use` and `sync` write one managed section, between fixed first and last lines, into the entry file
-of each target the record installs into; what it says and where it goes is SPEC §4.
+of each target the record installs into; what it says and where it goes, `rolesmith use --help` says.
 
 Invariant: **which roles a project uses, at which rev, is written once, in `rolesmith.toml`; the
 section names no role and is the same in every project.** So `update` never changes it, and it can

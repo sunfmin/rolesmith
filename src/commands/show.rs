@@ -1,5 +1,5 @@
 //! `rolesmith show <role> [--rev <rev>]`: a role as it is on its source's local `main`, or at a
-//! commit (SPEC.md §2, §8).
+//! commit.
 
 use serde_json::{Value, json};
 

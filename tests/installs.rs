@@ -1,4 +1,4 @@
-//! `status`, `update`, `remove` (SPEC.md §5.4, §8) and `source remove` refusing a source a project
+//! `status`, `update`, `remove` and `source remove` refusing a source a project
 //! records, through the built binary.
 
 mod common;

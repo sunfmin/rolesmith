@@ -1,4 +1,4 @@
-//! The Homebrew a `brew` tool is installed by, on the host asked for (SPEC.md §3.5, ADR 0005):
+//! The Homebrew a `brew` tool is installed by, on the host asked for (ADR 0005):
 //! what it offers and has installed of a formula, refreshing a formula's own tap, and installing or
 //! upgrading a formula while another brew may hold its lock. Every command runs on the host, so
 //! its prefix, taps and formulae are the host's own brew's.
@@ -199,7 +199,7 @@ mod tests {
 
     #[test]
     fn an_install_waits_for_a_held_lock_as_long_as_spec_says() {
-        // SPEC.md §3.5: tried again each second for up to 30 minutes.
+        // Tried again each second for up to 30 minutes.
         assert_eq!((LOCK_WAIT.as_secs(), LOCK_POLL.as_secs()), (30 * 60, 1));
     }
 

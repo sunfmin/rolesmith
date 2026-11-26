@@ -1,6 +1,5 @@
 //! `rolesmith sync [--project <dir> | --global]`: make the generated files equal what the record
-//! (`rolesmith.toml` or `global.toml`) says, adding a missing source from its `url` (SPEC.md §4,
-//! §5.2, §8).
+//! (`rolesmith.toml` or `global.toml`) says, adding a missing source from its `url`.
 
 use std::path::PathBuf;
 

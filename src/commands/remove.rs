@@ -1,6 +1,6 @@
 //! `rolesmith remove <role> [--project <dir> | --global]`: drop a role from the record
 //! (`rolesmith.toml` or `global.toml`) and delete its generated files, only those the manifest
-//! lists (SPEC.md §4, §8).
+//! lists.
 
 use serde_json::Value;
 

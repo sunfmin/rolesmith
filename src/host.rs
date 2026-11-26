@@ -1,4 +1,4 @@
-//! Where a role's programs are checked and installed (SPEC.md §3.5): this machine, or another one
+//! Where a role's programs are checked and installed: this machine, or another one
 //! over ssh. This is the one place a shell line is run for a tool, and the only place that builds
 //! the `ssh` command line; the other host needs nothing of rolesmith, only `sh`.
 

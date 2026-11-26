@@ -1,6 +1,7 @@
-//! rolesmith: roles for any coding agent. The contract is SPEC.md.
+//! rolesmith: roles for any coding agent. Its manual is `rolesmith help all`; its decisions are
+//! in docs/adr/.
 //!
-//! `cli` is the frame every command runs in (SPEC.md §8); `commands` is the one place commands are
+//! `cli` is the frame every command runs in; `commands` is the one place commands are
 //! registered; `library` reads and checks a library through the types every command uses; `needs`
 //! is what roles need of a machine and `machine` answers what a host has of it, `host` running a
 //! shell line here or over ssh, `probe` reading a mapped service's command under a bound; `install` installs a tool by its pinned method;

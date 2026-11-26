@@ -1,7 +1,7 @@
 //! `rolesmith env <role> [-- <command>...]`: the role's credentials, read at that moment from
 //! mytokens (by its programs' `[credential]`, or a Profile service's own field names) or, for a
 //! service this host maps in its `services.toml`, from the command it maps it to; printed as
-//! `export` lines or handed to a command; written nowhere (SPEC.md §7.1, ADR 0006).
+//! `export` lines or handed to a command; written nowhere (ADR 0006).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;
@@ -21,7 +21,7 @@ use crate::sources::{self, Sources};
 ///
 /// ## A service this host reads elsewhere
 ///
-/// `services.toml`, beside the sources' record in rolesmith's config directory (`$XDG_CONFIG_HOME/rolesmith/`, default `~/.config/rolesmith/`), maps a service to a `command` whose stdout is the service's variables, `NAME=value` or `export NAME='value'` lines (as `mytokens env` and `op inject` print them), with an optional `check` that `rolesmith doctor` runs in its place. The command runs with `sh -c`, stdin closed, and every variable it prints is exported; a program's `[credential]` for the service names the variables it must print. 1Password, over a template of `export ASC_KEY_ID='{{ op://Private/asc-api-key/key-id }}'` lines kept at `~/.config/rolesmith/asc-api-key.env`:
+/// `services.toml`, beside the sources' record in rolesmith's config directory (`$XDG_CONFIG_HOME/rolesmith/`, default `~/.config/rolesmith/`), maps a service to a `command` whose stdout is the service's variables, `NAME=value` or `export NAME='value'` lines (as `mytokens env` and `op inject` print them), one a line, each value read as sh reads a word (`'...'` literally and across lines, `"..."` with `\` escapes), with blank lines and `#` comments between them, with an optional `check` that `rolesmith doctor` runs in its place. The command runs with `sh -c`, stdin closed, and every variable it prints is exported; a program's `[credential]` for the service names the variables it must print. 1Password, over a template of `export ASC_KEY_ID='{{ op://Private/asc-api-key/key-id }}'` lines kept at `~/.config/rolesmith/asc-api-key.env`:
 ///
 /// ```toml
 /// [service.asc-api-key]
@@ -114,7 +114,7 @@ impl Command for Args {
         if !unmapped.is_empty() {
             return Err(Failure::listing(
                 format!(
-                    "{}: no program's [credential] maps these services to variables, none is a mytokens Profile, and this host maps none to a command; add a [credential] to a tool.toml (SPEC.md §3.5), make the entry a Profile, or map it in {}:",
+                    "{}: no program's [credential] maps these services to variables, none is a mytokens Profile, and this host maps none to a command; add a [credential] to a tool.toml (`rolesmith help library`), make the entry a Profile, or map it in {}:",
                     found.qualified(),
                     service_map::file()?.display()
                 ),

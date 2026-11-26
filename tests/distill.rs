@@ -1,4 +1,4 @@
-//! `rolesmith distill` (SPEC.md §6, §8.1) through the built binary, with a stand-in `gh` that
+//! `rolesmith distill` through the built binary, with a stand-in `gh` that
 //! serves the role's open lessons.
 
 mod common;

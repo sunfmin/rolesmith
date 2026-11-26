@@ -1,4 +1,4 @@
-//! Sources, `list` and `show` (SPEC.md §2, §8) through the built binary, with local bare git
+//! Sources, `list` and `show` through the built binary, with local bare git
 //! repositories as libraries; nothing reaches the network.
 
 mod common;

@@ -1,5 +1,5 @@
 //! `rolesmith list [--source <name>]`: the roles of every source (or one), by the address that
-//! reaches them (SPEC.md §2, §8), read from each source's local `main`.
+//! reaches them, read from each source's local `main`.
 
 use std::collections::BTreeMap;
 

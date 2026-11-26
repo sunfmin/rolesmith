@@ -1,4 +1,4 @@
-//! What this machine has of what a role needs (SPEC.md §3.5, §7.1): whether a tool's `check`
+//! What this machine has of what a role needs: whether a tool's `check`
 //! passes here, which mytokens entries exist and which are Profiles, with their field names, all
 //! read with `mytokens list`; and, for `env` only, an entry's value.
 

@@ -6,7 +6,7 @@ formula's stable version (see Amendment).
 
 ## Context
 
-SPEC §3.5 knew one install method, `brew`, and said each other method (`cargo`, `uv tool`,
+rolesmith knew one install method, `brew`, and said each other method (`cargo`, `uv tool`,
 `npm -g`, a release tarball) would come with its own ADR. A standard (non-admin) Mac account
 installs by several: its own Homebrew in `~/homebrew`, pixi for what brew would build from source,
 mise for runtimes, `uv tool`, `npm` into `~/.local`, a checked binary in `~/.local/bin`, and

@@ -1,4 +1,4 @@
-//! The managed section of a project's entry files (SPEC.md §4) through the built binary: written
+//! The managed section of a project's entry files through the built binary: written
 //! by `use` and `sync` into the entry file of each target, nothing outside it touched, written
 //! again identically, and taken out by `remove`.
 

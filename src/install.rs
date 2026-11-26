@@ -1,4 +1,4 @@
-//! Installing a tool by its pinned method into the user's own prefix (SPEC.md §3.5, ADR 0005):
+//! Installing a tool by its pinned method into the user's own prefix (ADR 0005):
 //! `brew`, at a pinned version or following its formula's stable one, or a `script` run with
 //! `sh -c`, on the host asked for. Everything runs as the user: never `sudo` (`rolesmith check`
 //! refuses a script that names it), never a system directory. A tool whose check passes is left

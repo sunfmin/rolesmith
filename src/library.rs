@@ -1,4 +1,4 @@
-//! A library working copy, read and validated (SPEC.md §2, §3, §7.2).
+//! A library working copy, read and validated.
 //!
 //! [`load`] is how every command reads a library or one of its roles: it answers the parsed
 //! [`Library`] when nothing is wrong, and otherwise every [`Problem`] it found, not only the first.
@@ -15,18 +15,18 @@ use crate::secrets;
 use crate::service_map;
 use crate::upstream;
 
-/// Tables that belong to another consumer: top-level in `role.toml` (§3.1) and sub-tables of a
-/// `[[prohibition]]` (§3.3). rolesmith keeps them untouched and ignores them. The one place they
+/// Tables that belong to another consumer: top-level in `role.toml` and sub-tables of a
+/// `[[prohibition]]`. rolesmith keeps them untouched and ignores them. The one place they
 /// are listed.
 pub const CONSUMER_TABLES: &[&str] = &["guild"];
 
-/// At most this many characters in a role's `description` (§3.1).
+/// At most this many characters in a role's `description`.
 pub const MAX_ROLE_DESCRIPTION: usize = 200;
-/// At most this many characters in `core.md` (§3.2).
+/// At most this many characters in `core.md`.
 pub const MAX_CORE: usize = 8_000;
-/// At most this many characters in a skill's `description` (§3.4).
+/// At most this many characters in a skill's `description`.
 pub const MAX_SKILL_DESCRIPTION: usize = 1_024;
-/// A role or skill name is 2 to this many characters (§2).
+/// A role or skill name is 2 to this many characters.
 pub const MAX_NAME: usize = 48;
 
 /// A library that passed every check.
@@ -61,15 +61,15 @@ pub struct Role {
     pub skills: Vec<Skill>,
 }
 
-/// `role.toml` (§3.1).
+/// `role.toml`.
 #[derive(Debug)]
 pub struct RoleToml {
     pub description: String,
     pub programs: Vec<String>,
     pub services: Vec<String>,
-    /// Roles of the same library this one builds on, installed with it (§3.1).
+    /// Roles of the same library this one builds on, installed with it.
     pub requires: Vec<String>,
-    /// `[[skill]]`: skills of other repositories, pinned by commit (§3.4).
+    /// `[[skill]]`: skills of other repositories, pinned by commit.
     pub external: Vec<External>,
     pub r#match: Option<Match>,
     /// The consumer tables present (one of [`CONSUMER_TABLES`] each), carried untouched.
@@ -93,7 +93,7 @@ struct RawRoleToml {
     rest: toml::Table,
 }
 
-/// One `[[skill]]` of `role.toml`: a skill of another repository, at a pinned commit (§3.4).
+/// One `[[skill]]` of `role.toml`: a skill of another repository, at a pinned commit.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct External {
@@ -105,7 +105,7 @@ pub struct External {
     pub rev: String,
 }
 
-/// `[match]` of `role.toml` (§5.5).
+/// `[match]` of `role.toml`.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Match {
@@ -122,7 +122,7 @@ pub struct Contains {
     pub text: String,
 }
 
-/// One `[[prohibition]]` (§3.3).
+/// One `[[prohibition]]`.
 #[derive(Debug)]
 pub struct Prohibition {
     pub rule: String,
@@ -146,7 +146,7 @@ struct RawProhibition {
     rest: toml::Table,
 }
 
-/// `skills/<skill>/` of a role (§3.4).
+/// `skills/<skill>/` of a role.
 #[derive(Debug)]
 pub struct Skill {
     pub name: String,
@@ -165,7 +165,7 @@ pub struct Tool {
     pub toml: ToolToml,
 }
 
-/// `tool.toml` (§3.5).
+/// `tool.toml`.
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 pub struct ToolToml {
     pub description: String,
@@ -343,7 +343,7 @@ impl Library {
     }
 }
 
-/// Whether `name` is a valid role or skill name (§2): lowercase ASCII letters, digits and single
+/// Whether `name` is a valid role or skill name: lowercase ASCII letters, digits and single
 /// hyphens, neither first nor last, 2 to [`MAX_NAME`] characters.
 pub fn valid_name(name: &str) -> bool {
     (2..=MAX_NAME).contains(&name.len())
@@ -556,7 +556,7 @@ impl Checker<'_> {
         ok.then_some(prohibitions)
     }
 
-    /// No role requires itself, directly or through others (§3.1).
+    /// No role requires itself, directly or through others.
     fn check_requires(&mut self) {
         let mut done = BTreeSet::new();
         let starts: Vec<String> = self.requires.keys().cloned().collect();
@@ -804,7 +804,7 @@ impl Checker<'_> {
     }
 }
 
-/// The description of a `SKILL.md` of `text` (§3.4); each thing wrong with its front matter goes
+/// The description of a `SKILL.md` of `text`; each thing wrong with its front matter goes
 /// to `report`, with its line where there is one. `dir` is the
 /// directory name its `name` must equal, if any.
 fn check_skill_md(
