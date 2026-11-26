@@ -20,9 +20,6 @@
   "SPEC.md": {
     "rehome": 42275
   },
-  "docs/adr/0001-roles-leave-guild-and-people-schedule-their-drafting-and-distilling.md": {
-    "local_refs": 1
-  },
   "docs/adr/0002-releases-are-universal-signed-and-notarized-by-the-taps-workflow.md": {
     "local_refs": 3,
     "pointers": [
