@@ -1,0 +1,6 @@
+{
+  "tree": "eea11081c5faa44a1bacf67a6cb402b50d13c99c+d1fba762150c532c",
+  "picker": "codex:01a215e5-1b31-7532-91ff-f0eeefbde61e:default",
+  "author": "claude-code:e96043d6-2fd5-5d2b-b4e7-713d99bbdc82:opus",
+  "none": "The library help tests require the registered topic and its rendered `guild` entry, and the env tests require real exports and refusals that a default success would erase."
+}
