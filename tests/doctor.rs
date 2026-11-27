@@ -312,6 +312,16 @@ fn doctor_runs_no_optokens_when_the_role_reads_no_entry_and_fails_when_it_cannot
         message.contains("`optokens list` failed: F; fix: X"),
         "{message}"
     );
+
+    // A listing it cannot read is a failure, never an empty vault.
+    m.program("optokens", "echo 'not json'\n");
+    let o = m.rolesmith(&["doctor", "reads"]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains("`optokens list` printed no listing"),
+        "{}",
+        stderr(&o)
+    );
 }
 
 #[test]
