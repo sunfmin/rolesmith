@@ -446,12 +446,12 @@ kept_forever = true
 [[promise]]
 name = "credentials-read-from-optokens"
 says = '''The program rolesmith runs for a service no host maps is **optokens**, and nothing else about how a credential is read changes: a mapped service still runs its command, and doctor still reads presence with one listing and never a value.'''
-source = "docs/adr/0008-credentials-are-read-from-optokens.md:17"
+source = "docs/adr/0008-credentials-are-read-from-optokens.md:16"
 check = ["test"]
 
 # tests/doctor.rs doctor_counts_only_a_secret_under_the_account_default
 [[promise]]
 name = "secret-present-only-under-default"
 says = '''A service is present when a Secret of that `service` is listed under the account `default`, the one `optokens get <service>` reads; a Secret under another account only is missing.'''
-source = "docs/adr/0008-credentials-are-read-from-optokens.md:22"
+source = "docs/adr/0008-credentials-are-read-from-optokens.md:21"
 check = ["test"]

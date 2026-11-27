@@ -79,6 +79,12 @@
     "source": "docs/adr/0007-rolesmith-never-holds-a-secret.md:9",
     "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
   },
+  "1c518ea987cc": {
+    "mark": "not",
+    "sentence": "A) Map each service to `optokens env <service>` in every host's services.toml. Rejected: each host repeats it, and doctor would run a `check` per service instead of one listing.",
+    "source": "docs/adr/0008-credentials-are-read-from-optokens.md:42",
+    "why": "history and a rejected option of ADR 0008, not a promise a run could break"
+  },
   "1cdb5e60cc6c": {
     "mark": "promise",
     "sentence": "Before comparing, the formula's own tap (`<user>/<repo>` of `<user>/<repo>/<name>`) is brought up to its remote with `git pull --ff-only` in `brew --repo <tap>`, never `brew update`, and at most once a day: a tap whose `.git/rolesmith-refreshed` was touched within 24 hours is not fetched, and the file is touched after each pull that succeeds.",
@@ -373,6 +379,12 @@
     "mark": "promise",
     "sentence": "The core skill of a role that requires others opens, before `core.md`, by naming the core skills of every role it requires, transitively, so one pointer to a role's core skill reaches them all.",
     "source": "SPEC.md:297"
+  },
+  "821484f3e5ef": {
+    "mark": "not",
+    "sentence": "rolesmith read every service no host maps (ADR 0006) from mytokens, the macOS keychain CLI.",
+    "source": "docs/adr/0008-credentials-are-read-from-optokens.md:8",
+    "why": "history and a rejected option of ADR 0008, not a promise a run could break"
   },
   "8268151aa28c": {
     "mark": "not",
