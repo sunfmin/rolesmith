@@ -1,5 +1,5 @@
 //! `rolesmith env <role> [-- <command>...]`: the role's credentials, read at that moment from
-//! mytokens (by its programs' `[credential]`, or a Profile service's own field names) or, for a
+//! optokens (by its programs' `[credential]`, or a Profile service's own field names) or, for a
 //! service this host maps in its `services.toml`, from the command it maps it to; printed as
 //! `export` lines or handed to a command; written nowhere (ADR 0006).
 
@@ -17,11 +17,11 @@ use crate::sources::{self, Sources};
 
 /// Print a role's credentials as `export NAME='value'` lines, or run a command with them set.
 ///
-/// Run `eval "$(rolesmith env <role>)"`, or `rolesmith env <role> -- <command> [args]` to run the command in rolesmith's place with the variables added to its environment. Each variable is read at that moment; nothing is written to disk. Where a service's values come from is this host's choice, never the library's: a service this host maps (below) is read from its command; any other from mytokens. Every variable of the role's programs' `[credential]` of a service read from mytokens is read with `mytokens get <entry> --field <field>`. A service no `[credential]` maps that `mytokens list` lists as a Profile is exported by its own field names: each field `NAME` becomes `NAME`, read with `mytokens get <service> --field NAME`, as `mytokens env <service>` would export it. It refuses a role with a service that is none of these, listing each (with `--json`, `error.unmapped`), and a variable read from two different places, naming both (`error.conflicting`); it reads nothing from mytokens then.
+/// Run `eval "$(rolesmith env <role>)"`, or `rolesmith env <role> -- <command> [args]` to run the command in rolesmith's place with the variables added to its environment. Each variable is read at that moment; nothing is written to disk. Where a service's values come from is this host's choice, never the library's: a service this host maps (below) is read from its command; any other from optokens. Every variable of the role's programs' `[credential]` of a service read from optokens is read with `optokens get <entry> --field <field>`, its value exactly as optokens prints it. A service no `[credential]` maps that `optokens list` lists as a Profile (an optokens Secret whose fields are environment variables) is exported by its own field names: each field `NAME` becomes `NAME`, read with `optokens get <service> --field NAME`, as `optokens env <service>` would export it. It refuses a role with a service that is none of these, listing each (with `--json`, `error.unmapped`), and a variable read from two different places, naming both (`error.conflicting`); it reads nothing from optokens then.
 ///
 /// ## A service this host reads elsewhere
 ///
-/// `services.toml`, beside the sources' record in rolesmith's config directory (`$XDG_CONFIG_HOME/rolesmith/`, default `~/.config/rolesmith/`), maps a service to a `command` whose stdout is the service's variables, `NAME=value` or `export NAME='value'` lines (as `mytokens env` and `op inject` print them), one a line, each value read as sh reads a word (`'...'` literally and across lines, `"..."` with `\` escapes), with blank lines and `#` comments between them, with an optional `check` that `rolesmith doctor` runs in its place. The command runs with `sh -c`, stdin closed, and every variable it prints is exported; a program's `[credential]` for the service names the variables it must print. 1Password, over a template of `export ASC_KEY_ID='{{ op://Private/asc-api-key/key-id }}'` lines kept at `~/.config/rolesmith/asc-api-key.env`:
+/// `services.toml`, beside the sources' record in rolesmith's config directory (`$XDG_CONFIG_HOME/rolesmith/`, default `~/.config/rolesmith/`), maps a service to a `command` whose stdout is the service's variables, `NAME=value` or `export NAME='value'` lines (as `optokens env` and `op inject` print them), one a line, each value read as sh reads a word (`'...'` literally and across lines, `"..."` with `\` escapes), with blank lines and `#` comments between them, with an optional `check` that `rolesmith doctor` runs in its place. The command runs with `sh -c`, stdin closed, and every variable it prints is exported; a program's `[credential]` for the service names the variables it must print. 1Password, over a template of `export ASC_KEY_ID='{{ op://Private/asc-api-key/key-id }}'` lines kept at `~/.config/rolesmith/asc-api-key.env`:
 ///
 /// ```toml
 /// [service.asc-api-key]
@@ -114,7 +114,7 @@ impl Command for Args {
         if !unmapped.is_empty() {
             return Err(Failure::listing(
                 format!(
-                    "{}: no program's [credential] maps these services to variables, none is a mytokens Profile, and this host maps none to a command; add a [credential] to a tool.toml (`rolesmith help library`), make the entry a Profile, or map it in {}:",
+                    "{}: no program's [credential] maps these services to variables, none is an optokens Profile, and this host maps none to a command; add a [credential] to a tool.toml (`rolesmith help library`), make the Secret a Profile, or map it in {}:",
                     found.qualified(),
                     service_map::file()?.display()
                 ),

@@ -101,6 +101,12 @@
     "source": "docs/adr/0001-roles-leave-guild-and-people-schedule-their-drafting-and-distilling.md:13",
     "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
   },
+  "20e1326d54ef": {
+    "mark": "not",
+    "sentence": "rolesmith read every service no host maps (ADR 0006) from mytokens, the macOS keychain CLI: `mytokens list` for which entries exist, `mytokens get` for a value.",
+    "source": "docs/adr/0008-credentials-are-read-from-optokens.md:8",
+    "why": "history, rationale or a measurement of ADR 0006/0007/0008, not a promise a run could break"
+  },
   "2359d2b1b63a": {
     "mark": "not",
     "sentence": "Each runs as the user, without `sudo`, writing under the home directory only.",
@@ -189,6 +195,11 @@
     "source": "SPEC.md:347",
     "why": "how a project moves a role's rev (who commits it, never inside another change), which people and the project's automations keep, not a promise a run of rolesmith could break; the section that tells agents so is checked by src/entry_file.rs's test"
   },
+  "48c2f0765df7": {
+    "mark": "promise",
+    "sentence": "A service is present when a Secret of that `service` is listed under the account `default`, the one `optokens get <service>` reads; a Secret under another account only is missing.",
+    "source": "docs/adr/0008-credentials-are-read-from-optokens.md:22"
+  },
   "4b09ba3ee0db": {
     "mark": "promise",
     "sentence": "When ssh cannot reach the host (it exits 255) the command fails (`error.kind` `failed`), naming the host, rather than listing every program as missing.",
@@ -275,6 +286,18 @@
     "sentence": "It forbids `rolesmith update` during a task: a role's rev moves only in a commit of its own, never inside another change.",
     "source": "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md:25",
     "why": "an ADR's restatement of a promise truefit.toml registers from the sentence that holds it (record-keeps-only-the-roles-a-person-named, managed-section-same-in-every-project-names-no-role, credential-values-only-to-a-process, a-host-chooses-where-a-service-is-read); one home per promise"
+  },
+  "66b638825314": {
+    "mark": "not",
+    "sentence": "A) Keep mytokens as the default and map each service to `optokens env <service>` in every host's `services.toml`. Rejected: every host repeats the same setting, and doctor would run each mapped `check` instead of one listing.",
+    "source": "docs/adr/0008-credentials-are-read-from-optokens.md:43",
+    "why": "history, rationale or a measurement of ADR 0006/0007/0008, not a promise a run could break"
+  },
+  "69de79a74650": {
+    "mark": "not",
+    "sentence": "Measured on mac-studio, optokens 0.1.9: `/usr/bin/time -p optokens list --fresh` took 4.80 s (a Sync); `/usr/bin/time -p optokens list`, within the Copy's Life, 0.00 s (2026-11-27).",
+    "source": "docs/adr/0008-credentials-are-read-from-optokens.md:38",
+    "why": "history, rationale or a measurement of ADR 0006/0007/0008, not a promise a run could break"
   },
   "6a617db9a3b3": {
     "mark": "promise",
@@ -368,6 +391,11 @@
     "sentence": "`probe.outcome` is `unattended` (finished, every variable the role's `[credential]`s expect printed; `seconds`), `needs a person` (not finished within the bound, then killed with its whole session; or failed saying it needs a terminal), `refused` (exited non-zero, with its stderr; or printed a line that is not a variable) or `incomplete` (`missing` names the expected variables it did not print). A probe may itself raise a Touch ID prompt; the prompt appearing is the answer.",
     "source": "SPEC.md:495"
   },
+  "8afebc7e417a": {
+    "mark": "promise",
+    "sentence": "The program rolesmith runs for a service no host maps is **optokens**, and nothing else about how a credential is read changes: a mapped service still runs its command, and doctor still reads presence with one listing and never a value.",
+    "source": "docs/adr/0008-credentials-are-read-from-optokens.md:17"
+  },
   "8ca8268993a3": {
     "mark": "promise",
     "sentence": "A role is drafted when someone runs `rolesmith new`; lessons are distilled when someone runs `rolesmith distill`. Every change to a library lands as a pull request a person merges.",
@@ -446,6 +474,12 @@
     "mark": "promise",
     "sentence": "A source's clone is of its library's `main`. `list` and `show` read roles from a commit of the clone (its local `main`, or `show --rev`), never from its working tree, so they print what an install at that commit writes.",
     "source": "SPEC.md:63"
+  },
+  "a30b3c63f66b": {
+    "mark": "not",
+    "sentence": "Options were a store of rolesmith's own, or names only with the values left in mytokens (or a host's command). Names only was chosen: a value has one home, the store it is kept in (amended by 0008: the optokens vault, not mytokens' keychain), and rolesmith cannot leak what it never keeps.",
+    "source": "docs/adr/0007-rolesmith-never-holds-a-secret.md:25",
+    "why": "history, rationale or a measurement of ADR 0006/0007/0008, not a promise a run could break"
   },
   "a49a032c9337": {
     "mark": "not",
@@ -566,6 +600,12 @@
     "source": "docs/adr/0005-a-projects-entry-file-carries-rolesmiths-managed-section.md:19",
     "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
   },
+  "d00911fdd8d4": {
+    "mark": "not",
+    "sentence": "Undo: drop the setting; every service is read from mytokens again (amended by 0008: optokens).",
+    "source": "docs/adr/0006-a-host-maps-a-service-to-a-command-that-prints-its-variables.md:46",
+    "why": "history, rationale or a measurement of ADR 0006/0007/0008, not a promise a run could break"
+  },
   "d0357ef713fe": {
     "mark": "promise",
     "sentence": "`rolesmith check` refuses a `script` without `version`, `brew` and `script` together, and a script that names `sudo` (rule `tool-sudo`). rolesmith never runs as root; a script writes only under the user's home, as brew does into `~/homebrew`.",
@@ -647,6 +687,12 @@
     "source": "docs/adr/0004-a-role-uses-skills-of-other-repositories-pinned-by-commit.md:9",
     "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
   },
+  "e70079d67bba": {
+    "mark": "not",
+    "sentence": "A host without optokens fails `doctor` and `env` for every unmapped service with \"cannot run `optokens list`\", as it did with mytokens before; it maps the service in `services.toml` instead.",
+    "source": "docs/adr/0008-credentials-are-read-from-optokens.md:52",
+    "why": "history, rationale or a measurement of ADR 0006/0007/0008, not a promise a run could break"
+  },
   "ea43581d3451": {
     "mark": "promise",
     "sentence": "`doctor` runs `command` only with `--probe` (§7.4). A mapped service is not looked for in mytokens: its `check` runs on this machine (with `--host` too, as values are read only here); exit 0 is present, anything else is missing (`kind` `service`). One without a `check` is answered `unchecked` and does not make doctor refuse.",
@@ -694,6 +740,12 @@
     "mark": "promise",
     "sentence": "validate a library working copy or one role; the library is the nearest of `--library` (default: the current directory) and its parents holding `library.toml`, as git finds its repository, so run in a role or a skill it checks the whole library as from the root, and outside any library it refuses as a directory with no `library.toml`, naming the directory it started from (§2, §3, §7.2); prints every problem, not the first, each with its file, line where there is one, and rule; exits 1 if there is any, and with `--json` lists them as `error.problems`",
     "source": "SPEC.md:547"
+  },
+  "f1f2bb53eb23": {
+    "mark": "not",
+    "sentence": "mytokens is being removed from the factorium host mac-studio; its credentials are read there through `optokens` instead, a 1Password vault reached through a service account and answered from a sealed local Copy that optokens keeps (5 min Life; `--fresh` syncs first). Without mytokens, `rolesmith doctor` failed on every role with a service, and factorium held their issues.",
+    "source": "docs/adr/0008-credentials-are-read-from-optokens.md:9",
+    "why": "history, rationale or a measurement of ADR 0006/0007/0008, not a promise a run could break"
   },
   "f4728c3d92dc": {
     "mark": "not",

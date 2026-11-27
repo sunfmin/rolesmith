@@ -1,7 +1,7 @@
 //! `rolesmith doctor <role> | --project <dir> [--host <host>]`: what a role, or every role a project
 //! records, needs. Each program's `check` passes, on this machine or on the
-//! host over ssh; each service and each program's credential has its mytokens entry on this
-//! machine, read by name with `mytokens list` only. Anything missing is a refusal, each with its
+//! host over ssh; each service and each program's credential has its optokens Secret on this
+//! machine, read by name with `optokens list` only. Anything missing is a refusal, each with its
 //! fix.
 
 use std::collections::BTreeMap;
@@ -18,9 +18,9 @@ use crate::probe::{self, Kept, Outcome, Probed};
 use crate::service_map::{self, Asks, Mapped, ServiceMap};
 use crate::sources::{self, Found, Sources};
 
-/// Check what a role needs on this machine: each program's `check` passes, and each service and credential has its mytokens entry.
+/// Check what a role needs on this machine: each program's `check` passes, and each service and credential has its optokens Secret.
 ///
-/// Run it before working under a role. It runs each program's `check` with `sh -c` (a `script` tool's check must also show its pinned version on stdout) and reads only which entries exist (`mytokens list`), never a value. A service this host maps to a command in its `services.toml` (see `rolesmith env --help`) is not looked for in mytokens: its `check` runs here in place of the command, which doctor runs only with `--probe`, and a failing check is missing (`kind` `service`); one without a `check` is answered `unchecked`, which does not make doctor refuse. It refuses when anything is missing, listing each with the command that fixes it (`rolesmith tool install <source>/<role>`, `mytokens put <entry> --fields ...`); with `--json` as `error.missing`. Do every fix, then run it again. A program without its `tool.toml` is refused as `show` refuses the role.
+/// Run it before working under a role. It runs each program's `check` with `sh -c` (a `script` tool's check must also show its pinned version on stdout) and reads only which Secrets exist (`optokens list`), never a value. A service this host maps to a command in its `services.toml` (see `rolesmith env --help`) is not looked for in optokens: its `check` runs here in place of the command, which doctor runs only with `--probe`, and a failing check is missing (`kind` `service`); one without a `check` is answered `unchecked`, which does not make doctor refuse. It refuses when anything is missing, listing each with the command that fixes it (`rolesmith tool install <source>/<role>`, `optokens put <entry> --fields "<A>,<B>"`); with `--json` as `error.missing`. Do every fix, then run it again. A program without its `tool.toml` is refused as `show` refuses the role.
 ///
 /// ## What a source asks for
 ///
@@ -28,7 +28,7 @@ use crate::sources::{self, Found, Sources};
 ///
 /// | source | asks for |
 /// | --- | --- |
-/// | mytokens | nothing |
+/// | optokens | nothing |
 /// | `op` with `OP_SERVICE_ACCOUNT_TOKEN` | nothing |
 /// | `op` without it | Touch ID or your password, on each read |
 /// | `sudo` | a password |
@@ -100,8 +100,8 @@ impl Command for Args {
                     }
                 } },
                 "entries": { "type": "array", "items": { "type": "string" },
-                             "description": "the mytokens entries the roles read, each present" },
-                "services": { "type": "array", "description": "each service this host maps to a command (services.toml), read from it in place of mytokens",
+                             "description": "the optokens Secrets the roles read, each present" },
+                "services": { "type": "array", "description": "each service this host maps to a command (services.toml), read from it in place of optokens",
                               "items": {
                     "type": "object", "required": ["name", "command", "state", "asks_for", "probe"],
                     "properties": {
@@ -260,17 +260,17 @@ fn diagnose(needs: &Needs, run: &Run, head: Value) -> Result<Output, Failure> {
     }
 
     let map = ServiceMap::load()?;
-    let (mapped, in_mytokens): (Vec<_>, Vec<_>) =
+    let (mapped, in_optokens): (Vec<_>, Vec<_>) =
         (needs.entries.iter()).partition(|e| map.get(&e.name).is_some());
-    let entries: Vec<String> = in_mytokens.iter().map(|e| e.name.clone()).collect();
-    if !in_mytokens.is_empty() {
+    let entries: Vec<String> = in_optokens.iter().map(|e| e.name.clone()).collect();
+    if !in_optokens.is_empty() {
         let present = machine::entries()?;
-        for e in in_mytokens {
+        for e in in_optokens {
             if !present.contains(&e.name) {
                 missing.push(Missing {
                     kind: "entry",
                     name: e.name.clone(),
-                    reason: "no mytokens entry".to_owned(),
+                    reason: "no optokens Secret".to_owned(),
                     fix: machine::put_command(&e.name, &e.fields),
                     from: from(&e.from),
                 });
@@ -299,7 +299,7 @@ fn diagnose(needs: &Needs, run: &Run, head: Value) -> Result<Output, Failure> {
     let mut human = format!("{}: nothing missing\n{human}", run.read);
     for e in &entries {
         human.push_str(&format!(
-            "- entry {e}: present; mytokens asks for nothing\n"
+            "- entry {e}: present; optokens asks for nothing\n"
         ));
     }
     let mut json = head;

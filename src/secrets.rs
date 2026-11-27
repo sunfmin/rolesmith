@@ -84,7 +84,7 @@ mod tests {
             "mytokens = \"asc-api-key\"",
             "ASC_PRIVATE_KEY_B64 = \"Key (base64 .p8)\"",
             "services = [\"asc-api-key\"]",
-            "Never paste a token into a commit message; read it with mytokens.",
+            "Never paste a token into a commit message; read it with optokens.",
             "task-runner-for-the-very-long-hyphenated-thing-here",
             "-----BEGIN PUBLIC KEY-----",
         ];

@@ -38,7 +38,7 @@ This project's roles for coding agents are recorded in `rolesmith.toml`: which r
 1. If `command -v rolesmith` finds nothing, install it: `brew install sunfmin/tap/rolesmith`. Otherwise upgrade it: `brew upgrade sunfmin/tap/rolesmith` (it does nothing when rolesmith is the latest; brew's auto-update interval decides how often it reads the tap). If `brew` is not on `PATH`, find it the way this machine installs software.
 2. If the skills `rolesmith-*` are missing from your skill directory ({dirs}), or `rolesmith status` reports drift, run `rolesmith sync`.
 3. Read the core skill of each role, `rolesmith-<role>/SKILL.md` in that directory, before anything else; every one is in force for all your work here.
-4. Run `rolesmith doctor <role>` for each role `rolesmith.toml` records. For a missing program, run the fix it gives (`rolesmith tool install <source>/<role>`), then `rolesmith doctor <role>` again; say in your reply what would not install, and go on with the work that does not need it. For a missing credential (a mytokens entry), tell a person the fix doctor gives; never make one up.
+4. Run `rolesmith doctor <role>` for each role `rolesmith.toml` records. For a missing program, run the fix it gives (`rolesmith tool install <source>/<role>`), then `rolesmith doctor <role>` again; say in your reply what would not install, and go on with the work that does not need it. For a missing credential (an optokens Secret), tell a person the fix doctor gives; never make one up.
 
 Never run `rolesmith update` during a task here: a role's revision moves only in a commit of its own, never inside another change.
 {END}
@@ -210,7 +210,7 @@ mod tests {
             "Read the core skill of each role",
             "Run `rolesmith doctor <role>`",
             "`rolesmith tool install <source>/<role>`",
-            "For a missing credential (a mytokens entry), tell a person",
+            "For a missing credential (an optokens Secret), tell a person",
             "Never run `rolesmith update` during a task here: a role's revision moves only in a commit of its own, never inside another change.",
         ] {
             assert!(s.contains(step), "{step}: {s}");

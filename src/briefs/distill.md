@@ -40,7 +40,7 @@ and leave the role as it is for it.
   wrong; its `description` is one line of at most {max_description} characters.
 
 Skill names are lowercase ASCII letters, digits and single hyphens, 2 to {max_name} characters. No
-file may hold text that looks like a secret: name a credential by its mytokens entry, never its
+file may hold text that looks like a secret: name a credential by its optokens Secret, never its
 value. Change nothing outside `roles/{role}/`, and do not commit: `rolesmith propose` does.
 
 ## The role now

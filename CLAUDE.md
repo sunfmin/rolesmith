@@ -11,7 +11,7 @@ in `truefit.toml` too.
 
 - `./gate.sh` must pass before anything lands: formatting, clippy with warnings as errors, the tests.
 - Tests run the built binary against temporary git repositories, with stand-ins for `gh` and
-  `mytokens` on `PATH`; no test reaches the network or a real keychain.
+  `optokens` on `PATH`; no test reaches the network or 1Password.
 - rolesmith never calls a model (ADR 0001) and never writes a secret (ADR 0007). A change that
   would is out of scope; say so on the issue.
 - GitHub Issues on sunfmin/rolesmith are not this repo's tracker. (A library's GitHub issues are

@@ -1,6 +1,7 @@
 # 0006. A host maps a service to a command that prints its variables
 
-Status: accepted, 2026-11-23 (control session, for Felix; rolesmith#41)
+Status: accepted, 2026-11-23 (control session, for Felix; rolesmith#41). Amended by 0008: the default
+source is optokens, where this ADR says mytokens.
 
 ## Context
 
@@ -19,7 +20,7 @@ command = "op inject -i ~/.config/rolesmith/asc-api-key.env"
 check = "op whoami"
 ```
 
-A service the host does not map is read from mytokens, as before. `env` runs the command
+A service the host does not map is read from mytokens, as before (amended by 0008: optokens). `env` runs the command
 (`sh -c`, stdin closed) when it reads, and exports what it prints; a `[credential]` of the service
 names what it must print. `doctor` never runs the command: it runs the optional `check`, and lists a
 service without one as `unchecked`, which does not make it refuse.
@@ -34,7 +35,7 @@ a `[service]` table in `library.toml`, `role.toml` or `tool.toml`.
   env` and `op inject` already print the same lines, so one rule covers all three with no
   per-vendor code to keep. (A service-account-only 1Password mapping was proposed and withdrawn the
   same day, for this more general one.)
-- B) One per-host command per service, mytokens the default. Chosen.
+- B) One per-host command per service, mytokens the default (amended by 0008: optokens). Chosen.
 
 ## Consequences
 
@@ -42,4 +43,4 @@ a `[service]` table in `library.toml`, `role.toml` or `tool.toml`.
   the child's environment, as mytokens values do.
 - A mapped command's output is read before variables are checked against each other, so a conflict
   with a mapped service is found after it ran.
-- Undo: drop the setting; every service is read from mytokens again.
+- Undo: drop the setting; every service is read from mytokens again (amended by 0008: optokens).

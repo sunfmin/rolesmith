@@ -18,9 +18,9 @@
 
 **Host**: the machine a role's tools are checked and installed on: this one, or another reached by `ssh` (`--host`), which needs no rolesmith. Credentials are only ever read on this one. _Avoid_: remote, target (a target is an agent)
 
-**Service**: a credential a role's work reads, named by its mytokens entry in `role.toml`'s `services`. rolesmith holds only the name.
+**Service**: a credential a role's work reads, named by its optokens Secret in `role.toml`'s `services`. rolesmith holds only the name.
 
-**Service mapping**: a host's own choice to read a service from a command that prints its variables (1Password's `op inject`, a script) instead of mytokens: a `[service.<name>]` of the host's `services.toml`, beside `sources.toml`. Never in a library. _Avoid_: provider, backend
+**Service mapping**: a host's own choice to read a service from a command that prints its variables (1Password's `op inject`, a script) instead of optokens: a `[service.<name>]` of the host's `services.toml`, beside `sources.toml`. Never in a library. _Avoid_: provider, backend
 
 **Probe**: one read of a mapped service's command by `doctor --probe`, with nothing that could answer a prompt and under a bound, to learn whether it reads `unattended` or `needs a person`; its outcome is kept on the host for the command it probed. _Avoid_: test, dry run
 

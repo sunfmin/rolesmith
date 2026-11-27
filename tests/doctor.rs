@@ -1,5 +1,5 @@
 //! `doctor`, `tool show`, `tool install` and `env` through the built
-//! binary, with a local bare repository as the library, stand-in programs on `PATH`, a `mytokens`
+//! binary, with a local bare repository as the library, stand-in programs on `PATH`, an `optokens`
 //! stand-in that answers `list` and fails the test if anything reads a value (`get`, `env`) unless
 //! the test serves values (for `rolesmith env`), a `brew` stand-in that offers the formulae a test
 //! gives it, and a `sudo` stand-in that fails the test if anything runs it.
@@ -15,21 +15,20 @@ struct Machine {
 }
 
 impl Machine {
-    /// A machine whose `mytokens list` names `entries`, and whose `PATH` has `asc` (exits 0) and
-    /// `xcodegen` (exits 3).
+    /// A machine whose `optokens list` names `entries` (each a Secret under the account `default`),
+    /// and whose `PATH` has `asc` (exits 0) and `xcodegen` (exits 3).
     fn new(entries: &[&str]) -> Machine {
         let m = Machine {
             dir: tempfile::tempdir().unwrap(),
         };
-        let listing: String = entries
-            .iter()
-            .map(|e| format!("{e}/default\tstatic\tserver  — a description  fields: A, B\n"))
-            .collect();
-        std::fs::write(m.path("listing"), listing).unwrap();
+        std::fs::write(m.path("listing"), r#"{"secrets":[]}"#).unwrap();
+        for e in entries {
+            m.list(e, "default", "static", Some(&["A", "B"]));
+        }
         m.program(
-            "mytokens",
+            "optokens",
             &format!(
-                "echo \"$*\" >> '{calls}'\ncase \"$1\" in\n  list) cat '{listing}' ;;\n  *) echo read >> '{read}'; exit 1 ;;\nesac\n",
+                "echo \"$*\" >> '{calls}'\ncase \"$1\" in\n  list) cat '{listing}' ;;\n  *) echo read >> '{read}'; echo '{{\"error\":[{{\"fault\":\"no value is served\",\"fix\":\"serve it\",\"kind\":\"denied\"}}]}}' >&2; exit 2 ;;\nesac\n",
                 calls = m.path("calls").display(),
                 listing = m.path("listing").display(),
                 read = m.path("value-read").display(),
@@ -95,7 +94,7 @@ impl Machine {
         );
         assert!(
             !self.path("value-read").exists(),
-            "{args:?} asked mytokens for a value: {}",
+            "{args:?} asked optokens for a value: {}",
             std::fs::read_to_string(self.path("calls")).unwrap_or_default()
         );
         o
@@ -142,9 +141,24 @@ impl Machine {
         std::fs::read_to_string(self.path("brew-calls")).unwrap_or_default()
     }
 
-    /// What was asked of mytokens, one call a line.
-    fn mytokens_calls(&self) -> String {
+    /// What was asked of optokens, one call a line.
+    fn optokens_calls(&self) -> String {
         std::fs::read_to_string(self.path("calls")).unwrap_or_default()
+    }
+
+    /// Have `optokens list` also name the Secret `service` under `account`, of `kind` (`static` or
+    /// `profile`), with `fields` (`None`: a single value), as optokens prints it.
+    fn list(&self, service: &str, account: &str, kind: &str, fields: Option<&[&str]>) {
+        let mut listing: Value =
+            serde_json::from_str(&std::fs::read_to_string(self.path("listing")).unwrap()).unwrap();
+        listing["secrets"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({
+                "service": service, "account": account, "kind": kind,
+                "description": "a description", "meta": null, "fields": fields,
+            }));
+        std::fs::write(self.path("listing"), listing.to_string()).unwrap();
     }
 }
 
@@ -237,18 +251,18 @@ fn doctor_reports_a_missing_program_a_failing_check_and_a_missing_entry_each_wit
         { "kind": "program", "name": "nothere",
           "reason": "check `rolesmith-test-nothere --version` not installed: its command is not found",
           "fix": fix_program },
-        { "kind": "entry", "name": "sentry", "reason": "no mytokens entry",
-          "fix": "mytokens put sentry" },
-        { "kind": "entry", "name": "asc-api-key", "reason": "no mytokens entry",
-          "fix": "mytokens put asc-api-key --fields \"Issuer ID\",\"Key ID\"" },
+        { "kind": "entry", "name": "sentry", "reason": "no optokens Secret",
+          "fix": "optokens put sentry" },
+        { "kind": "entry", "name": "asc-api-key", "reason": "no optokens Secret",
+          "fix": "optokens put asc-api-key --fields \"Issuer ID,Key ID\"" },
     ]);
     assert_eq!(missing, expected);
-    assert_eq!(m.mytokens_calls(), "list\n");
+    assert_eq!(m.optokens_calls(), "list\n");
 
     let err = stderr(&o);
     assert!(err.contains("lacks 4 thing(s)"), "{err}");
     assert!(
-        err.contains("entry sentry: no mytokens entry; fix: mytokens put sentry"),
+        err.contains("entry sentry: no optokens Secret; fix: optokens put sentry"),
         "{err}"
     );
     assert!(
@@ -258,7 +272,7 @@ fn doctor_reports_a_missing_program_a_failing_check_and_a_missing_entry_each_wit
 }
 
 #[test]
-fn doctor_runs_no_mytokens_when_the_role_reads_no_entry_and_fails_when_it_cannot_list() {
+fn doctor_runs_no_optokens_when_the_role_reads_no_entry_and_fails_when_it_cannot_list() {
     let m = Machine::new(&[]);
     let plain = role(&["xcodegen"], &[]);
     let reads = role(&[], &["github"]);
@@ -272,15 +286,57 @@ fn doctor_runs_no_mytokens_when_the_role_reads_no_entry_and_fails_when_it_cannot
     ]);
     let o = m.rolesmith(&["doctor", "plain"]);
     assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
-    assert_eq!(m.mytokens_calls(), "");
+    assert_eq!(m.optokens_calls(), "");
 
-    m.program("mytokens", "echo locked >&2; exit 1\n");
+    m.program("optokens", "echo locked >&2; exit 1\n");
     let o = m.rolesmith(&["doctor", "reads"]);
     assert_eq!(o.status.code(), Some(1));
     assert!(
-        stderr(&o).contains("`mytokens list` failed: locked"),
+        stderr(&o).contains("`optokens list` failed: locked"),
         "{}",
         stderr(&o)
+    );
+
+    // optokens' own failure: exit 2, its error object on stdout for `list`.
+    m.program(
+        "optokens",
+        "echo '{\"error\":[{\"fault\":\"F\",\"fix\":\"X\",\"kind\":\"sync\"}]}'; exit 2\n",
+    );
+    let o = m.rolesmith(&["--json", "doctor", "reads"]);
+    assert_eq!(o.status.code(), Some(1));
+    let message = json(&o)["error"]["message"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+    assert!(
+        message.contains("`optokens list` failed: F; fix: X"),
+        "{message}"
+    );
+}
+
+#[test]
+fn doctor_counts_only_a_secret_under_the_account_default() {
+    let m = Machine::new(&[]);
+    m.list("github", "work", "static", None);
+    m.source(&[
+        ("roles/reads/role.toml", &role(&[], &["github"])),
+        ("roles/reads/core.md", "Core.\n"),
+    ]);
+    let o = m.rolesmith(&["--json", "doctor", "reads"]);
+    assert_eq!(o.status.code(), Some(1), "{}", stderr(&o));
+    assert_eq!(
+        json(&o)["error"]["missing"],
+        serde_json::json!([{ "kind": "entry", "name": "github",
+            "reason": "no optokens Secret", "fix": "optokens put github" }])
+    );
+
+    m.list("github", "default", "static", None);
+    let o = m.rolesmith(&["doctor", "reads"]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    assert_eq!(
+        m.optokens_calls(),
+        "list\nlist\n",
+        "one `list` a run, never a `get`"
     );
 }
 
@@ -508,13 +564,14 @@ fn tool_install_refuses_an_unpinned_tool_named_alone() {
 }
 
 impl Machine {
-    /// Let `mytokens get <entry> [--field <f>]` answer each of `values` (entry, field, value),
-    /// newline-terminated as mytokens prints it; `list` still names the entries of `new`.
+    /// Let `optokens get <entry> [--field <f>]` answer each of `values` (entry, field, value),
+    /// as optokens prints it, with no newline of its own; `list` still names the entries of `new`.
+    /// Any other `get` fails as optokens does, exit 2 with an error object on stderr.
     fn serve_values(&self, values: &[(&str, &str, &str)]) {
         let mut cases = String::new();
         for (i, (entry, field, value)) in values.iter().enumerate() {
             let file = self.path(&format!("value-{i}"));
-            std::fs::write(&file, format!("{value}\n")).unwrap();
+            std::fs::write(&file, value).unwrap();
             let args = if field.is_empty() {
                 format!("get {entry}")
             } else {
@@ -523,9 +580,9 @@ impl Machine {
             cases.push_str(&format!("  '{args}') cat '{}' ;;\n", file.display()));
         }
         self.program(
-            "mytokens",
+            "optokens",
             &format!(
-                "echo \"$*\" >> '{calls}'\ncase \"$*\" in\n  list) cat '{listing}' ;;\n{cases}  *) echo \"no $*\" >&2; exit 1 ;;\nesac\n",
+                "echo \"$*\" >> '{calls}'\ncase \"$*\" in\n  list) cat '{listing}' ;;\n{cases}  *) echo \"{{\\\"error\\\":[{{\\\"fault\\\":\\\"the vault has no Secret $2\\\",\\\"fix\\\":\\\"optokens put $2\\\",\\\"kind\\\":\\\"not_found\\\"}}]}}\" >&2; exit 2 ;;\nesac\n",
                 calls = self.path("calls").display(),
                 listing = self.path("listing").display(),
             ),
@@ -578,7 +635,8 @@ fn env_library(m: &Machine, services: &[&str]) {
     m.serve_values(&[
         ("asc-api-key", "Key ID", AWKWARD),
         ("asc-api-key", "Issuer ID", "issuer"),
-        ("github", "", "gh-value"),
+        // A value that ends in a newline: optokens prints none of its own, so it is the value's.
+        ("github", "", "gh-value\n"),
     ]);
 }
 
@@ -615,7 +673,7 @@ fn env_prints_export_lines_that_sh_evals_back_to_each_value() {
     for (name, want) in [
         ("ASC_KEY_ID", AWKWARD),
         ("ASC_ISSUER_ID", "issuer"),
-        ("GH_TOKEN", "gh-value"),
+        ("GH_TOKEN", "gh-value\n"),
     ] {
         let script = format!(
             "eval \"$(cat '{}')\"; printf %s \"${name}\"",
@@ -629,6 +687,7 @@ fn env_prints_export_lines_that_sh_evals_back_to_each_value() {
     let doc = json(&o);
     conforms(&doc, &shape("env"));
     assert_eq!(doc["variables"]["ASC_KEY_ID"], AWKWARD);
+    assert_eq!(doc["variables"]["GH_TOKEN"], "gh-value\n", "byte for byte");
     assert_eq!(doc["role"], "felix/releaser");
 }
 
@@ -681,7 +740,7 @@ fn env_refuses_a_service_no_credential_maps_and_a_failing_read() {
         stderr(&o)
     );
     assert!(
-        !m.mytokens_calls().contains("get"),
+        !m.optokens_calls().contains("get"),
         "nothing is read before the refusal"
     );
 
@@ -691,7 +750,9 @@ fn env_refuses_a_service_no_credential_maps_and_a_failing_read() {
     let o = m.rolesmith(&["env", "releaser", "--", "true"]);
     assert_eq!(o.status.code(), Some(1));
     assert!(
-        stderr(&o).contains("`mytokens get asc-api-key` failed: no get"),
+        stderr(&o).contains(
+            "`optokens get asc-api-key` failed: the vault has no Secret asc-api-key; fix: optokens put asc-api-key"
+        ),
         "{}",
         stderr(&o)
     );
@@ -930,7 +991,7 @@ fn doctor_with_host_runs_each_check_there_over_ssh_and_reads_entries_here() {
         "-o BatchMode=yes -- laptop sh -c 'rolesmith-test-metal --version'\n\
          -o BatchMode=yes -- laptop sh -c 'asc --version'\n"
     );
-    assert_eq!(m.mytokens_calls(), "list\n", "entries are read here");
+    assert_eq!(m.optokens_calls(), "list\n", "entries are read here");
 
     // Without --host the checks run here, where metal is not installed.
     let o = m.rolesmith(&["--json", "doctor", "builder"]);
@@ -954,9 +1015,9 @@ fn doctor_with_host_runs_each_check_there_over_ssh_and_reads_entries_here() {
     assert!(human.contains("nothing missing"), "{human}");
     assert!(human.contains("- entry asc-api-key: present"), "{human}");
     assert!(
-        m.mytokens_calls().lines().all(|l| l == "list"),
-        "only `mytokens list` is run: {}",
-        m.mytokens_calls()
+        m.optokens_calls().lines().all(|l| l == "list"),
+        "only `optokens list` is run: {}",
+        m.optokens_calls()
     );
 }
 
@@ -980,8 +1041,8 @@ fn doctor_with_host_names_what_the_host_lacks_with_fixes_that_carry_the_host() {
             { "kind": "program", "name": "asc",
               "reason": "check `asc --version` on laptop not installed: its command is not found",
               "fix": fix },
-            { "kind": "entry", "name": "asc-api-key", "reason": "no mytokens entry",
-              "fix": "mytokens put asc-api-key --fields \"Issuer ID\",\"Key ID\"" },
+            { "kind": "entry", "name": "asc-api-key", "reason": "no optokens Secret",
+              "fix": "optokens put asc-api-key --fields \"Issuer ID,Key ID\"" },
         ])
     );
     let err = stderr(&o);
@@ -1146,12 +1207,12 @@ fn doctor_project_checks_every_recorded_and_required_role_each_tool_once_naming_
             { "kind": "program", "name": "xcodegen",
               "reason": "check `xcodegen --version` fails: exits 3",
               "fix": fix, "from": ["felix/base"] },
-            { "kind": "entry", "name": "asc-api-key", "reason": "no mytokens entry",
-              "fix": "mytokens put asc-api-key --fields \"Issuer ID\",\"Key ID\"",
+            { "kind": "entry", "name": "asc-api-key", "reason": "no optokens Secret",
+              "fix": "optokens put asc-api-key --fields \"Issuer ID,Key ID\"",
               "from": ["felix/app", "felix/web"] },
         ])
     );
-    assert_eq!(m.mytokens_calls(), "list\n");
+    assert_eq!(m.optokens_calls(), "list\n");
     let err = stderr(&o);
     assert!(err.contains("lacks 3 thing(s), on this machine:"), "{err}");
     assert!(
@@ -1162,11 +1223,12 @@ fn doctor_project_checks_every_recorded_and_required_role_each_tool_once_naming_
     // With everything present it answers the shape `doctor <role>` does, with the roles it read.
     m.program("xcodegen", "exit 0\n");
     m.program("rolesmith-test-swiftlint", "exit 0\n");
-    std::fs::write(
-        m.path("listing"),
-        "github/default\tstatic\tx\nasc-api-key/default\tstatic\tx\n",
-    )
-    .unwrap();
+    m.list(
+        "asc-api-key",
+        "default",
+        "static",
+        Some(&["Issuer ID", "Key ID"]),
+    );
     let o = m.rolesmith(&["--json", "doctor", "--project", project]);
     assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
     let doc = json(&o);
@@ -1309,14 +1371,9 @@ fn doctor_and_tool_install_refuse_a_project_without_rolesmith_toml() {
 }
 
 impl Machine {
-    /// Have `mytokens list` also name `entry` as a Profile whose fields are `fields`.
+    /// Have `optokens list` also name `entry` as a Profile whose fields are `fields`.
     fn profile(&self, entry: &str, fields: &[&str]) {
-        let mut listing = std::fs::read_to_string(self.path("listing")).unwrap();
-        listing.push_str(&format!(
-            "{entry}/default\tprofile\tserver  — a Profile, fields: not these  fields: {}\n",
-            fields.join(", ")
-        ));
-        std::fs::write(self.path("listing"), listing).unwrap();
+        self.list(entry, "default", "profile", Some(fields));
     }
 }
 
@@ -1402,7 +1459,7 @@ fn env_exports_a_profile_beside_credentials_and_refuses_a_name_from_two_sources(
         "{err}"
     );
     assert!(
-        !m.mytokens_calls().contains("get"),
+        !m.optokens_calls().contains("get"),
         "nothing is read before the refusal"
     );
 }
@@ -1484,7 +1541,7 @@ fn env_reads_a_service_this_host_maps_from_its_command_alone() {
         doc["variables"],
         serde_json::json!({ "A": "1", "B": "two" })
     );
-    assert_eq!(m.mytokens_calls(), "", "mytokens is never asked");
+    assert_eq!(m.optokens_calls(), "", "optokens is never asked");
 }
 
 #[test]
@@ -1550,9 +1607,9 @@ fn env_refuses_a_credential_variable_the_mapped_command_does_not_print() {
         serde_json::json!({ "ASC_ISSUER_ID": "i", "ASC_KEY_ID": "k" })
     );
     assert_eq!(
-        m.mytokens_calls(),
+        m.optokens_calls(),
         "",
-        "a mapped credential is not read from mytokens"
+        "a mapped credential is not read from optokens"
     );
 }
 
@@ -1615,7 +1672,7 @@ fn doctor_runs_a_mapped_services_check_never_its_command_and_lists_one_without_a
 }
 
 #[test]
-fn env_and_doctor_fail_on_a_services_toml_they_cannot_read_rather_than_use_mytokens() {
+fn env_and_doctor_fail_on_a_services_toml_they_cannot_read_rather_than_use_optokens() {
     let m = Machine::new(&["signing"]);
     m.source(&[
         ("roles/signer/role.toml", &role(&[], &["signing"])),
@@ -1643,8 +1700,8 @@ fn env_and_doctor_fail_on_a_services_toml_they_cannot_read_rather_than_use_mytok
         );
     }
     assert!(
-        !m.mytokens_calls().contains("get"),
-        "nothing is read from mytokens"
+        !m.optokens_calls().contains("get"),
+        "nothing is read from optokens"
     );
 }
 
@@ -1731,7 +1788,7 @@ fn doctor_and_env_name_what_a_mapped_command_asks_for_from_the_table() {
     signer(&m, &["vault", "tokens", "root", "script"]);
     m.noting("op", "echo A=1\n");
     m.map_service("vault", "op inject -i ~/vault.env", None);
-    m.map_service("tokens", "mytokens env tokens", None);
+    m.map_service("tokens", "optokens env tokens", None);
     m.map_service("root", "sudo cat /etc/secret.env", None);
     m.map_service("script", "~/bin/script-env", None);
 
@@ -1981,7 +2038,7 @@ fn doctor_help_tables_what_each_source_asks_for() {
     let m = Machine::new(&[]);
     let help = String::from_utf8(m.rolesmith(&["doctor", "--help"]).stdout).unwrap();
     for row in [
-        "| mytokens | nothing |",
+        "| optokens | nothing |",
         "| `op` with `OP_SERVICE_ACCOUNT_TOKEN` | nothing |",
         "| `op` without it | Touch ID or your password, on each read |",
         "| `sudo` | a password |",

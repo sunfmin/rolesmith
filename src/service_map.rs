@@ -1,6 +1,6 @@
 //! Where this host reads a service's credentials (ADR 0006): its own
 //! `$XDG_CONFIG_HOME/rolesmith/services.toml` maps a service to a command whose stdout is the
-//! service's variables, with an optional `check`; a service it does not map is read from mytokens.
+//! service's variables, with an optional `check`; a service it does not map is read from optokens.
 //! The setting is the host's, never a library's.
 
 use std::collections::BTreeMap;
@@ -42,7 +42,7 @@ pub fn file() -> Result<PathBuf, Failure> {
 }
 
 impl ServiceMap {
-    /// The host's setting; empty (every service from mytokens) when there is no file.
+    /// The host's setting; empty (every service from optokens) when there is no file.
     pub fn load() -> Result<ServiceMap, Failure> {
         let file = file()?;
         match std::fs::read_to_string(&file) {
@@ -58,7 +58,7 @@ impl ServiceMap {
         }
     }
 
-    /// How this host reads `service`, or `None` for mytokens.
+    /// How this host reads `service`, or `None` for optokens.
     pub fn get(&self, service: &str) -> Option<&Mapped> {
         self.service.get(service)
     }
@@ -105,7 +105,7 @@ impl Mapped {
 /// What reading a source asks of whoever runs it, known from its command alone.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Asks {
-    /// It reads without anyone: mytokens, or 1Password with a service account token.
+    /// It reads without anyone: optokens (through its service account), or 1Password with a service account token.
     Nothing,
     /// It waits on a person (Touch ID, a password, a prompt); what to say about it.
     Person(&'static str),
@@ -131,7 +131,7 @@ pub const OP_HINT: &str = "1Password asks for Touch ID or your password on each 
 /// it read without a person (in rolesmith's environment or assigned before it in the command),
 /// and what it asks without it (`None`: nothing). `doctor --help` tables the same rows.
 pub const KNOWN: &[(&str, Option<&str>, Option<&str>)] = &[
-    ("mytokens", None, None),
+    ("optokens", None, None),
     ("op", Some("OP_SERVICE_ACCOUNT_TOKEN"), Some(OP_HINT)),
     ("sudo", None, Some("sudo asks for a password")),
 ];
@@ -167,7 +167,7 @@ pub fn asks_for(command: &str, set: impl Fn(&str) -> bool) -> Asks {
 
 /// The variables of `text`: `NAME=value` statements, each optionally after `export`, one a line,
 /// with blank lines and `#` comments between them. A value is read as sh reads a word: `'…'`
-/// literally (spanning lines, as `mytokens env` quotes), `"…"` with `\` escaping `$`, `` ` ``,
+/// literally (spanning lines, as `optokens env` quotes), `"…"` with `\` escaping `$`, `` ` ``,
 /// `"`, `\` and a newline, and `\` outside quotes escaping the next character. A later statement
 /// of a name wins, as in sh. A statement that is not of this form is the line it starts on with
 /// what is wrong, never its text (it may hold a secret).
@@ -349,7 +349,7 @@ mod tests {
             asks_for("OP_SERVICE_ACCOUNT_TOKEN= op inject", none),
             Asks::Person(OP_HINT)
         );
-        assert_eq!(asks_for("mytokens env x", none), Asks::Nothing);
+        assert_eq!(asks_for("optokens env x", none), Asks::Nothing);
         assert_eq!(
             asks_for("sudo cat f", none),
             Asks::Person("sudo asks for a password")

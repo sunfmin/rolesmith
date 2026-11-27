@@ -21,7 +21,7 @@ pub const EXIT_USAGE: u8 = 2;
 ///
 /// A role is what an agent of one kind of work must know: a core always in force, prohibitions, and skills loaded when a task needs them. rolesmith installs a role as skills in the directory an agent reads (`--into`), records it at a commit, and checks what an agent writes into a library. It never calls a model and never writes a secret.
 ///
-/// It needs `git` on `PATH`; `gh` for lessons and pull requests, `mytokens` for credentials, `brew` for installing tools.
+/// It needs `git` on `PATH`; `gh` for lessons and pull requests, `optokens` for credentials, `brew` for installing tools.
 ///
 /// Run `rolesmith <command> --help` before a command's first run. To start on a machine: `rolesmith source add <name> <git-url>`, e.g. `rolesmith source add felix https://github.com/sunfmin/lore`, then `rolesmith list`. To give a project's agents roles: `rolesmith suggest`, then `rolesmith use <role>... --into <target>`. To work under a role: `rolesmith doctor <role>`, then `rolesmith env <role>`.
 ///
