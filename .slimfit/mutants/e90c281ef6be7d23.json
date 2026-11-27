@@ -1,0 +1,30 @@
+{
+  "tree": "bd32e3d98f502384d1802ba172ac731c2d186ca6+d1fba762150c532c",
+  "picker": "codex:01a21cdf-479e-76b2-b3e5-ee0e5fdc1987:default",
+  "author": "claude-code:bc57e935-9c04-53a6-9c7a-dc37048aeb4c:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/service_map.rs:49:23: replace match guard e.kind() == std::io::ErrorKind::NotFound with true in ServiceMap::load",
+        "why": "A filesystem read error on services.toml could silently send a mapped credential to optokens, while a test with malformed TOML would still pass.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/sources.rs:61:22: replace match guard Path::new(&dir).is_absolute() with true in xdg",
+        "why": "A relative XDG_CONFIG_HOME could redirect the service map lookup and change which credential source is used, while fixtures using absolute temporary paths would miss it.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  },
+  "removed_tests": {
+    "rust": [
+      "src/machine.rs:183: put_quotes_each_field",
+      "src/machine.rs:192: a_listed_line_gives_its_entry_kind_and_last_fields",
+      "tests/doctor.rs:261: doctor_runs_no_mytokens_when_the_role_reads_no_entry_and_fails_when_it_cannot_list",
+      "tests/doctor.rs:1618: env_and_doctor_fail_on_a_services_toml_they_cannot_read_rather_than_use_mytokens"
+    ]
+  },
+  "added_lines": 61
+}
