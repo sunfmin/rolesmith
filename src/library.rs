@@ -244,6 +244,8 @@ fn runs_sudo(script: &str) -> bool {
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Credential {
+    /// The optokens Secret it is read from (the key's name is kept from when credentials were read
+    /// from mytokens).
     pub mytokens: String,
     #[serde(default)]
     pub env: BTreeMap<String, String>,

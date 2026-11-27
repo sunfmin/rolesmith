@@ -1,5 +1,5 @@
 //! What roles need of a machine: the tool of each program they name and the
-//! mytokens entry of each service and credential they read, each once, with the roles that need it.
+//! optokens Secret of each service and credential they read, each once, with the roles that need it.
 //! `doctor` checks it and `tool install` installs it, for one role or for every role a project
 //! records.
 
@@ -27,7 +27,7 @@ pub struct Program {
     pub from: Vec<String>,
 }
 
-/// A mytokens entry, with the fields its credentials fill variables from.
+/// An optokens Secret, with the fields its credentials fill variables from.
 pub struct Entry {
     pub name: String,
     pub fields: Vec<String>,

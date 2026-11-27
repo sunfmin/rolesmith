@@ -1,7 +1,8 @@
 # 0007. rolesmith never holds a secret
 
 Status: accepted, 2026-11-22 (Felix, with rolesmith's first contract); recorded here on 2026-11-26, when
-that contract's promises moved to their homes.
+that contract's promises moved to their homes. Amended by 0008: credentials are read from optokens,
+where this ADR said mytokens.
 
 ## Context
 
@@ -12,17 +13,18 @@ every machine and every reader of that library or project.
 ## Decision
 
 Invariant: **rolesmith never holds a secret.** A role names the credentials it needs by their
-**mytokens** entry; rolesmith reads a value only to hand it to a process (`rolesmith env`), and never
+**optokens** Secret (amended by 0008); rolesmith reads a value only to hand it to a process (`rolesmith env`), and never
 writes one to disk, to a library, to a project or to its own output files.
 
 - A role and its tools name entries (`services`, `[credential]`), never values. Where a host reads a
   service is the host's own setting (ADR 0006), never the library's.
 - `rolesmith check` and `rolesmith lesson add` refuse text that looks like a secret, by one table of
   patterns in the code (`src/secrets.rs`), naming the file, line and pattern, never echoing the match.
-- `rolesmith doctor` reads only whether an entry exists (`mytokens list`), never its value.
+- `rolesmith doctor` reads only whether a Secret exists (`optokens list`), never its value.
 
 Options were a store of rolesmith's own, or names only with the values left in mytokens (or a host's
-command). Names only was chosen: a value has one home, the keychain it is kept in, and rolesmith
+command). Names only was chosen: a value has one home, the store it is kept in (amended by 0008: the
+optokens vault, not mytokens' keychain), and rolesmith
 cannot leak what it never keeps.
 
 ## Consequences

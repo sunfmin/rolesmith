@@ -20,7 +20,7 @@ Nothing else belongs in a library. A lesson is not a file: one waiting to be dis
 ```toml
 description = "Ships iOS and macOS apps to the App Store"   # required, one line
 programs = ["asc", "xcodegen"]          # tools of tools/ in the same library, by name
-services = ["asc-api-key"]              # mytokens entries the role's work reads
+services = ["asc-api-key"]              # optokens Secrets the role's work reads
 requires = ["coder"]                    # roles of the same library this one builds on
 
 [[skill]]                               # optional, repeated: an external skill
@@ -71,7 +71,7 @@ check = "asc --version"                       # exits 0 when the tool is usable
 brew = "asc"                                  # a Homebrew formula, into the user's prefix
 version = "7.0.0"                             # pinned
 [credential]                                  # optional: what the tool needs to run
-mytokens = "asc-api-key"                      # the entry
+mytokens = "asc-api-key"                      # the optokens Secret
 env = { ASC_KEY_ID = "Key ID", ASC_PRIVATE_KEY_B64 = "Key (base64 .p8)" }
 ```
 
@@ -89,4 +89,4 @@ version = "17C48"
 
 `rolesmith tool install --help` says how each is installed.
 
-`[credential]`'s `env` maps each environment variable to the field of the `mytokens` entry it is read from; a variable mapped to `""` is read from the entry's single value. `rolesmith env` exports them.
+`[credential]`'s `mytokens` is the optokens Secret it is read from (the key's name is kept from when credentials were read from mytokens). Its `env` maps each environment variable to the field of that Secret it is read from; a variable mapped to `""` is read from the Secret's single value. `rolesmith env` exports them.

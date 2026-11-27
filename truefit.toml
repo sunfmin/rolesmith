@@ -3,7 +3,7 @@
 # the command adds its test and turns `kept` into `check = ["test"]`. Candidates that are rationale,
 # history or advice are marked `not` in .truefit/promises.json.
 
-# Where the stand-ins of the programs rolesmith drives (gh, mytokens) will live: each one put
+# Where the stand-ins of the programs rolesmith drives (gh, optokens) will live: each one put
 # there needs a [[standin]] contract, or `truefit next` asks for it. None exists yet.
 [contract]
 standins = ["tests/fake-*", "tests/fakes"]
@@ -31,9 +31,9 @@ kept = '''not built yet: no command reads a credential yet (the CLI's frame (rol
 
 [[promise]]
 name = "credential-values-only-to-a-process"
-says = '''A role names the credentials it needs by their **mytokens** entry; rolesmith reads a value only to hand it to a process (`rolesmith env`), and never writes one to disk, to a library, to a project or to its own output files.'''
+says = '''A role names the credentials it needs by their **optokens** Secret (amended by 0008); rolesmith reads a value only to hand it to a process (`rolesmith env`), and never writes one to disk, to a library, to a project or to its own output files.'''
 source = "docs/adr/0007-rolesmith-never-holds-a-secret.md:15"
-kept = '''not built yet: `rolesmith env` does not exist yet (the CLI's frame (rolesmith#1) and `rolesmith check` (rolesmith#2) are all that is built); its issue adds the test against the mytokens stand-in and sets check = ["test"]'''
+kept = '''not built yet: `rolesmith env` does not exist yet (the CLI's frame (rolesmith#1) and `rolesmith check` (rolesmith#2) are all that is built); its issue adds the test against the credential store's stand-in and sets check = ["test"]'''
 
 # tests/check.rs a_role_name_follows_the_rule
 [[promise]]
@@ -93,13 +93,13 @@ kept = '''not built yet: `rolesmith suggest` does not exist yet (the CLI's frame
 # tests/doctor.rs env_prints_export_lines_that_sh_evals_back_to_each_value, env_exports_a_profile_service_by_its_own_field_names, env_exports_a_profile_beside_credentials_and_refuses_a_name_from_two_sources, env_refuses_a_service_no_credential_maps_and_a_failing_read
 [[promise]]
 name = "env-exports-every-credential-variable"
-says = '''`rolesmith env <role>` prints `export NAME='value'` lines (values single-quoted for sh) for every variable of its programs' `[credential]` (§3.5), each read from mytokens at that moment (`mytokens get <entry> --field <field>`, or `mytokens get <entry>` for `""`), for `eval "$(rolesmith env <role>)"`; `--json` gives them as `variables`. A service of the role that no program's `[credential]` names is read as a mytokens **Profile** when `mytokens list` lists it with kind `profile`: a Profile's fields are already variable names (what `mytokens env <entry>` exports), so each field is exported under its own name, read with `mytokens get <entry> --field <NAME>`. A service that is neither, and that this host does not map (§7.3), has no mapping to variables: `env` refuses the role, listing each such service (`error.unmapped`), and reads nothing.'''
+says = '''`rolesmith env <role>` prints `export NAME='value'` lines (values single-quoted for sh) for every variable of its programs' `[credential]` (§3.5), each read from optokens at that moment (`optokens get <entry> --field <field>`, or `optokens get <entry>` for `""`), for `eval "$(rolesmith env <role>)"`; `--json` gives them as `variables`. A service of the role that no program's `[credential]` names is read as an optokens **Profile** when `optokens list` lists it with kind `profile`: a Profile's fields are already variable names (what `optokens env <entry>` exports), so each field is exported under its own name, read with `optokens get <entry> --field <NAME>`. A service that is neither, and that this host does not map (§7.3), has no mapping to variables: `env` refuses the role, listing each such service (`error.unmapped`), and reads nothing.'''
 source = "src/commands/env.rs:20"
 check = ["test"]
 
 [[promise]]
 name = "doctor-never-reads-a-value"
-says = '''`rolesmith doctor` reads only whether an entry exists (`mytokens list`), never its value.'''
+says = '''`rolesmith doctor` reads only whether a Secret exists (`optokens list`), never its value.'''
 source = "docs/adr/0007-rolesmith-never-holds-a-secret.md:22"
 kept = '''not built yet: `rolesmith doctor` does not exist yet (the CLI's frame (rolesmith#1) and `rolesmith check` (rolesmith#2) are all that is built); its issue adds the test and sets check = ["test"]'''
 
@@ -228,7 +228,7 @@ check = ["test"]
 # tests/doctor.rs doctor_with_host_names_what_the_host_lacks_with_fixes_that_carry_the_host, doctor_with_host_runs_each_check_there_over_ssh_and_reads_entries_here
 [[promise]]
 name = "with-host-fixes-carry-the-host-and-credentials-stay-here"
-says = '''A program's fix that `doctor` names then carries `--host <host>`. Services and credentials are still read only on this machine, from its mytokens or the commands it maps them to (§7.3): a credential never leaves it, and whoever runs work on the host brings the values with it.'''
+says = '''A program's fix that `doctor` names then carries `--host <host>`. Services and credentials are still read only on this machine, from its optokens or the commands it maps them to (§7.3): a credential never leaves it, and whoever runs work on the host brings the values with it.'''
 source = "src/commands/doctor.rs:51"
 check = ["test"]
 
@@ -302,10 +302,10 @@ says = '''`rolesmith remove <role>` drops the role from `rolesmith.toml` and syn
 source = "src/commands/remove.rs:12"
 check = ["test"]
 
-# tests/doctor.rs env_reads_a_service_this_host_maps_from_its_command_alone, env_and_doctor_fail_on_a_services_toml_they_cannot_read_rather_than_use_mytokens; tests/check.rs a_hosts_service_setting_is_refused_in_a_library
+# tests/doctor.rs env_reads_a_service_this_host_maps_from_its_command_alone, env_and_doctor_fail_on_a_services_toml_they_cannot_read_rather_than_use_optokens; tests/check.rs a_hosts_service_setting_is_refused_in_a_library
 [[promise]]
 name = "a-host-chooses-where-a-service-is-read"
-says = '''Where a service's values come from is the host's choice, never a library's (ADR 0006). A host keeps it in **`$XDG_CONFIG_HOME/rolesmith/services.toml`** (default `~/.config/rolesmith/`), beside `sources.toml`; a service it does not name is read from mytokens as in §7.1.'''
+says = '''Where a service's values come from is the host's choice, never a library's (ADR 0006). A host keeps it in **`$XDG_CONFIG_HOME/rolesmith/services.toml`** (default `~/.config/rolesmith/`), beside `sources.toml`; a service it does not name is read from optokens as in §7.1.'''
 source = "docs/adr/0006-a-host-maps-a-service-to-a-command-that-prints-its-variables.md:27"
 check = ["test"]
 
@@ -326,7 +326,7 @@ check = ["test"]
 # tests/doctor.rs doctor_runs_a_mapped_services_check_never_its_command_and_lists_one_without_a_check_unchecked
 [[promise]]
 name = "doctor-runs-a-mapped-check-never-its-command"
-says = '''`doctor` runs `command` only with `--probe` (§7.4). A mapped service is not looked for in mytokens: its `check` runs on this machine (with `--host` too, as values are read only here); exit 0 is present, anything else is missing (`kind` `service`). One without a `check` is answered `unchecked` and does not make doctor refuse.'''
+says = '''`doctor` runs `command` only with `--probe` (§7.4). A mapped service is not looked for in optokens: its `check` runs on this machine (with `--host` too, as values are read only here); exit 0 is present, anything else is missing (`kind` `service`). One without a `check` is answered `unchecked` and does not make doctor refuse.'''
 source = "src/commands/doctor.rs:23"
 check = ["test"]
 
@@ -375,7 +375,7 @@ check = ["test"]
 # tests/doctor.rs doctor_passes_when_every_program_checks_and_every_entry_exists, doctor_reports_a_missing_program_a_failing_check_and_a_missing_entry_each_with_its_fix, doctor_refuses_a_role_whose_program_has_no_tool_toml, doctor_runs_a_mapped_services_check_never_its_command_and_lists_one_without_a_check_unchecked, doctor_with_host_runs_each_check_there_over_ssh_and_reads_entries_here, doctor_project_checks_every_recorded_and_required_role_each_tool_once_naming_its_roles
 [[promise]]
 name = "doctor-checks-every-program-and-entry-with-its-fix"
-says = '''for each program: tool.toml present (a role without one is refused as `show` refuses it), `check` passes (run by `sh -c`, exit 0); for each service and credential: mytokens entry present, read by `mytokens list` alone, or, for a service the host maps (§7.3), its `check` passes (without one it is `unchecked`, not missing). Exit 1 if anything is missing, each with the command that fixes it (`rolesmith tool install <source>/<role> [--host <host>]`, `mytokens put <entry> [--fields ...]`); with `--host` the checks run on that host over ssh, the entries are still read here; with `--project` every role the record names and each role it requires, at its recorded rev, each tool once (§3.5)'''
+says = '''for each program: tool.toml present (a role without one is refused as `show` refuses it), `check` passes (run by `sh -c`, exit 0); for each service and credential: optokens Secret present, read by `optokens list` alone, or, for a service the host maps (§7.3), its `check` passes (without one it is `unchecked`, not missing). Exit 1 if anything is missing, each with the command that fixes it (`rolesmith tool install <source>/<role> [--host <host>]`, `optokens put <entry> [--fields "<A>,<B>"]`); with `--host` the checks run on that host over ssh, the entries are still read here; with `--project` every role the record names and each role it requires, at its recorded rev, each tool once (§3.5)'''
 source = "src/commands/doctor.rs:23"
 check = ["test"]
 
@@ -441,3 +441,17 @@ says = '''**the Developer ID identity and the notary key live only in sunfmin/ho
 source = "docs/adr/0002-releases-are-universal-signed-and-notarized-by-the-taps-workflow.md:20"
 kept = '''how the repositories are set up, not what a run of rolesmith does: rolesmith's repo holds no signing identity or notary key and its cut only dispatches the tap's workflow (tests/release.rs cut_runs_the_taps_workflow_waits_for_it_and_takes_away_the_tag_it_pushed); where the secrets live no check here can see'''
 kept_forever = true
+
+# tests/doctor.rs doctor_reports_a_missing_program_a_failing_check_and_a_missing_entry_each_with_its_fix (one `list`), doctor_counts_only_a_secret_under_the_account_default, env_prints_export_lines_that_sh_evals_back_to_each_value, env_reads_a_service_this_host_maps_from_its_command_alone
+[[promise]]
+name = "credentials-read-from-optokens"
+says = '''The program rolesmith runs for a service no host maps is **optokens**, and nothing else about how a credential is read changes: a mapped service still runs its command, and doctor still reads presence with one listing and never a value.'''
+source = "docs/adr/0008-credentials-are-read-from-optokens.md:16"
+check = ["test"]
+
+# tests/doctor.rs doctor_counts_only_a_secret_under_the_account_default
+[[promise]]
+name = "secret-present-only-under-default"
+says = '''A service is present when a Secret of that `service` is listed under the account `default`, the one `optokens get <service>` reads; a Secret under another account only is missing.'''
+source = "docs/adr/0008-credentials-are-read-from-optokens.md:21"
+check = ["test"]

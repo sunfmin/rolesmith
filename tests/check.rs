@@ -49,7 +49,7 @@ engine = { preferred = "claude-code", fallback = ["codex"] }
     write(
         root,
         "roles/app-store-releaser/core.md",
-        "# Core\n\nRead the key with mytokens; never paste a token.\n",
+        "# Core\n\nRead the key with optokens; never paste a token.\n",
     );
     write(
         root,

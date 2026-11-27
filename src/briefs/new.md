@@ -28,7 +28,7 @@ write what an agent would otherwise get wrong.
 
 - `roles/{role}/role.toml`: a `description` of the work, one line of at most {max_description}
   characters (the need is there now as a draft: rewrite it); `programs`, tools of `tools/` in the
-  same library by name; `services`, the mytokens entries the work reads, by name. No other
+  same library by name; `services`, the optokens Secrets the work reads, by name. No other
   top-level key besides `[match]` and the tables of other consumers ({consumer_tables}).
 - `roles/{role}/core.md`: the role's standing memory, rules that hold for every task of the role,
   at most {max_core} characters. Anything that applies only to some tasks belongs in a skill.
@@ -41,7 +41,7 @@ write what an agent would otherwise get wrong.
   its `[install]` pins a `brew` formula and a `version`.
 
 Role and skill names are lowercase ASCII letters, digits and single hyphens, 2 to {max_name}
-characters. No file may hold text that looks like a secret: name a credential by its mytokens
+characters. No file may hold text that looks like a secret: name a credential by its optokens
 entry, never its value. Change nothing else in the library, and do not commit: `rolesmith propose`
 does. `check` cannot judge whether the role is any good: that is your research and the person's
 review.

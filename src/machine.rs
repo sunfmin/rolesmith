@@ -1,10 +1,11 @@
 //! What this machine has of what a role needs: whether a tool's `check`
-//! passes here, which mytokens entries exist and which are Profiles, with their field names, all
-//! read with `mytokens list`; and, for `env` only, an entry's value.
+//! passes here, which optokens Secrets exist and which are Profiles, with their field names, all
+//! read with `optokens list`; and, for `env` only, a Secret's value.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::process::{Command, Stdio};
 
+use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::brew;
@@ -45,84 +46,109 @@ pub fn check_tool(host: &Host, tool: &ToolToml) -> Result<Check, Failure> {
     Ok(Check { passes, reason })
 }
 
-/// The names of the mytokens entries on this machine, from `mytokens list`; never a value.
+/// The names of the optokens Secrets on this machine under the account `default` (the one
+/// `optokens get <entry>` reads), from `optokens list`; never a value.
 pub fn entries() -> Result<BTreeSet<String>, Failure> {
-    Ok(listed()?.into_iter().map(|l| l.entry).collect())
+    Ok(listed()?.into_iter().map(|s| s.service).collect())
 }
 
-/// The Profiles among the mytokens entries on this machine, each with its field names (the
-/// variables `mytokens env <entry>` exports), from `mytokens list`; never a value.
+/// The Profiles among the optokens Secrets on this machine, each with its field names (the
+/// variables `optokens env <entry>` exports), from `optokens list`; never a value.
 pub fn profiles() -> Result<BTreeMap<String, Vec<String>>, Failure> {
     Ok(listed()?
         .into_iter()
-        .filter_map(|l| Some((l.entry, l.profile?)))
+        .filter(|s| s.kind == "profile")
+        .map(|s| (s.service, s.fields.unwrap_or_default()))
         .collect())
 }
 
-/// One line of `mytokens list`: `<entry>/<account>\t<kind>\t<level>  — <description>` and, when
-/// it has fields, `  fields: <name>, <name>` last.
-struct Listed {
-    entry: String,
-    /// A Profile's field names; `None` for an entry of another kind.
-    profile: Option<Vec<String>>,
+/// What `optokens list` prints: one JSON object, `{"secrets": [...]}`; never a value.
+#[derive(Deserialize)]
+struct Listing {
+    secrets: Vec<Secret>,
 }
 
-fn listed() -> Result<Vec<Listed>, Failure> {
-    Ok(String::from_utf8_lossy(&mytokens(&["list"])?)
-        .lines()
-        .filter_map(parse_listed)
+/// One Secret of `optokens list`.
+#[derive(Deserialize)]
+struct Secret {
+    service: String,
+    account: String,
+    /// `static` or `profile`.
+    kind: String,
+    /// Its fields' labels; `None` for a single value.
+    fields: Option<Vec<String>>,
+}
+
+/// The Secrets under the account `default`: a Secret under another account is not what
+/// `optokens get <service>` reads.
+fn listed() -> Result<Vec<Secret>, Failure> {
+    let out = optokens(&["list"])?;
+    let listing: Listing = serde_json::from_slice(&out)
+        .map_err(|e| Failure::new(format!("`optokens list` printed no listing: {e}")))?;
+    Ok(listing
+        .secrets
+        .into_iter()
+        .filter(|s| s.account == "default")
         .collect())
 }
 
-fn parse_listed(line: &str) -> Option<Listed> {
-    let mut columns = line.split_whitespace();
-    let first = columns.next()?;
-    let entry = first.split_once('/').map_or(first, |(entry, _)| entry);
-    let profile = (columns.next() == Some("profile")).then(|| {
-        line.rsplit_once("  fields: ")
-            .map(|(_, names)| names.split(", ").map(|n| n.trim().to_owned()).collect())
-            .unwrap_or_default()
-    });
-    Some(Listed {
-        entry: entry.to_owned(),
-        profile,
-    })
-}
-
-/// What `mytokens <args>` prints, or why it could not; its stdin is closed.
-fn mytokens(args: &[&str]) -> Result<Vec<u8>, Failure> {
-    let call = format!("mytokens {}", args[..args.len().min(2)].join(" "));
-    let out = Command::new("mytokens")
+/// What `optokens <args>` prints, or why it could not; its stdin is closed. A failure names each
+/// fault and fix of the error object optokens prints (on stdout for `list`, on stderr for `get`),
+/// or its stderr when it printed none.
+fn optokens(args: &[&str]) -> Result<Vec<u8>, Failure> {
+    let call = format!("optokens {}", args[..args.len().min(2)].join(" "));
+    let out = Command::new("optokens")
         .args(args)
         .stdin(Stdio::null())
         .output()
         .map_err(|e| Failure::new(format!("cannot run `{call}`: {e}")))?;
     if !out.status.success() {
-        return Err(Failure::new(format!(
-            "`{call}` failed: {}",
-            String::from_utf8_lossy(&out.stderr).trim()
-        )));
+        let why = faults(&out.stderr)
+            .or_else(|| faults(&out.stdout))
+            .unwrap_or_else(|| String::from_utf8_lossy(&out.stderr).trim().to_owned());
+        return Err(Failure::new(format!("`{call}` failed: {why}")));
     }
     Ok(out.stdout)
 }
 
-/// The value of `entry`'s `field` (`""`: its single value), read from mytokens now and kept
-/// nowhere. The newline mytokens ends its answer with is not part of the value.
+/// `<fault>; fix: <fix>` for each fault of optokens' error object
+/// `{"error": [{"fault", "fix", "kind"}]}`, or `None` when `printed` is not one.
+fn faults(printed: &[u8]) -> Option<String> {
+    #[derive(Deserialize)]
+    struct Errors {
+        error: Vec<Fault>,
+    }
+    #[derive(Deserialize)]
+    struct Fault {
+        fault: String,
+        fix: String,
+    }
+    let errors: Errors = serde_json::from_slice(printed).ok()?;
+    (!errors.error.is_empty()).then(|| {
+        (errors.error.iter())
+            .map(|f| format!("{}; fix: {}", f.fault, f.fix))
+            .collect::<Vec<_>>()
+            .join("; ")
+    })
+}
+
+/// The value of `entry`'s `field` (`""`: its single value), read from optokens now and kept
+/// nowhere. optokens prints it as it is, with no newline of its own, so every byte is the value's.
 pub fn value(entry: &str, field: &str) -> Result<String, Failure> {
     let mut args = vec!["get", entry];
     if !field.is_empty() {
         args.extend(["--field", field]);
     }
-    let out = mytokens(&args)?;
-    Ok(String::from_utf8_lossy(out.strip_suffix(b"\n").unwrap_or(&out)).into_owned())
+    Ok(String::from_utf8_lossy(&optokens(&args)?).into_owned())
 }
 
-/// The command that stores the entry `name` with `fields` (none: one bare value).
+/// The command that stores the Secret `name` with `fields` (none: one bare value), the labels
+/// comma-joined in one argument, as `optokens put` takes them.
 pub fn put_command(name: &str, fields: &[String]) -> String {
     if fields.is_empty() {
-        format!("mytokens put {name}")
+        format!("optokens put {name}")
     } else {
-        format!("mytokens put {name} --fields \"{}\"", fields.join("\",\""))
+        format!("optokens put {name} --fields \"{}\"", fields.join(","))
     }
 }
 
@@ -180,23 +206,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn put_quotes_each_field() {
-        assert_eq!(put_command("e", &[]), "mytokens put e");
+    fn put_joins_the_fields_in_one_argument() {
+        assert_eq!(put_command("e", &[]), "optokens put e");
         assert_eq!(
             put_command("e", &["Key ID".into(), "Issuer ID".into()]),
-            "mytokens put e --fields \"Key ID\",\"Issuer ID\""
+            "optokens put e --fields \"Key ID,Issuer ID\""
         );
     }
 
     #[test]
-    fn a_listed_line_gives_its_entry_kind_and_last_fields() {
-        let l = parse_listed(
-            "apple-dev-signing/default\tprofile\tserver  — see fields: X  fields: APPLE_TEAM, ASC_KEY_ID",
-        )
-        .unwrap();
-        assert_eq!(l.entry, "apple-dev-signing");
-        assert_eq!(l.profile.unwrap(), ["APPLE_TEAM", "ASC_KEY_ID"]);
-        let l = parse_listed("asc/default\tstatic\tserver  — a key  fields: Key ID").unwrap();
-        assert_eq!((l.entry.as_str(), l.profile), ("asc", None));
+    fn an_error_object_gives_each_fault_and_fix() {
+        assert_eq!(
+            faults(br#"{"error":[{"fault":"F","fix":"X","kind":"k"},{"fault":"G","fix":"Y"}]}"#)
+                .as_deref(),
+            Some("F; fix: X; G; fix: Y")
+        );
+        assert_eq!(faults(b"locked"), None);
+        assert_eq!(faults(br#"{"error":[]}"#), None);
     }
 }
