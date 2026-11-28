@@ -62,12 +62,6 @@
     "source": "docs/adr/0003-a-role-names-the-roles-it-builds-on-in-its-role-toml.md:21",
     "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
   },
-  "17bbe649131c": {
-    "mark": "not",
-    "sentence": "A standard (non-admin) Mac account installs by several: its own Homebrew in `~/homebrew`, pixi for what brew would build from source, mise for runtimes, `uv tool`, `npm` into `~/.local`, a checked binary in `~/.local/bin`, and Apple's system components through `xcodebuild`. One ADR and one block of code per method would grow without end, and each would only run a program the user could have named in a line of shell.",
-    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:10",
-    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
-  },
   "18dcf831a6d0": {
     "mark": "promise",
     "sentence": "run `check` (of the role, or the whole working copy) and refuse with its problems if it fails; commit the working copy's changes on its current `rolesmith/*` branch (refuse on `main` or any other branch, and when the branch does not differ from `main`); push that branch to the source's `origin`, never `main`, never forced; open a pull request onto `main` with `gh pr create`, its body listing what changed per role (and outside any role) and a `Closes #<n>` line per `--closes`; print its URL.",
@@ -113,12 +107,6 @@
     "source": "docs/adr/0008-credentials-are-read-from-optokens.md:8",
     "why": "history, rationale or a measurement of ADR 0006/0007/0008, not a promise a run could break"
   },
-  "2359d2b1b63a": {
-    "mark": "not",
-    "sentence": "Each runs as the user, without `sudo`, writing under the home directory only.",
-    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:45",
-    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
-  },
   "258f4ea77a28": {
     "mark": "promise",
     "sentence": "An entry file no target of the record names loses the section; a record with no roles removes it from every entry file, and an entry file that held only the section is deleted, as `.gitignore`'s lines are.",
@@ -160,6 +148,12 @@
     "sentence": "Invariant: **\"X is also a Y\" is written once, in X's role.toml; records name only the roles a person chose.**",
     "source": "docs/adr/0003-a-role-names-the-roles-it-builds-on-in-its-role-toml.md:15",
     "why": "an ADR's restatement of a promise truefit.toml registers from the sentence that holds it (record-keeps-only-the-roles-a-person-named, managed-section-same-in-every-project-names-no-role, credential-values-only-to-a-process, a-host-chooses-where-a-service-is-read); one home per promise"
+  },
+  "3b29fa880d39": {
+    "mark": "not",
+    "sentence": "Before comparing, the formula's own tap is refreshed with `git pull --ff-only`, at most once a day, never with `brew update`: a host that sets `HOMEBREW_NO_AUTO_UPDATE` would otherwise never see a newer stable.",
+    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:30",
+    "why": "the ADR's account of a decision truefit.toml registers as tap-refreshed-at-most-once-a-day-never-by-brew-update; one home per promise"
   },
   "3be3ee6f8c03": {
     "mark": "not",
@@ -273,7 +267,7 @@
   "612327bd1c3b": {
     "mark": "not",
     "sentence": "Invariant: **a tool counts as installed only when its check shows the version it pins.**",
-    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:24",
+    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:18",
     "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
   },
   "62f484d224f5": {
@@ -285,7 +279,7 @@
   "65e35d0afee2": {
     "mark": "promise",
     "sentence": "`stable` is for `brew` only.",
-    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:141"
+    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:34"
   },
   "669c2b84d973": {
     "mark": "not",
@@ -319,18 +313,6 @@
     "mark": "promise",
     "sentence": "`skills/<skill>/SKILL.md` with YAML front matter `name` (equal to the directory name) and `description` (required, at most 1,024 characters, saying when to use it). Other files beside `SKILL.md` (scripts, references) are copied with it.",
     "source": "SPEC.md:96"
-  },
-  "742e3dd60180": {
-    "mark": "not",
-    "sentence": "The invariant becomes: a tool counts as installed only when its check shows the version it pins, or, for a brew tool following `stable`, when brew has its formula's stable version installed.",
-    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:144",
-    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
-  },
-  "77a2b9ccac89": {
-    "mark": "not",
-    "sentence": "It counts as installed only when brew has the formula's stable version installed (`brew info --json=v2 <formula>`: `versions.stable` among `installed[].version`, or a rebuild `<stable>_<n>`). One installed but older is missing, for `doctor` (naming both versions) and for `tool install`, which runs `brew upgrade <formula>` (or `brew install <formula>` when none is installed), then the check.",
-    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:132",
-    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
   },
   "78cc94a4f90a": {
     "mark": "promise",
@@ -424,18 +406,6 @@
     "sentence": "install each program whose check fails by its pinned method into the user's own prefix (§3.5), on that host over ssh with `--host`, of every role a project records and the roles they require with `--project`, each tool once, in order; the first refusal stops it and names what was installed before it",
     "source": "SPEC.md:558"
   },
-  "9099be4f287d": {
-    "mark": "not",
-    "sentence": "`script` is enough because every method is a command the user runs, and the pinned version in the check's output is what says the right thing was installed, whatever ran.",
-    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:38",
-    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
-  },
-  "91cc3185365d": {
-    "mark": "not",
-    "sentence": "Before comparing, the formula's own tap is refreshed with `git pull --ff-only`, at most once a day (a stamp in the tap's `.git`), never with `brew update`: a host that sets `HOMEBREW_NO_AUTO_UPDATE` would otherwise never see a newer stable.",
-    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:137",
-    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
-  },
   "9368b5196eda": {
     "mark": "not",
     "sentence": "`rolesmith env` read every credential from mytokens.",
@@ -446,12 +416,6 @@
     "mark": "promise",
     "sentence": "Every generated `SKILL.md` carries a comment on the first line of its front matter naming the source, role and rev it came from (for an external skill, also its path, URL and rev) and saying it is generated.",
     "source": "SPEC.md:304"
-  },
-  "93cac93acfaa": {
-    "mark": "not",
-    "sentence": "For a script, rolesmith cannot see what the script installed, so the check's stdout must contain `version`; a check that exits 0 without it is missing (doctor reports it, `tool install` runs the script). A brew tool's version is held by its formula, so its check need only pass.",
-    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:24",
-    "why": "the ADR's account of a decision whose promise SPEC.md (the contract) states and truefit.toml registers from there: requires (§3.1, §5.1), the managed section (§4), a tool's check and the tap refresh (§3.5), a service's mapping (§7.3); one home per promise"
   },
   "965c42db7663": {
     "mark": "not",
@@ -475,12 +439,6 @@
     "sentence": "A role is therefore usable only as a Guild instance, on a Mac with guildd, a Forgejo Hub and the tailnet: not in a Claude Code session, not in Orca on a phone, not by someone who runs no Hub.",
     "source": "docs/adr/0001-roles-leave-guild-and-people-schedule-their-drafting-and-distilling.md:9",
     "why": "rationale, history or advice to the reader (what core.md is for, where task-specific rules go, why roles left Guild), not a promise a run of rolesmith could break"
-  },
-  "9eb6193897a7": {
-    "mark": "not",
-    "sentence": "pixi, from conda-forge, for what brew could only build from source:",
-    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:57",
-    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
   },
   "a2079f121976": {
     "mark": "promise",
@@ -596,6 +554,12 @@
     "sentence": "It is the same in every project and names no role: it tells the agent to install rolesmith when `command -v rolesmith` finds nothing (`brew install sunfmin/tap/rolesmith`) and otherwise upgrade it (`brew upgrade sunfmin/tap/rolesmith`), to run `rolesmith sync` when the skills are missing or `status` reports drift, to read each role's core skill, and to run `doctor` and `tool install` for what is missing, reporting a missing credential to a person; and not to run `update`, since a role's rev moves only as §5.4 says.",
     "source": "SPEC.md:262"
   },
+  "c978a0eebbda": {
+    "mark": "not",
+    "sentence": "A standard (non-admin) Mac account installs by several: its own `~/homebrew`, pixi, mise, `uv tool`, `npm` into `~/.local`, a checked binary, Apple's components through `xcodebuild`. One ADR and one block of code each would grow without end, and each would only run a line of shell.",
+    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:8",
+    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
+  },
   "ca13bb45a866": {
     "mark": "promise",
     "sentence": "one **core skill**, `rolesmith-<role>`, whose `SKILL.md` is `core.md` followed by the prohibitions, with the description \"Always in force in this project: <role description>\".",
@@ -617,11 +581,6 @@
     "sentence": "Undo: drop the setting; every service is read from mytokens again (amended by 0008: optokens).",
     "source": "docs/adr/0006-a-host-maps-a-service-to-a-command-that-prints-its-variables.md:46",
     "why": "history, rationale or a measurement of ADR 0006/0007/0008, not a promise a run could break"
-  },
-  "d0357ef713fe": {
-    "mark": "promise",
-    "sentence": "`rolesmith check` refuses a `script` without `version`, `brew` and `script` together, and a script that names `sudo` (rule `tool-sudo`). rolesmith never runs as root; a script writes only under the user's home, as brew does into `~/homebrew`.",
-    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:33"
   },
   "d041bb4cf7a3": {
     "mark": "not",
@@ -671,6 +630,12 @@
     "sentence": "Plain `doctor` runs no source and answers the kept outcome while the service maps to the same command; a kept `needs a person` is missing (`kind` `service`), naming when, with the fix (a service account token, or a source that needs no person). A service never probed, or probed with another command, is `unchecked`.",
     "source": "SPEC.md:502"
   },
+  "de02d5b08480": {
+    "mark": "not",
+    "sentence": "A brew tool may write `version = \"stable\"`, for a toolchain that publishes daily: it counts as installed only when brew has the formula's stable version installed, and `tool install` upgrades one that is older.",
+    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:26",
+    "why": "the ADR's account of a decision truefit.toml registers as tool-counts-installed-only-when-its-check-shows-the-pin; one home per promise"
+  },
   "de1d46f78c99": {
     "mark": "not",
     "sentence": "Invariant: **the choice of where a credential comes from belongs to the host, never to a library.**",
@@ -705,6 +670,12 @@
     "source": "docs/adr/0008-credentials-are-read-from-optokens.md:52",
     "why": "history, rationale or a measurement of ADR 0006/0007/0008, not a promise a run could break"
   },
+  "e7e352735c2f": {
+    "mark": "not",
+    "sentence": "rolesmith cannot see what a script installed, so a script's check passes only when its stdout contains `version`. A brew tool's version is held by its formula, so its check need only pass.",
+    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:18",
+    "why": "the ADR's account of a decision truefit.toml registers as tool-counts-installed-only-when-its-check-shows-the-pin; one home per promise"
+  },
   "ea43581d3451": {
     "mark": "promise",
     "sentence": "`doctor` runs `command` only with `--probe` (§7.4). A mapped service is not looked for in mytokens: its `check` runs on this machine (with `--host` too, as values are read only here); exit 0 is present, anything else is missing (`kind` `service`). One without a `check` is answered `unchecked` and does not make doctor refuse.",
@@ -720,12 +691,6 @@
     "sentence": "A role some projects want and others do not (for example running tests on a real phone) is not required by anything; it is named in `rolesmith use` only for the projects that want it.",
     "source": "src/help/composing.md:3",
     "why": "advice to the reader on composing roles (what to require, what to name, when to remove a directory), not a promise a run of rolesmith could break"
-  },
-  "ec5d58a19860": {
-    "mark": "not",
-    "sentence": "A toolchain that publishes daily (sunfmin/flux-toolchain) cannot be kept current by a pin: the pin would be copied from the tap into the library every day, by a commit a day and a cross-repo write credential, for the same result.",
-    "source": "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:128",
-    "why": "an ADR's context, history, options or rationale (what was, what was weighed, why, how to undo it), not a promise a run of rolesmith could break"
   },
   "ecd415125531": {
     "mark": "promise",

@@ -43,10 +43,6 @@
       "rolesmith.toml"
     ]
   },
-  "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md": {
-    "bytes": 6323,
-    "local_refs": 4
-  },
   "docs/adr/0006-a-host-maps-a-service-to-a-command-that-prints-its-variables.md": {
     "local_refs": 1,
     "pointers": [

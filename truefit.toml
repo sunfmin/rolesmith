@@ -201,14 +201,14 @@ check = ["test"]
 [[promise]]
 name = "tool-counts-installed-only-when-its-check-shows-the-pin"
 says = '''A tool's check passes when it exits 0 and, for a `script`, its stdout contains `version`: a check that exits 0 without showing the pinned version is missing, for `doctor` and for `tool install`. For a `brew` tool following `stable`, the check passes only when the versions brew has installed (`brew info --json=v2 <formula>`'s `installed`) include the formula's stable one (or a rebuild of it, `<stable>_<n>`); one installed but older is missing, its reason naming the installed and the stable versions.'''
-source = "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:24"
+source = "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:18"
 check = ["test"]
 
 # tests/doctor.rs a_brew_tool_following_stable_is_missing_while_older_and_tool_install_upgrades_it (stamp 2 h old: not fetched; 25 h: pulled; the brew stand-in refuses `update`)
 [[promise]]
 name = "tap-refreshed-at-most-once-a-day-never-by-brew-update"
 says = '''Before comparing, the formula's own tap (`<user>/<repo>` of `<user>/<repo>/<name>`) is brought up to its remote with `git pull --ff-only` in `brew --repo <tap>`, never `brew update`, and at most once a day: a tap whose `.git/rolesmith-refreshed` was touched within 24 hours is not fetched, and the file is touched after each pull that succeeds.'''
-source = "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:137"
+source = "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:30"
 check = ["test"]
 
 # tests/doctor.rs doctor_passes_when_every_program_checks_and_every_entry_exists (a brew tool whose check prints nothing passes)
@@ -425,14 +425,14 @@ check = ["test"]
 [[promise]]
 name = "check-refuses-an-unpinned-or-sudo-script"
 says = '''`rolesmith check` refuses a `script` without `version`, `brew` and `script` together, and a script that names `sudo` (rule `tool-sudo`).'''
-source = "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:33"
+source = "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:22"
 check = ["test"]
 
 # tests/check.rs a_script_install_is_pinned_alone_and_never_runs_sudo
 [[promise]]
 name = "stable-is-for-brew-only"
 says = '''`stable` is for `brew` only.'''
-source = "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:141"
+source = "docs/adr/0005-a-tool-installs-by-brew-or-by-a-pinned-script.md:34"
 check = ["test"]
 
 [[promise]]
