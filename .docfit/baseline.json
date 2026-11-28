@@ -18,7 +18,6 @@
     ]
   },
   "docs/adr/0002-releases-are-universal-signed-and-notarized-by-the-taps-workflow.md": {
-    "local_refs": 3,
     "pointers": [
       ".github/workflows/README.md",
       "ADR 0013"
