@@ -69,6 +69,14 @@
       "commits_90d": 12,
       "commits_total": 12,
       "reason": "Already deep: its one interface is the doctor command (Args::run); behind it it hides resolving one role or every recorded and required role of a project at its rev, running each program's check here or on a host over ssh, reading mytokens by name only, splitting needs into mytokens entries and services.toml-mapped services, running each service's check, naming what its command asks for, probing it without a person and keeping the outcome, and turning every gap into one refusal with its fix. The work itself lives in deeper modules it composes (needs, machine, host, probe, service_map); nothing else calls into doctor.rs, and its tests go through the binary (no unit tests reach past it). Its 12 commits in 90 days are features (tool show split, --host, --project, script and brew-stable tools, mapped services, --probe), each adding its check to the one home of what doctor reports. Moving services() into probe or service_map would only move lines and put doctor's human and JSON answer into a lower module; Run is the small per-mode description the two entry points share."
+    },
+    {
+      "suite": "rust",
+      "file": "src/sources.rs",
+      "prod_lines": 385,
+      "commits_90d": 12,
+      "commits_total": 12,
+      "reason": "Deep enough: one home for what a machine knows of its libraries. Behind resolve/resolve_kind (bare vs qualified address, any git rev to a full SHA, ambiguity and no-commit refusals), read_role (extract the tree at a commit, load and check only that role) and add (validated name, staged clone, library.toml check, atomic record save with rollback) sit the clone layout, Kind's roles/ and tools/ paths and the sources.toml format; callers never build a clone path or a git ref themselves. Its 12 commits in 90 days are features landing in their one home (--rev resolution, Kind for tools, [[skill]] extraction, propose's git use), not one concept spread out. The small public helpers (git, extract, data_dir, clone_dir, commit) are each used by several modules (propose, upstream, project, probe, service_map); moving them to their own files would move lines without hiding anything. The one repeated caller sequence (clone_dir, main_commit, roles_at in list and suggestions) is three lines and differs in what each does per role. No unit tests reach inside; tests go through the binary."
     }
   ],
   "mutants_from": "47cffd931da87f3107656a086cd23e445c8b6dbb",
