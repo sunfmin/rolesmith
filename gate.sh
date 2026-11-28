@@ -6,6 +6,8 @@ cargo fmt --all --check
 cargo clippy --all-targets --quiet -- -D warnings
 # The tests, measured against .slimfit/baseline.json (in place of `cargo test`).
 slimfit check
+# Each stand-in answers every case of its contract (truefit.toml).
+truefit contract
 # Each document in its one home, within its budget, measured against .docfit/baseline.json.
 docfit check
 # The release build, universal, at the development form (ADR 0002): what a cut builds.
