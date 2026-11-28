@@ -48,6 +48,16 @@ fn agent_context_lists_every_registered_command_with_its_flags_and_output_shape(
         assert_eq!(&entry["output"], shape, "{name}'s output shape");
         assert!(entry["flags"].is_array(), "{name} lists its flags");
     }
+    for (name, entry) in &listed {
+        let flags = entry["flags"].as_array().unwrap();
+        assert!(
+            flags
+                .iter()
+                .any(|f| f["long"] == "json" && f["global"] == true),
+            "{name} takes --json"
+        );
+    }
+    assert_eq!(doc["conventions"]["exit_codes"]["2"], "usage error");
     // and nothing listed that the parser does not know
     let parser = rolesmith::cli::command();
     let parsed: Vec<&str> = parser
@@ -68,40 +78,20 @@ fn agent_context_lists_every_registered_command_with_its_flags_and_output_shape(
 }
 
 #[test]
-fn agent_context_lists_the_json_flag_on_each_command() {
-    let doc = one_json_document(&rolesmith(&["agent-context", "--json"]));
-    for (name, entry) in commands_by_name(&doc) {
-        let flags = entry["flags"].as_array().unwrap();
-        assert!(
-            flags
-                .iter()
-                .any(|f| f["long"] == "json" && f["global"] == true),
-            "{name} takes --json"
-        );
-    }
-    assert_eq!(doc["conventions"]["exit_codes"]["2"], "usage error");
-}
-
-#[test]
 fn agent_context_without_json_still_prints_the_json_document() {
     let o = rolesmith(&["agent-context"]);
     assert_eq!(o.status.code(), Some(0));
     assert!(o.stderr.is_empty());
     let human = one_json_document(&o);
-    let json = one_json_document(&rolesmith(&["agent-context", "--json"]));
-    assert_eq!(human, json);
+    // --json before the command is the same global flag
+    let j = rolesmith(&["--json", "agent-context"]);
+    assert_eq!(j.status.code(), Some(0));
+    assert_eq!(stdout(&j).lines().count(), 1, "--json answers one line");
+    assert_eq!(human, one_json_document(&j));
     assert!(
         stdout(&o).lines().count() > 1,
         "the human form is pretty-printed"
     );
-}
-
-#[test]
-fn json_output_is_exactly_one_line_document() {
-    let o = rolesmith(&["--json", "agent-context"]);
-    assert_eq!(o.status.code(), Some(0));
-    assert_eq!(stdout(&o).lines().count(), 1);
-    one_json_document(&o);
 }
 
 #[test]
@@ -141,13 +131,6 @@ fn an_unknown_command_or_none_is_a_usage_error() {
     let o = rolesmith(&[]);
     assert_eq!(o.status.code(), Some(2));
     assert!(o.stdout.is_empty());
-}
-
-#[test]
-fn help_exits_0_on_stdout() {
-    let o = rolesmith(&["--help"]);
-    assert_eq!(o.status.code(), Some(0));
-    assert!(stdout(&o).contains("agent-context"));
 }
 
 #[test]
@@ -194,6 +177,9 @@ fn help_all_is_the_whole_manual_and_each_topic_answers() {
     let o = rolesmith(&["help", "all"]);
     assert_eq!(o.status.code(), Some(0));
     let manual = stdout(&o);
+    for word in ["ADR", "SPEC", "docs/", "{const:", "§"] {
+        assert!(!manual.contains(word), "the manual holds {word:?}");
+    }
     let doc = one_json_document(&rolesmith(&["agent-context", "--json"]));
     for (name, _) in commands_by_name(&doc) {
         assert!(manual.contains(&format!("`rolesmith {name}`")), "{name}");
@@ -245,6 +231,14 @@ fn use_help_says_how_to_compose_roles() {
     let o = rolesmith(&["use", "--help"]);
     assert_eq!(o.status.code(), Some(0));
     assert!(stdout(&o).contains("(help:composing)"), "{}", stdout(&o));
+    for t in rolesmith::project::TARGETS {
+        assert!(
+            stdout(&o).contains(&format!("`{}` (`{}/`)", t.name, t.skills)),
+            "{} in {}",
+            t.name,
+            stdout(&o)
+        );
+    }
     let composing = stdout(&rolesmith(&["help", "composing"])).to_owned();
     for point in [
         "Requires or use",
@@ -257,27 +251,6 @@ fn use_help_says_how_to_compose_roles() {
         assert!(composing.contains(point), "the topic has {point:?}");
     }
     assert_eq!(stdout(&rolesmith(&["use", "-h"])), stdout(&o));
-}
-
-#[test]
-fn each_command_help_says_every_key_its_json_answers() {
-    let doc = one_json_document(&rolesmith(&["agent-context", "--json"]));
-    for (name, entry) in commands_by_name(&doc) {
-        // A command with subcommands gives each one's keys on that subcommand's page.
-        let mut help = stdout(&rolesmith(&[name.as_str(), "--help"])).to_owned();
-        for sub in entry["subcommands"].as_array().unwrap() {
-            let sub = sub["name"].as_str().unwrap();
-            help.push_str(stdout(&rolesmith(&[name.as_str(), sub, "--help"])));
-        }
-        let mut keys = Vec::new();
-        collect_keys(&entry["output"], &mut keys);
-        for key in keys {
-            assert!(
-                help.contains(&format!("`{key}`")),
-                "{name} --help names `{key}`"
-            );
-        }
-    }
 }
 
 /// Every property name a JSON Schema declares, at any depth.
@@ -297,7 +270,8 @@ fn collect_keys(schema: &Value, keys: &mut Vec<String>) {
 #[test]
 fn agent_context_texts_are_the_manuals() {
     let doc = one_json_document(&rolesmith(&["agent-context", "--json"]));
-    fn walk(entry: &Value, path: &mut Vec<String>) {
+    // Answers the command's own page.
+    fn walk(entry: &Value, path: &mut Vec<String>) -> String {
         path.push(entry["name"].as_str().unwrap().to_owned());
         let args: Vec<&str> = path.iter().map(String::as_str).chain(["--help"]).collect();
         let help = stdout(&rolesmith(&args)).to_owned();
@@ -307,33 +281,26 @@ fn agent_context_texts_are_the_manuals() {
             help.contains(about),
             "{path:?}'s about is its text's first line"
         );
+        // A command with subcommands gives each one's keys on that subcommand's page.
+        let mut pages = help.clone();
         for sub in entry["subcommands"].as_array().unwrap() {
-            walk(sub, path);
+            pages.push_str(&walk(sub, path));
+        }
+        if path.len() == 1 {
+            let mut keys = Vec::new();
+            collect_keys(&entry["output"], &mut keys);
+            for key in keys {
+                assert!(
+                    pages.contains(&format!("`{key}`")),
+                    "{path:?} --help names `{key}`"
+                );
+            }
         }
         path.pop();
+        help
     }
     for (_, entry) in commands_by_name(&doc) {
         walk(entry, &mut Vec::new());
-    }
-}
-
-#[test]
-fn no_help_names_what_its_reader_cannot_open() {
-    let manual = stdout(&rolesmith(&["help", "all"])).to_owned();
-    for word in ["ADR", "SPEC", "docs/", "{const:", "§"] {
-        assert!(!manual.contains(word), "the manual holds {word:?}");
-    }
-}
-
-#[test]
-fn use_help_names_every_target_with_its_directory() {
-    let help = stdout(&rolesmith(&["use", "--help"])).to_owned();
-    for t in rolesmith::project::TARGETS {
-        assert!(
-            help.contains(&format!("`{}` (`{}/`)", t.name, t.skills)),
-            "{} in {help}",
-            t.name
-        );
     }
 }
 

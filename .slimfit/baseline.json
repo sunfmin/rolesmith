@@ -43,6 +43,36 @@
       "test": "rolesmith::requires::prompt_includes_the_required_roles",
       "hash": "6449a2c141f4245b",
       "reason": "It asserts the whole prompt markdown with the 'builds on' line and the '# Required role felix/base' section; show_and_prompt_list_an_external_skill_with_its_url_and_rev checks only an external skill's line on a library with an upstream; no other test checks a required role in prompt, and merging would mix two setups and hide which behaviour failed"
+    },
+    {
+      "suite": "rust",
+      "test": "rolesmith::cli::an_unknown_command_or_none_is_a_usage_error",
+      "hash": "a69c448c1da9463f",
+      "reason": "its command lines (no-such-command, no arguments) are in no other test; the unknown-flag test runs different ones, so a merge pays no setup once"
+    },
+    {
+      "suite": "rust",
+      "test": "rolesmith::cli::an_unknown_flag_is_a_usage_error_exit_2_on_stderr",
+      "hash": "92828d0b974c7977",
+      "reason": "its assertions (exit 2, empty stdout, the flag named on stderr) are on agent-context --no-such-flag, which the global test never runs; global.rs's fixture is another file's setup"
+    },
+    {
+      "suite": "rust",
+      "test": "rolesmith::cli::help_library_says_what_each_file_of_a_library_holds",
+      "hash": "d4871af724705c96",
+      "reason": "it checks the library topic's text, which the errors topic test never reads; separate topics, no shared run to save"
+    },
+    {
+      "suite": "rust",
+      "test": "rolesmith::cli::the_errors_topic_lists_checks_rules_and_a_problems_keys",
+      "hash": "4dc9cdeed37453b2",
+      "reason": "it checks the errors topic's rules and problem keys, which no other test reads; the library and sources topics are other runs"
+    },
+    {
+      "suite": "rust",
+      "test": "rolesmith::cli::version_exits_0_with_the_stamped_version_on_stdout",
+      "hash": "7cc736462f2a46b7",
+      "reason": "it checks --version's stamped line and empty stderr, which --help (its other_test) does not run"
     }
   ],
   "kept_files": [
