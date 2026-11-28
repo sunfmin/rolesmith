@@ -184,6 +184,20 @@ fn update_moves_the_rev_and_the_files() {
         "{}",
         stderr(&o)
     );
+
+    // A clone whose main is gone has no rev to move to: refused, and the record keeps its rev.
+    let clone = m.path("data/rolesmith/sources/felix");
+    m.git(&clone, &["checkout", "--quiet", "--detach"]);
+    m.git(&clone, &["branch", "--quiet", "-D", "main"]);
+    let o = m.rolesmith(&["update", "--project", p]);
+    assert_eq!(o.status.code(), Some(1));
+    assert!(
+        stderr(&o).contains("source felix has no main on this machine"),
+        "{}",
+        stderr(&o)
+    );
+    let after = std::fs::read_to_string(project.join("rolesmith.toml")).unwrap();
+    assert_eq!(after, record);
 }
 
 #[test]
