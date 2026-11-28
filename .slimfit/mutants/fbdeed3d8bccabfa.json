@@ -1,0 +1,44 @@
+{
+  "tree": "f5896f21664fd517b32d524755ecad01c7b36ec5+d1fba762150c532c",
+  "picker": "codex:01a21feb-2ea0-7342-b893-5c96512c1f14:default",
+  "author": "claude-code:9602c957-39b3-5091-9cf5-5e687c99fd48:opus",
+  "picks": {
+    "rust": [
+      {
+        "name": "src/cli.rs:127:20: replace match guard matches!(cli.command, Top::Run(_)) with false in parse",
+        "why": "The merged tests exercise help and agent-context, so they could pass even if parsing skips the branch specific to Top::Run.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/help.rs:165:25: replace != with == in kind",
+        "why": "The merged help walk checks that each key appears, so it can miss a change to the type printed beside a key.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      },
+      {
+        "name": "src/help.rs:195:5: replace definition -> &str with \"\"",
+        "why": "The merged help walk checks key names and summaries, leaving individual definitions free to disappear if their keys still appear.",
+        "outcome": "killed",
+        "first_outcome": "survived"
+      },
+      {
+        "name": "src/machine.rs:179:9: replace Missing::shape -> Value with Default::default()",
+        "why": "If the Missing shape loses its properties, the schema-driven help check may stop looking for those keys and pass with fewer assertions.",
+        "outcome": "killed",
+        "first_outcome": "killed"
+      }
+    ]
+  },
+  "removed_tests": {
+    "rust": [
+      "tests/cli.rs:71: agent_context_lists_the_json_flag_on_each_command",
+      "tests/cli.rs:100: json_output_is_exactly_one_line_document",
+      "tests/cli.rs:147: help_exits_0_on_stdout",
+      "tests/cli.rs:263: each_command_help_says_every_key_its_json_answers",
+      "tests/cli.rs:321: no_help_names_what_its_reader_cannot_open",
+      "tests/cli.rs:329: use_help_names_every_target_with_its_directory"
+    ]
+  },
+  "added_lines": 0
+}
