@@ -1,0 +1,33 @@
+{
+  "tip": "372e7d510e987458a732e7c93c16f218ec55c5df",
+  "from": "bcd360e6604a872b57c96be786ce905ebe5990ad",
+  "pool": 35,
+  "drawn": {
+    "rust": [
+      {
+        "name": "src/machine.rs:58:5: replace profiles -> Result<BTreeMap<String, Vec<String>>, Failure> with Ok(BTreeMap::from_iter([(\"xyzzy\".into(), vec![])]))",
+        "outcome": "killed"
+      },
+      {
+        "name": "src/machine.rs:105:8: delete ! in optokens",
+        "outcome": "killed"
+      },
+      {
+        "name": "src/machine.rs:85:5: replace listed -> Result<Vec<Secret>, Failure> with Ok(vec![])",
+        "outcome": "killed"
+      },
+      {
+        "name": "src/commands/env.rs:73:9: replace <impl Command for Args>::run -> Result<Output, Failure> with Ok(Default::default())",
+        "outcome": "unviable"
+      },
+      {
+        "name": "src/machine.rs:58:5: replace profiles -> Result<BTreeMap<String, Vec<String>>, Failure> with Ok(BTreeMap::from_iter([(\"xyzzy\".into(), vec![\"xyzzy\".into()])]))",
+        "outcome": "killed"
+      },
+      {
+        "name": "src/machine.rs:91:31: replace == with != in listed",
+        "outcome": "killed"
+      }
+    ]
+  }
+}
