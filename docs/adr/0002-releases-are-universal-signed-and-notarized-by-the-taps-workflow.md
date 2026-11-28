@@ -1,10 +1,10 @@
 # 0002. Releases are universal, signed and notarized by the tap's workflow
 
-Status: accepted, 2026-11-22 (Felix; rolesmith#19, after sunfmin/slimfit#100)
+Status: accepted, 2026-11-22 (Felix, after sunfmin/slimfit#100)
 
 ## Context
 
-Until rolesmith#19 a cut (`packaging/release.sh cut`) built on the cutting host for aarch64 only and
+Until this decision a cut (`packaging/release.sh cut`) built on the cutting host for aarch64 only and
 published from there: the archive to the tap's release, the formula (`depends_on arch: :arm64`) to
 the tap. The binary was only ad hoc signed: Intel Macs could not run it, and Gatekeeper rejected a
 copy downloaded in a browser.
@@ -33,7 +33,7 @@ signing secret and no release workflow.
   `gh workflow run release.yml -R sunfmin/homebrew-tap -f repo=rolesmith -f tag=<tag>`, waits for
   that run bounded by `RELEASE_WAIT_LIMIT` (2400 s), and fails with its `--log-failed` when it
   fails. A failing `gh run list` or `gh run view` (GitHub answers HTTP 500 now and then) is asked
-  again until that limit (rolesmith#57). It takes away a tag it pushed when it ends, since factorium
+  again until that limit. It takes away a tag it pushed when it ends, since factorium
   tags HEAD itself afterwards, and first cancels a run it dispatched and has not seen finish, which
   would fail without its tag.
 
