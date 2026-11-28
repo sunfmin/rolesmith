@@ -295,6 +295,19 @@ fn agent_context_texts_are_the_manuals() {
                     "{path:?} --help names `{key}`"
                 );
             }
+            // and what each `$ref` points at, by its definition's name
+            let output = entry["output"].to_string();
+            for (_, rest) in output
+                .match_indices("\"#/$defs/")
+                .map(|(i, _)| output.split_at(i + 9))
+            {
+                let def = &rest[..rest.find('"').unwrap()];
+                assert!(
+                    pages.contains(&format!("of `{def}` objects"))
+                        || pages.contains(&format!("a `{def}` object")),
+                    "{path:?} --help names what `{def}` holds"
+                );
+            }
         }
         path.pop();
         help
